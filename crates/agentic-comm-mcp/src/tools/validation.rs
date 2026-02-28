@@ -1215,6 +1215,32 @@ pub fn validate_workspace_xref(params: &Value) -> ValidationResult {
     Ok(())
 }
 
+/// Validate comm_session_resume parameters.
+pub fn validate_session_resume(params: &Value) -> ValidationResult {
+    if let Some(limit) = params.get("limit") {
+        if let Some(n) = limit.as_u64() {
+            if n == 0 {
+                return Err(ToolCallResult::error(
+                    "Validation error: limit must be greater than 0".to_string(),
+                ));
+            }
+            if n > MAX_LIMIT {
+                return Err(ToolCallResult::error(format!(
+                    "Validation error: limit exceeds maximum of {MAX_LIMIT} (got {n})"
+                )));
+            }
+        } else if let Some(n) = limit.as_i64() {
+            if n <= 0 {
+                return Err(ToolCallResult::error(
+                    "Validation error: limit must be a positive integer".to_string(),
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

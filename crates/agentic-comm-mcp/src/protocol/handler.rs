@@ -236,8 +236,29 @@ impl ProtocolHandler {
         let mut session = self.session.lock().await;
 
         // Two-tier error handling: ToolNotFound → protocol error; everything else → tool result
-        match ToolRegistry::dispatch(&call_params.name, &call_params.arguments, &mut session)
+        let dispatch_result = ToolRegistry::dispatch(
+            &call_params.name,
+            &call_params.arguments,
+            &mut session,
+        );
+
+        // Auto-log tool call (Phase 0: 20-Year Clock)
         {
+            let summary: String = call_params
+                .arguments
+                .to_string()
+                .chars()
+                .take(200)
+                .collect();
+            let success = match &dispatch_result {
+                Ok(ref r) => !r.is_error.unwrap_or(false),
+                Err(McpError::ToolNotFound(_)) => false,
+                Err(_) => false,
+            };
+            session.record_tool_call(&call_params.name, &summary, success);
+        }
+
+        match dispatch_result {
             Ok(result) => serde_json::to_value(result)
                 .map_err(|e| McpError::InternalError(e.to_string())),
             Err(McpError::ToolNotFound(name)) => Err(McpError::ToolNotFound(name)),

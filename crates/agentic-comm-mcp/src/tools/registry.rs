@@ -14,7 +14,7 @@ use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, Messa
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 91 tools.
+    /// Return definitions for all 95 tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
@@ -1872,6 +1872,78 @@ impl ToolRegistry {
                     "required": ["workspace_id", "item"]
                 }),
             },
+            // ---------------------------------------------------------------
+            // Session management tools (Phase 0: 20-Year Clock)
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_session_start".to_string(),
+                description: Some(
+                    "Start a new communication session with optional metadata".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "metadata": {
+                            "type": "object",
+                            "description": "Optional session metadata (project, purpose, etc.)"
+                        }
+                    }
+                }),
+            },
+            ToolDefinition {
+                name: "comm_session_end".to_string(),
+                description: Some(
+                    "End the current session and return summary statistics".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "summary": {
+                            "type": "string",
+                            "description": "Optional session summary note"
+                        }
+                    }
+                }),
+            },
+            ToolDefinition {
+                name: "comm_session_resume".to_string(),
+                description: Some(
+                    "Resume context from current or previous session".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of recent items to return (default: 15)",
+                            "default": 15
+                        }
+                    }
+                }),
+            },
+            ToolDefinition {
+                name: "comm_conversation_log".to_string(),
+                description: Some(
+                    "Log a user prompt and agent response into the session temporal chain".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "user_message": {
+                            "type": "string",
+                            "description": "The user's message or prompt"
+                        },
+                        "agent_response": {
+                            "type": "string",
+                            "description": "The agent's response"
+                        },
+                        "topic": {
+                            "type": "string",
+                            "description": "Category or topic of the conversation"
+                        }
+                    }
+                }),
+            },
         ]
     }
 
@@ -2004,6 +2076,11 @@ impl ToolRegistry {
             "comm_workspace_query" => validation::validate_workspace_query(params),
             "comm_workspace_compare" => validation::validate_workspace_compare(params),
             "comm_workspace_xref" => validation::validate_workspace_xref(params),
+            // Session management tools (Phase 0)
+            "comm_session_start" => Ok(()), // No required params
+            "comm_session_end" => Ok(()), // No required params
+            "comm_session_resume" => validation::validate_session_resume(params),
+            "comm_conversation_log" => Ok(()), // All params optional
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -2119,6 +2196,11 @@ impl ToolRegistry {
             "comm_workspace_query" => Self::handle_workspace_query(params, session),
             "comm_workspace_compare" => Self::handle_workspace_compare(params, session),
             "comm_workspace_xref" => Self::handle_workspace_xref(params, session),
+            // Session management tools (Phase 0)
+            "comm_session_start" => Self::handle_session_start(params, session),
+            "comm_session_end" => Self::handle_session_end(params, session),
+            "comm_session_resume" => Self::handle_session_resume(params, session),
+            "comm_conversation_log" => Self::handle_conversation_log(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -4436,5 +4518,75 @@ impl ToolRegistry {
         let tool_result = ToolCallResult::json(&result);
         session.record_operation("comm_workspace_xref", None);
         Ok(tool_result)
+    }
+
+    // ── Session management handlers (Phase 0: 20-Year Clock) ─────────
+
+    fn handle_session_start(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let metadata = params.get("metadata").cloned();
+        session.start_session_manual(metadata);
+        session.record_operation("comm_session_start", None);
+
+        Ok(ToolCallResult::json(&json!({
+            "status": "session_started",
+            "project_identity": &session.project_identity[..12],
+            "store_path": session.store_path.display().to_string(),
+        })))
+    }
+
+    fn handle_session_end(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let summary_text = params
+            .get("summary")
+            .and_then(|v| v.as_str());
+        let summary = session.end_session_manual(summary_text);
+        // Don't record_operation here — session is already ended
+
+        Ok(ToolCallResult::json(&json!({
+            "status": "session_ended",
+            "duration_secs": summary.duration_secs,
+            "tool_calls": summary.tool_calls,
+            "conversation_entries": summary.conversation_entries,
+            "messages_sent": summary.messages_sent,
+            "channels_created": summary.channels_created,
+        })))
+    }
+
+    fn handle_session_resume(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let limit = params
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(15) as usize;
+        let data = session.resume_session_data(limit);
+        session.record_operation("comm_session_resume", None);
+
+        Ok(ToolCallResult::json(&data))
+    }
+
+    fn handle_conversation_log(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let user_message = params.get("user_message").and_then(|v| v.as_str());
+        let agent_response = params.get("agent_response").and_then(|v| v.as_str());
+        let topic = params.get("topic").and_then(|v| v.as_str());
+
+        let entry = session.log_conversation(user_message, agent_response, topic);
+        session.record_operation("comm_conversation_log", None);
+
+        Ok(ToolCallResult::json(&json!({
+            "status": "logged",
+            "temporal_id": entry.temporal_id,
+            "prev_temporal_id": entry.prev_temporal_id,
+            "timestamp": entry.timestamp,
+        })))
     }
 }
