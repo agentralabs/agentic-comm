@@ -18,12 +18,16 @@ use sha2::{Digest, Sha256};
 
 pub mod affect;
 pub mod bridges;
+pub mod query;
 pub mod semantic;
+pub mod temporal;
 pub mod types;
 
 pub use affect::*;
 pub use bridges::*;
+pub use query::*;
 pub use semantic::*;
+pub use temporal::*;
 pub use types::*;
 
 // ---------------------------------------------------------------------------

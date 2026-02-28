@@ -3,9 +3,9 @@
 use std::path::PathBuf;
 
 use agentic_comm::{
-    ChannelConfig, ChannelType, CollectiveDecisionMode, CommStore, CommTrustLevel, ConsentScope,
-    DeliveryMode, FederatedZone, FederationPolicy, HiveRole, MessageFilter, MessageType,
-    TemporalTarget,
+    AuditEntry, AuditEventType, ChannelConfig, ChannelType, CollectiveDecisionMode, CommStore,
+    CommTrustLevel, ConsentScope, DeliveryMode, FederatedZone, FederationPolicy, HiveRole,
+    MessageFilter, MessageType, TemporalTarget,
 };
 use clap::{Parser, Subcommand};
 
@@ -199,6 +199,16 @@ enum Commands {
     Keys {
         #[command(subcommand)]
         action: KeyAction,
+    },
+    /// Daemon management (start, stop, status)
+    Daemon {
+        #[command(subcommand)]
+        action: DaemonAction,
+    },
+    /// Audit log management (log, stats)
+    Audit {
+        #[command(subcommand)]
+        action: AuditAction,
     },
     /// Show comprehensive store statistics
     Status,
@@ -747,6 +757,46 @@ enum KeyAction {
         /// Key ID to export
         id: u64,
     },
+}
+
+// ---------------------------------------------------------------------------
+// Daemon subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum DaemonAction {
+    /// Start the communication daemon
+    Start {
+        /// Port to listen on
+        #[arg(long, default_value = "9700")]
+        port: u16,
+        /// Path to the .acomm store file (overrides global --file)
+        #[arg(long)]
+        file: Option<PathBuf>,
+    },
+    /// Stop the running daemon
+    Stop,
+    /// Show daemon status
+    Status,
+}
+
+// ---------------------------------------------------------------------------
+// Audit subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum AuditAction {
+    /// Show audit log entries
+    Log {
+        /// Maximum number of entries to show
+        #[arg(long, default_value = "50")]
+        limit: usize,
+        /// Filter by event type (e.g. message_sent, channel_created, trust_updated)
+        #[arg(long = "type")]
+        event_type: Option<String>,
+    },
+    /// Show audit statistics (counts per event type)
+    Stats,
 }
 
 // ---------------------------------------------------------------------------
@@ -2168,6 +2218,165 @@ fn main() {
                         std::process::exit(1);
                     }
                 }
+            }
+        },
+
+        // -----------------------------------------------------------------
+        // Daemon management
+        // -----------------------------------------------------------------
+        Commands::Daemon { action } => match action {
+            DaemonAction::Start { port, file } => {
+                let data_path = file.unwrap_or_else(|| store_path.clone());
+                let data_dir = data_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let pid_path = data_dir.join("acomm.pid");
+                let pid = std::process::id();
+
+                // Write PID file
+                if let Err(e) = std::fs::write(&pid_path, pid.to_string()) {
+                    eprintln!("Warning: could not write PID file: {e}");
+                }
+
+                output(
+                    &serde_json::json!({
+                        "status": "started",
+                        "pid": pid,
+                        "port": port,
+                        "data": data_path.display().to_string(),
+                        "pid_file": pid_path.display().to_string(),
+                        "note": "Daemon stub — exiting immediately (real daemon would loop)",
+                    }),
+                    json_mode,
+                );
+            }
+            DaemonAction::Stop => {
+                let data_dir = store_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let pid_path = data_dir.join("acomm.pid");
+
+                if pid_path.exists() {
+                    match std::fs::read_to_string(&pid_path) {
+                        Ok(pid_str) => {
+                            let pid_str = pid_str.trim();
+                            output(
+                                &serde_json::json!({
+                                    "status": "stopping",
+                                    "pid": pid_str,
+                                }),
+                                json_mode,
+                            );
+                            if let Err(e) = std::fs::remove_file(&pid_path) {
+                                eprintln!("Warning: could not remove PID file: {e}");
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error reading PID file: {e}");
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    output(
+                        &serde_json::json!({
+                            "status": "not_running",
+                            "note": "No PID file found — daemon is not running",
+                        }),
+                        json_mode,
+                    );
+                }
+            }
+            DaemonAction::Status => {
+                let data_dir = store_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let pid_path = data_dir.join("acomm.pid");
+
+                if pid_path.exists() {
+                    match std::fs::read_to_string(&pid_path) {
+                        Ok(pid_str) => {
+                            output(
+                                &serde_json::json!({
+                                    "status": "running",
+                                    "pid": pid_str.trim(),
+                                }),
+                                json_mode,
+                            );
+                        }
+                        Err(e) => {
+                            eprintln!("Error reading PID file: {e}");
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    output(
+                        &serde_json::json!({
+                            "status": "not_running",
+                        }),
+                        json_mode,
+                    );
+                }
+            }
+        },
+
+        // -----------------------------------------------------------------
+        // Audit log management
+        // -----------------------------------------------------------------
+        Commands::Audit { action } => match action {
+            AuditAction::Log { limit, event_type } => {
+                let store = load_or_create(&store_path);
+                let entries = store.get_audit_log(Some(limit));
+
+                // Filter by event type if provided
+                let filtered: Vec<&AuditEntry> = if let Some(ref type_filter) = event_type {
+                    // Deserialize the type filter from snake_case JSON representation
+                    let filter_json = format!("\"{}\"", type_filter);
+                    if let Ok(target_type) =
+                        serde_json::from_str::<AuditEventType>(&filter_json)
+                    {
+                        entries
+                            .into_iter()
+                            .filter(|e| e.event_type == target_type)
+                            .collect()
+                    } else {
+                        eprintln!(
+                            "Invalid event type: {type_filter}. Valid types: message_sent, \
+                             message_received, channel_created, channel_closed, consent_granted, \
+                             consent_revoked, consent_denied, trust_changed, trust_updated, \
+                             hive_formed, hive_dissolved, federation_message, \
+                             federation_configured, scheduled_message, key_rotated, \
+                             auth_failure, rate_limit_exceeded, signature_warning"
+                        );
+                        std::process::exit(1);
+                    }
+                } else {
+                    entries
+                };
+
+                output(&serde_json::to_value(&filtered).unwrap(), json_mode);
+            }
+            AuditAction::Stats => {
+                let store = load_or_create(&store_path);
+                let entries = store.get_audit_log(None);
+
+                // Count entries per event type
+                let mut counts: std::collections::HashMap<String, usize> =
+                    std::collections::HashMap::new();
+                for entry in &entries {
+                    let type_str = serde_json::to_value(&entry.event_type)
+                        .ok()
+                        .and_then(|v| v.as_str().map(|s| s.to_string()))
+                        .unwrap_or_else(|| format!("{:?}", entry.event_type));
+                    *counts.entry(type_str).or_insert(0) += 1;
+                }
+
+                output(
+                    &serde_json::json!({
+                        "total_entries": entries.len(),
+                        "counts_by_type": counts,
+                    }),
+                    json_mode,
+                );
             }
         },
 
