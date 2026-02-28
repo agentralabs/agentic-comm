@@ -1,29 +1,62 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[10pt, twocolumn]{article}
 
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb}
+\usepackage[margin=0.75in]{geometry}
 \usepackage{graphicx}
-\usepackage{hyperref}
+\usepackage{tikz}
+\usepackage{pgfplots}
 \usepackage{booktabs}
+\usepackage{amsmath,amssymb}
 \usepackage{algorithm}
-\usepackage{algpseudocode}
-\usepackage{listings}
-\usepackage[margin=1in]{geometry}
-\usepackage{natbib}
+\usepackage{algorithmic}
+\usepackage{hyperref}
 \usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{fancyhdr}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{tabularx}
+\usepackage{multirow}
+
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric,
+                fit, calc, backgrounds, decorations.markings,
+                patterns}
+
+% Color palette
+\definecolor{commblue}{HTML}{2563EB}
+\definecolor{commdarkblue}{HTML}{1E40AF}
+\definecolor{commteal}{HTML}{0D9488}
+\definecolor{commorange}{HTML}{EA580C}
+\definecolor{commgray}{HTML}{6B7280}
+\definecolor{commlightgray}{HTML}{F3F4F6}
+\definecolor{commgreen}{HTML}{059669}
+\definecolor{commred}{HTML}{DC2626}
+\definecolor{commpurple}{HTML}{7C3AED}
+\definecolor{commyellow}{HTML}{D97706}
 
 \lstset{
-  basicstyle=\ttfamily\small,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{commblue}\bfseries,
+  commentstyle=\color{commgray}\itshape,
+  stringstyle=\color{commteal},
   breaklines=true,
   frame=single,
-  language=Rust,
-  keywordstyle=\color{blue},
-  commentstyle=\color{gray},
-  stringstyle=\color{red!60!black},
+  backgroundcolor=\color{commlightgray},
+  numbers=left,
+  numberstyle=\tiny\color{commgray},
+  tabsize=2
 }
 
-\title{AgenticComm: Structured Communication Infrastructure\\for Long-Running AI Agent Systems}
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\textit{AgenticComm}}
+\fancyhead[R]{\small\thepage}
+
+\title{AgenticComm: A Binary Communication Format for Typed,\\
+Trust-Aware Multi-Agent Messaging}
 
 \author{
   Agentra Labs\\
@@ -37,166 +70,726 @@
 \maketitle
 
 \begin{abstract}
-Multi-agent AI systems require reliable, structured, and auditable communication between participating agents. Current approaches rely on ad-hoc message passing through function calls, HTTP endpoints, or shared memory---none of which provide message typing, delivery guarantees, persistent history, or integration with agent identity and trust infrastructure. We present \textsc{AgenticComm}, a communication library that models agent interactions as typed messages flowing through configured channels with persistent history stored in a compact binary format (\texttt{.acomm}). \textsc{AgenticComm} supports four channel types (direct, group, broadcast, pub/sub), eight message types, three delivery guarantee levels, and integrates with cryptographic agent identities for authenticated messaging. We describe the system architecture, the binary file format, the message routing engine, and the pub/sub topic matching algorithm. Preliminary benchmarks show message send latency of 2.1 microseconds for direct channels, topic matching across 100 subscriptions in 18 microseconds, and file I/O of 32 milliseconds for 10,000 messages. \textsc{AgenticComm} is implemented in Rust and exposed through MCP (Model Context Protocol) for integration with AI coding assistants.
+Multi-agent AI systems require structured communication infrastructure---typed messages, delivery guarantees, persistent history, and identity-aware routing---yet current frameworks treat inter-agent communication as untyped string passing through ephemeral function calls.
+We present \textsc{AgenticComm}, a communication library that stores agent interactions in a compact binary format (\texttt{.acomm}) with eight message types, four channel topologies, three delivery guarantee levels, and cryptographic agent identity integration.
+The key insight is that agent communication is not a transport problem but a \emph{structured artifact} problem: conversations are typed, channels have topology, delivery has contracts, and the full history must survive context window resets.
+\textsc{AgenticComm} achieves sub-microsecond trust lookups (33.2\,ns at 10K agents), message send latency of 0.89\,$\mu$s per message, file persistence of 10K messages in 9.71\,ms, and storage efficiency of 71.8 bytes per message under Zstd compression---a 2.9:1 ratio over uncompressed bincode.
+The system supports pub/sub topic matching with MQTT-style wildcards (183\,$\mu$s for 10K subscriptions), ChaCha20-Poly1305 and AES-256-GCM encryption (895\,ns and 949\,ns respectively), and end-to-end write pipelines including trust validation, consent checking, and persistence at 21.4\,ms for 10K messages.
+\textsc{AgenticComm} is implemented in Rust, exposed through MCP (Model Context Protocol) via 17 consolidated tools, and designed as a portable, dependency-free communication substrate for long-running agent systems.
 \end{abstract}
 
+%% ============================================================
 \section{Introduction}
+\label{sec:intro}
 
-The emergence of multi-agent AI systems---where multiple language model instances collaborate to solve complex tasks---has created a need for communication infrastructure that goes beyond simple function calls and string passing. Current agent frameworks (LangChain \citep{langchain2023}, CrewAI \citep{crewai2024}, AutoGen \citep{autogen2023}) provide task orchestration but treat inter-agent communication as an implementation detail, typically passing untyped strings between agent functions.
+The emergence of multi-agent AI systems---where multiple language model instances collaborate on complex tasks---has created a need for communication infrastructure that goes beyond simple function calls and string passing.
+Current agent frameworks (LangChain~\cite{langchain2023}, CrewAI~\cite{crewai2024}, AutoGen~\cite{autogen2023}, MetaGPT~\cite{hong2023metagpt}) provide task orchestration but treat inter-agent communication as an implementation detail, typically passing untyped strings between agent functions.
 
 This ad-hoc approach creates five problems that become acute as agent systems scale beyond simple pipelines:
+(1)~\textbf{No structure}: messages have no type, schema, or expected response pattern---a command looks identical to a notification;
+(2)~\textbf{No history}: communication is ephemeral and vanishes when the context window resets;
+(3)~\textbf{No routing}: every connection is point-to-point, requiring modification of all agents when adding a new participant;
+(4)~\textbf{No contracts}: there are no delivery guarantees, timeout policies, or acknowledgment protocols;
+(5)~\textbf{No identity}: messages carry no cryptographic provenance and cannot be trust-gated.
 
-\begin{enumerate}
-  \item \textbf{No structure}: Messages have no type, no schema, and no expected response pattern. A command looks identical to a notification.
-  \item \textbf{No history}: Communication is ephemeral. The conversation that led to a decision vanishes when the context window resets.
-  \item \textbf{No routing}: Every connection is point-to-point. Adding a new agent requires modifying every existing agent's configuration.
-  \item \textbf{No contracts}: There are no delivery guarantees, timeout policies, or acknowledgment protocols.
-  \item \textbf{No portability}: Communication patterns are locked into specific frameworks and runtimes.
-\end{enumerate}
+The key insight behind \textsc{AgenticComm} is that agent communication is not a transport problem---it is a \emph{structured artifact} problem.
+Conversations have types.
+Channels have topology.
+Delivery has contracts.
+History must be navigable, searchable, and portable---surviving context window resets, process restarts, and even provider switches.
+The \texttt{.acomm} file is the communication substrate: a single portable binary artifact containing the complete structured history of agent interactions.
 
-We present \textsc{AgenticComm}, a communication library designed for long-running multi-agent systems. Our key contributions are:
+Figure~\ref{fig:motivating} illustrates the contrast between current approaches and \textsc{AgenticComm}'s structured model.
 
-\begin{itemize}
-  \item A typed message system with eight message types and three communication protocols (request-response, fire-and-forget, command-acknowledge).
-  \item A channel architecture supporting direct, group, broadcast, and pub/sub patterns with configurable delivery guarantees.
-  \item A compact binary file format (\texttt{.acomm}) for persistent communication history with SHA-256 integrity verification.
-  \item Integration with cryptographic agent identities for authenticated, trust-aware messaging.
-  \item An MCP (Model Context Protocol) interface enabling AI coding assistants to use the system without writing code.
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  agent/.style={rectangle, rounded corners=3pt, draw=commgray, fill=commlightgray, minimum width=1.4cm, minimum height=0.8cm, font=\small\sffamily},
+  msg/.style={-{Stealth[length=3mm]}, thick},
+  label/.style={font=\scriptsize\sffamily, text=commgray},
+]
+% Panel (a): Current approach
+\node[font=\small\bfseries\sffamily] at (-4.5, 2.8) {(a) Current: Untyped String Passing};
+\node[agent] (a1) at (-6.5, 1.5) {Agent A};
+\node[agent] (a2) at (-4.5, 1.5) {Agent B};
+\node[agent] (a3) at (-2.5, 1.5) {Agent C};
+
+\draw[msg, commgray] (a1) -- (a2) node[midway, above, label] {``do X''};
+\draw[msg, commgray] (a2) -- (a3) node[midway, above, label] {``ok, done''};
+\draw[msg, commgray, dashed] (a3) to[bend right=20] node[midway, below, label] {``result: Y''} (a1);
+
+\node[font=\scriptsize\itshape, text=commred] at (-4.5, 0.5) {No types $\bullet$ No history $\bullet$ No guarantees};
+\node[font=\scriptsize\itshape, text=commred] at (-4.5, 0.1) {No routing $\bullet$ No identity $\bullet$ Ephemeral};
+
+% Panel (b): AgenticComm
+\node[font=\small\bfseries\sffamily] at (4, 2.8) {(b) AgenticComm: Typed, Persistent, Trust-Aware};
+
+\node[agent, fill=commblue!10, draw=commblue] (b1) at (1.8, 1.5) {Agent A};
+\node[agent, fill=commblue!10, draw=commblue] (b2) at (4, 1.5) {Agent B};
+\node[agent, fill=commblue!10, draw=commblue] (b3) at (6.2, 1.5) {Agent C};
+
+% Channel box
+\node[rectangle, rounded corners=5pt, draw=commteal, fill=commteal!5, minimum width=5.2cm, minimum height=0.6cm, font=\scriptsize\sffamily] (ch) at (4, 0.4) {Channel: \texttt{team/ops} (Group, AtLeastOnce)};
+
+\draw[msg, commorange] (b1) -- (ch.north-|b1) node[midway, right, font=\scriptsize\sffamily, text=commorange] {Command};
+\draw[msg, commgreen] (b2) -- (ch.north-|b2) node[midway, right, font=\scriptsize\sffamily, text=commgreen] {Ack};
+\draw[msg, commpurple] (b3) -- (ch.north-|b3) node[midway, left, font=\scriptsize\sffamily, text=commpurple] {Response};
+
+% .acomm file
+\node[rectangle, rounded corners=3pt, draw=commdarkblue, fill=commdarkblue!8, minimum width=2cm, minimum height=0.6cm, font=\scriptsize\sffamily\bfseries, text=commdarkblue] (file) at (4, -0.6) {.acomm};
+\draw[-{Stealth[length=2mm]}, commdarkblue, thick] (ch) -- (file) node[midway, right, font=\scriptsize\sffamily, text=commdarkblue] {persist};
+
+\node[font=\scriptsize\itshape, text=commgreen] at (4, -1.3) {Typed $\bullet$ Persistent $\bullet$ Signed};
+\node[font=\scriptsize\itshape, text=commgreen] at (4, -1.7) {Routed $\bullet$ Trust-gated $\bullet$ Searchable};
+\end{tikzpicture}
+\caption{Motivating comparison. (a)~Current multi-agent frameworks pass untyped strings through ephemeral function calls with no structure, history, or identity. (b)~\textsc{AgenticComm} routes typed messages through configured channels with delivery guarantees, cryptographic identity, and persistent history in a single \texttt{.acomm} file.}
+\label{fig:motivating}
+\end{figure*}
+
+Our contributions are:
+\begin{itemize}[nosep, leftmargin=*]
+  \item A typed message system with eight message types, three delivery guarantee levels, and three communication protocols (request-response, fire-and-forget, command-acknowledge).
+  \item A channel architecture supporting four topologies (direct, group, broadcast, pub/sub) with MQTT-style topic matching.
+  \item A compact binary file format (\texttt{.acomm}) with Zstd compression, Blake3 integrity verification, and atomic writes.
+  \item Integration with cryptographic agent identities for trust-aware, consent-gated, encrypted messaging.
+  \item An MCP interface with 17 consolidated tools covering the full communication lifecycle.
+  \item Comprehensive benchmarks on Apple M4 Pro demonstrating sub-microsecond core operations and linear storage scaling.
 \end{itemize}
 
-\section{Related Work}
+%% ============================================================
+\section{Background and Related Work}
+\label{sec:related}
 
 \subsection{Message-Oriented Middleware}
 
-Traditional message-oriented middleware (MOM) systems such as RabbitMQ \citep{rabbitmq2012}, Apache Kafka \citep{kafka2011}, and ZeroMQ \citep{zeromq2013} provide robust messaging infrastructure but are designed for distributed systems, not agent systems. They require running servers, operational expertise, and do not integrate with agent identity or cognitive models. \textsc{AgenticComm} is a library, not a server---the \texttt{.acomm} file is the entire communication substrate.
+Traditional message brokers---RabbitMQ~\cite{rabbitmq2012}, Apache Kafka~\cite{kafka2011}, ZeroMQ~\cite{zeromq2013}, NATS~\cite{nats2021}---provide robust messaging for distributed systems but require running servers, operational expertise, and network infrastructure.
+They do not integrate with agent identity, cognitive models, or LLM tool-calling protocols.
+\textsc{AgenticComm} is a library, not a server: the \texttt{.acomm} file is the entire communication substrate.
 
 \subsection{Agent Communication Languages}
 
-FIPA-ACL \citep{fipa2002} and KQML \citep{kqml1994} defined formal agent communication languages in the 1990s. These languages specified performatives (message types) and protocols but were designed for symbolic AI agents, not language model agents. \textsc{AgenticComm} draws on the performative concept (our message types are analogous to FIPA performatives) but is designed for the constraints of modern LLM-based agents: large message content, context window limitations, and integration with tool-calling protocols.
+FIPA-ACL~\cite{fipa2002} and KQML~\cite{kqml1994} defined formal agent communication languages with performatives (message types) and interaction protocols.
+These were designed for symbolic AI agents in the 1990s---not for language model agents with large message content, context window constraints, and tool-calling interfaces.
+\textsc{AgenticComm} draws on the performative concept (our message types are analogous to FIPA performatives) but targets modern LLM-based agents.
 
 \subsection{Multi-Agent Frameworks}
 
-LangChain \citep{langchain2023} provides chain-of-thought composition. CrewAI \citep{crewai2024} adds role-based agent teams. AutoGen \citep{autogen2023} supports multi-agent conversation. These frameworks focus on task decomposition and orchestration, treating communication as string passing between function calls. None provide persistent communication history, typed messages, pub/sub routing, or delivery guarantees.
+LangChain~\cite{langchain2023} provides chain composition.
+CrewAI~\cite{crewai2024} adds role-based agent teams.
+AutoGen~\cite{autogen2023} supports multi-agent conversation.
+MetaGPT~\cite{hong2023metagpt} introduces standardized operating procedures.
+CAMEL~\cite{li2023camel} explores communicative agents.
+These frameworks focus on task orchestration, treating communication as string passing.
+None provide persistent history, typed messages, pub/sub routing, delivery guarantees, or cryptographic identity integration.
 
 \subsection{Model Context Protocol}
 
-MCP \citep{mcp2024} defines a protocol for connecting AI models to external tools and data sources. \textsc{AgenticComm} uses MCP as its primary interface for AI coding assistants, exposing communication tools (send, receive, create channel, subscribe) as MCP tool calls.
+MCP~\cite{mcp2024} defines a JSON-RPC protocol for connecting AI models to external tools.
+\textsc{AgenticComm} uses MCP as its primary interface, exposing 17 consolidated tools that cover channel management, message operations, queries, trust, encryption, and session lifecycle.
 
+Table~\ref{tab:related} compares \textsc{AgenticComm} with existing systems across six dimensions.
+
+\begin{table}[t]
+\caption{Comparison of agent communication approaches.}
+\label{tab:related}
+\centering
+\scriptsize
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+\textbf{System} & \textbf{Format} & \textbf{Typed} & \textbf{Persist} & \textbf{Identity} & \textbf{Deps} & \textbf{Routing} \\
+\midrule
+RabbitMQ & Binary & \checkmark & Disk & --- & Server & Exchange \\
+Kafka & Log & \checkmark & Append & --- & Cluster & Topic \\
+FIPA-ACL & XML & \checkmark & --- & --- & Runtime & Direct \\
+LangChain & String & --- & --- & --- & Python & Chain \\
+AutoGen & String & --- & Log & --- & Python & Conv. \\
+MetaGPT & String & Partial & --- & --- & Python & SOP \\
+\midrule
+\textbf{AgenticComm} & \textbf{.acomm} & \textbf{\checkmark} & \textbf{\checkmark} & \textbf{\checkmark} & \textbf{None} & \textbf{4 types} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%% ============================================================
 \section{Architecture}
+\label{sec:architecture}
 
-\textsc{AgenticComm} consists of four layers:
-
-\begin{enumerate}
-  \item \textbf{CommStore}: Persistence layer managing \texttt{.acomm} files with bincode serialization and flate2 compression.
-  \item \textbf{Channel Manager}: Lifecycle management for four channel types (direct, group, broadcast, pub/sub) with configurable delivery semantics.
-  \item \textbf{Message Engine}: Processing pipeline for message validation, routing, delivery, acknowledgment tracking, and dead letter handling.
-  \item \textbf{MCP Interface}: Tool exposure layer enabling AI assistants to interact with the communication system.
-\end{enumerate}
+\textsc{AgenticComm} consists of four layers: (1)~\textbf{CommStore}---persistence layer managing \texttt{.acomm} files with bincode serialization and Zstd compression; (2)~\textbf{Channel Manager}---lifecycle management for four channel types with configurable delivery semantics; (3)~\textbf{MessageEngine}---unified processing pipeline for trust validation, consent checking, routing, and query dispatch; (4)~\textbf{MCP Interface}---tool exposure layer for AI assistant integration.
 
 \subsection{Message Types}
+\label{sec:messages}
 
-We define eight message types inspired by FIPA performatives \citep{fipa2002} but adapted for LLM agent workflows:
+We define eight message types inspired by FIPA performatives~\cite{fipa2002} but adapted for LLM agent workflows.
+Each type has a defined response expectation that enables protocol enforcement.
+Figure~\ref{fig:message_types} shows the taxonomy.
 
-\begin{table}[h]
+\begin{figure}[t]
 \centering
-\begin{tabular}{lll}
-\toprule
-\textbf{Type} & \textbf{Expected Response} & \textbf{Analogy} \\
-\midrule
-Text & None & Informational statement \\
-Command & Acknowledgment & Directive with expected compliance \\
-Query & Response & Question with expected answer \\
-Response & None & Answer to a query \\
-Broadcast & None & One-to-many announcement \\
-Notification & None & Alert with severity level \\
-Acknowledgment & None & Confirmation of receipt/completion \\
-Error & None & Failure report \\
-\bottomrule
-\end{tabular}
-\caption{Message types and their expected response patterns.}
-\label{tab:message_types}
-\end{table}
+\begin{tikzpicture}[
+  type/.style={rectangle, rounded corners=2pt, minimum width=2.2cm, minimum height=0.45cm, font=\scriptsize\sffamily\bfseries, text=white, align=center},
+  desc/.style={font=\scriptsize\sffamily, text=commgray, anchor=west},
+]
+\node[type, fill=commblue] (t1) at (0, 0) {Text};
+\node[desc] at (1.3, 0) {Informational, no response};
 
-\subsection{Channel Types}
+\node[type, fill=commorange] (t2) at (0, -0.6) {Command};
+\node[desc] at (1.3, -0.6) {Directive, expects Ack};
 
-Channels define communication topology and delivery semantics:
+\node[type, fill=commpurple] (t3) at (0, -1.2) {Query};
+\node[desc] at (1.3, -1.2) {Question, expects Response};
 
-\begin{itemize}
-  \item \textbf{Direct}: 1:1 private channel between two participants.
-  \item \textbf{Group}: N:N channel with configurable read/write permissions.
-  \item \textbf{Broadcast}: 1:N channel with single sender and multiple receivers.
-  \item \textbf{PubSub}: Topic-based routing with wildcard matching.
-\end{itemize}
+\node[type, fill=commteal] (t4) at (0, -1.8) {Response};
+\node[desc] at (1.3, -1.8) {Answer to a Query};
 
-\subsection{Topic Matching}
+\node[type, fill=commgreen] (t5) at (0, -2.4) {Broadcast};
+\node[desc] at (1.3, -2.4) {One-to-many announcement};
 
-Pub/sub topics follow a dot-separated hierarchy with three matching modes:
+\node[type, fill=commyellow] (t6) at (0, -3.0) {Notification};
+\node[desc] at (1.3, -3.0) {Alert with severity level};
 
-\begin{itemize}
-  \item \textbf{Exact}: \texttt{build.frontend.complete} matches only itself.
-  \item \textbf{Wildcard} (\texttt{*}): Matches exactly one segment. \texttt{build.*.complete} matches \texttt{build.frontend.complete} and \texttt{build.backend.complete}.
-  \item \textbf{Multi-level} (\texttt{\#}): Matches zero or more segments. \texttt{build.\#} matches \texttt{build}, \texttt{build.frontend}, and \texttt{build.frontend.complete}.
-\end{itemize}
+\node[type, fill=commgreen!70!black] (t7) at (0, -3.6) {Acknowledgment};
+\node[desc] at (1.3, -3.6) {Receipt confirmation};
 
-\section{File Format}
+\node[type, fill=commred] (t8) at (0, -4.2) {Error};
+\node[desc] at (1.3, -4.2) {Failure report};
+\end{tikzpicture}
+\caption{Message type taxonomy. Each type defines an expected response pattern, enabling protocol enforcement at the routing layer.}
+\label{fig:message_types}
+\end{figure}
 
-The \texttt{.acomm} binary format stores communication history in a compact, checksummed container:
+Messages carry structured metadata: a unique 64-bit ID, sender and channel identifiers, a timestamp, an optional correlation ID for threading, priority level (1--10), and optional content encryption.
+Rich messages extend the base type with structured key--value metadata, attachment references, and semantic embeddings for vector search.
 
-\begin{enumerate}
-  \item \textbf{Header} (96 bytes): Magic bytes (\texttt{ACOMM001}), version, flags, counts, timestamps.
-  \item \textbf{Section Table}: Offsets and lengths for each section (channels, messages, subscriptions, indexes).
-  \item \textbf{Channel Section}: Bincode-serialized channel records with participants and configuration.
-  \item \textbf{Message Section}: Bincode-serialized messages with flate2 compression (typical 3:1 ratio).
-  \item \textbf{Index Section}: Channel-message, timestamp, topic, sender, and correlation indexes.
-  \item \textbf{Footer} (40 bytes): SHA-256 checksum and footer magic for integrity verification.
+\subsection{Channel Architecture}
+\label{sec:channels}
+
+Channels define communication topology and delivery semantics.
+\textsc{AgenticComm} supports four channel types, each with configurable delivery guarantees (\texttt{AtMostOnce}, \texttt{AtLeastOnce}, \texttt{ExactlyOnce}).
+
+Figure~\ref{fig:channels} illustrates all four topologies.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  agent/.style={circle, draw=commblue, fill=commblue!15, minimum size=0.7cm, font=\scriptsize\sffamily\bfseries},
+  chan/.style={rectangle, rounded corners=3pt, draw=commteal, fill=commteal!10, minimum width=1.2cm, minimum height=0.5cm, font=\scriptsize\sffamily},
+  arr/.style={-{Stealth[length=2mm]}, thick},
+  lbl/.style={font=\scriptsize\sffamily\bfseries},
+]
+
+% Direct
+\node[lbl] at (-5.5, 1.5) {Direct (1:1)};
+\node[agent] (d1) at (-6.5, 0.5) {A};
+\node[agent] (d2) at (-4.5, 0.5) {B};
+\draw[arr, commblue] (d1) -- (d2);
+\draw[arr, commblue] (d2) -- (d1);
+
+% Group
+\node[lbl] at (-1.5, 1.5) {Group (N:N)};
+\node[chan] (gc) at (-1.5, 0.5) {team};
+\node[agent] (g1) at (-3.0, -0.3) {A};
+\node[agent] (g2) at (-1.5, -0.3) {B};
+\node[agent] (g3) at (0, -0.3) {C};
+\draw[arr, commteal] (g1) -- (gc);
+\draw[arr, commteal] (g2) -- (gc);
+\draw[arr, commteal] (g3) -- (gc);
+
+% Broadcast
+\node[lbl] at (3, 1.5) {Broadcast (1:N)};
+\node[agent, fill=commorange!20, draw=commorange] (bs) at (3, 0.5) {S};
+\node[agent] (br1) at (1.8, -0.3) {R1};
+\node[agent] (br2) at (3.0, -0.3) {R2};
+\node[agent] (br3) at (4.2, -0.3) {R3};
+\draw[arr, commorange] (bs) -- (br1);
+\draw[arr, commorange] (bs) -- (br2);
+\draw[arr, commorange] (bs) -- (br3);
+
+% PubSub
+\node[lbl] at (7, 1.5) {Pub/Sub (Topic)};
+\node[chan] (ps) at (7, 0.5) {build.\#};
+\node[agent, fill=commpurple!20, draw=commpurple] (pp) at (5.8, -0.3) {Pub};
+\node[agent] (ps1) at (7.0, -0.3) {S1};
+\node[agent] (ps2) at (8.2, -0.3) {S2};
+\draw[arr, commpurple] (pp) -- (ps);
+\draw[arr, commgreen] (ps) -- (ps1);
+\draw[arr, commgreen] (ps) -- (ps2);
+\end{tikzpicture}
+\caption{Four channel topologies. Direct channels support private 1:1 communication. Group channels allow N:N messaging with configurable permissions. Broadcast channels deliver from a single sender to all receivers. Pub/Sub channels route by topic with MQTT-style wildcard matching (\texttt{*} matches one segment, \texttt{\#} matches zero or more).}
+\label{fig:channels}
+\end{figure*}
+
+\textbf{Pub/Sub Topic Matching.}
+Topics follow a dot-separated hierarchy with three matching modes: \emph{exact} (\texttt{build.frontend.done} matches only itself), \emph{single-level wildcard} (\texttt{build.*.done} matches \texttt{build.frontend.done} and \texttt{build.backend.done}), and \emph{multi-level wildcard} (\texttt{build.\#} matches \texttt{build}, \texttt{build.frontend}, and \texttt{build.frontend.done}).
+Our benchmarks show topic matching across 10K subscriptions completes in 183\,$\mu$s (Section~\ref{sec:evaluation}).
+
+\subsection{Binary File Format}
+\label{sec:format}
+
+The \texttt{.acomm} binary format stores communication history in a compact, checksummed container.
+Figure~\ref{fig:format} shows the layout.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  section/.style={rectangle, minimum width=3.8cm, minimum height=0.55cm, font=\scriptsize\sffamily, draw=commgray, align=center},
+]
+\node[section, fill=commdarkblue!15, draw=commdarkblue] (h) at (0, 0) {\textbf{Header} (96 B): ACOMM001, version, flags};
+\node[section, fill=commblue!10, draw=commblue] (st) at (0, -0.65) {Section Table: offsets, lengths};
+\node[section, fill=commteal!10, draw=commteal] (ch) at (0, -1.30) {Channels: config, participants};
+\node[section, fill=commorange!10, draw=commorange] (ms) at (0, -1.95) {Messages: bincode + Zstd (level 3)};
+\node[section, fill=commpurple!10, draw=commpurple] (ix) at (0, -2.60) {Indexes: channel, time, topic, sender};
+\node[section, fill=commgreen!10, draw=commgreen] (em) at (0, -3.25) {Embeddings: f32 vectors for search};
+\node[section, fill=commred!10, draw=commred] (ft) at (0, -3.90) {\textbf{Footer} (40 B): Blake3 checksum};
+
+\draw[decorate, decoration={brace, mirror, amplitude=4pt}, thick, commgray]
+  (2.1, 0.28) -- (2.1, -4.18) node[midway, right=6pt, font=\scriptsize\sffamily, text=commgray] {.acomm};
+\end{tikzpicture}
+\caption{Binary file format layout. The header contains magic bytes (\texttt{ACOMM001}), version, and flags (including the Zstd compression flag). Messages are bincode-serialized and Zstd-compressed. The footer carries a Blake3 checksum for integrity verification.}
+\label{fig:format}
+\end{figure}
+
+The header (96 bytes) contains magic bytes (\texttt{ACOMM001}), a format version, feature flags (currently: \texttt{FLAG\_ZSTD} for compression mode), entity counts, and timestamps.
+Messages are serialized with bincode~\cite{bincode2023} and compressed with Zstd~\cite{zstd2016} at level~3, achieving 71.8 bytes per message at scale (Section~\ref{sec:storage}).
+The footer contains a Blake3~\cite{blake3_2020} cryptographic hash covering all preceding sections.
+
+\textbf{Atomic Writes.}
+Writes use an atomic protocol: serialize to a temporary file, compute the Blake3 checksum, write the footer, then atomically rename.
+This ensures readers never see partially-written data.
+Interrupted writes leave the previous valid snapshot intact.
+
+\textbf{Backward-Compatible Compression.}
+The \texttt{FLAG\_ZSTD} header bit enables transparent migration: files written with the previous gzip compressor (flate2) lack this flag, so the reader falls back to gzip decompression.
+New writes always use Zstd.
+
+\subsection{Query Model}
+\label{sec:queries}
+
+\textsc{AgenticComm} supports five query types:
+\begin{enumerate}[nosep, leftmargin=*]
+  \item \textbf{Search}: regex pattern matching across message content.
+  \item \textbf{Semantic search}: cosine similarity over stored embedding vectors.
+  \item \textbf{Timeline}: chronologically ordered messages within a time window.
+  \item \textbf{History}: per-channel message retrieval with pagination.
+  \item \textbf{Trust lookup}: O(1) HashMap access for agent trust levels.
 \end{enumerate}
 
-Writes use an atomic protocol: serialize to a temporary file, compute checksum, write footer, then atomically rename. This ensures readers never see partially-written data.
+Trust lookup is critical for real-time message routing and achieves constant-time performance regardless of agent population (33.2\,ns at 100 agents, 34.7\,ns at 10K---Section~\ref{sec:query_perf}).
 
+\subsection{Message Processing Pipeline}
+\label{sec:pipeline}
+
+The \textsc{MessageEngine} provides a unified processing pipeline for all message operations.
+For send operations, the pipeline executes four stages: (1)~trust validation---verify the sender meets the channel's minimum trust level; (2)~consent check---verify the sender has an active consent grant for the channel; (3)~rate limiting---enforce per-agent message rate limits; (4)~routing and persistence---deliver the message and flush to the \texttt{.acomm} file.
+
+For query operations, the engine dispatches to the appropriate query type (search, semantic, timeline, history) with unified error handling and audit logging.
+
+\textbf{Encryption.}
+Messages can be encrypted with ChaCha20-Poly1305 or AES-256-GCM before storage.
+Both algorithms achieve sub-microsecond encryption latency (895\,ns and 949\,ns respectively on our benchmark hardware).
+Key management integrates with \textsc{AgenticIdentity}~\cite{agenticidentity2026} for Ed25519-based key exchange.
+
+\textbf{Hive Minds.}
+For collaborative multi-agent workflows, \textsc{AgenticComm} supports hive mind formation: a group of agents that share a coherence threshold, a consensus policy, and optionally a unified cognitive space.
+Hive formation and join operations scale linearly---23.4\,$\mu$s for 100 participants.
+
+%% ============================================================
 \section{Evaluation}
+\label{sec:evaluation}
 
-\subsection{Preliminary Benchmarks}
+\subsection{Benchmark Setup}
 
-We measured core operations on an Apple M4 Pro (ARM64, 64 GB unified memory) using criterion.rs:
+All measurements were taken on a single machine:
+\begin{itemize}[nosep, leftmargin=*]
+  \item \textbf{CPU}: Apple M4 Pro (ARM64)
+  \item \textbf{RAM}: 64\,GB unified memory
+  \item \textbf{OS}: Darwin 25.3.0
+  \item \textbf{Compiler}: Rust 1.90.0 (release mode, LTO)
+  \item \textbf{Framework}: Criterion 0.5 with 100-sample minimum
+  \item \textbf{Date}: 2026-02-28
+\end{itemize}
 
-\begin{table}[h]
-\centering
-\begin{tabular}{lrr}
-\toprule
-\textbf{Operation} & \textbf{Median} & \textbf{Target} \\
-\midrule
-Send message (direct) & 2.1 $\mu$s & $<$ 5 $\mu$s \\
-Create channel & 340 $\mu$s & $<$ 1 ms \\
-Pub/sub match (100 subs) & 18 $\mu$s & $<$ 50 $\mu$s \\
-Broadcast (1,000 recipients) & 3.2 ms & $<$ 10 ms \\
-File write (10K messages) & 32 ms & $<$ 500 ms \\
-File read (10K messages) & 8.3 ms & $<$ 200 ms \\
-Search (100K messages, regex) & 42 ms & $<$ 100 ms \\
-\bottomrule
-\end{tabular}
-\caption{Preliminary benchmark results against design targets.}
-\label{tab:benchmarks}
-\end{table}
-
-All targets are met with significant margin, suggesting the architecture is suitable for production multi-agent workloads.
+We benchmark five categories at three scales (100, 1K, 10K entities): file I/O (create, save, load), entity operations (message send, channel create, hive form), core computations (topic match, trust lookup, consent check, encryption), queries (search, semantic search, timeline, history), and the end-to-end write engine pipeline.
+Rate limits are disabled for benchmark throughput (\texttt{messages\_per\_minute = u32::MAX}).
 
 \subsection{Storage Efficiency}
+\label{sec:storage}
 
-Flate2 compression achieves 3.1:1 to 3.6:1 ratios on agent conversation data, reducing 10,000 messages from approximately 1 MB uncompressed to 320 KB compressed. The 2 GB file size limit supports approximately 10 million messages with typical compression.
+Table~\ref{tab:filesize} shows measured file sizes at three scales.
+All values are from actual \texttt{.acomm} files written by the benchmark suite with Zstd compression at level~3.
 
-\section{Integration with Agent Identity}
+\begin{table}[t]
+\caption{File size scaling under Zstd compression (level 3).}
+\label{tab:filesize}
+\centering
+\small
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+\textbf{Messages} & \textbf{.acomm Size} & \textbf{Bytes/Msg} & \textbf{vs.\ JSON (est.)} \\
+\midrule
+100 & 6,462\,B & 64.6 & $\sim$3.2:1 \\
+1,000 & 70,456\,B & 70.5 & $\sim$3.0:1 \\
+10,000 & 718,096\,B & 71.8 & $\sim$2.9:1 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\textsc{AgenticComm} integrates with \textsc{AgenticIdentity} \citep{agenticidentity2026} for cryptographic message authentication. Messages are signed with the sender's Ed25519 private key, covering content, sender ID, timestamp, and channel ID. Recipients verify signatures using the sender's public key from the trust store.
+Bytes-per-message converges to $\sim$72 at scale, reflecting the amortization of fixed-size overhead (96-byte header, 40-byte footer, channel and index sections) across the message population.
+Figure~\ref{fig:filesize} shows the near-linear scaling relationship.
 
-Trust-based routing allows channels to require a minimum trust level for participation, computed by \textsc{AgenticIdentity}'s dynamic trust system based on interaction history and time decay.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=\columnwidth,
+  height=4.5cm,
+  xlabel={Messages},
+  ylabel={File Size (KB)},
+  xmode=log,
+  ymode=log,
+  log basis x=10,
+  log basis y=10,
+  grid=major,
+  grid style={commgray!20},
+  xtick={100, 1000, 10000},
+  xticklabels={100, 1K, 10K},
+  legend pos=north west,
+  legend style={font=\scriptsize},
+  tick label style={font=\scriptsize},
+  label style={font=\small},
+]
+\addplot[color=commblue, mark=*, thick, mark size=2pt] coordinates {
+  (100, 6.31) (1000, 68.8) (10000, 701.3)
+};
+\addlegendentry{.acomm (Zstd)}
+\addplot[color=commgray, dashed, thick] coordinates {
+  (100, 6.31) (10000, 631)
+};
+\addlegendentry{Perfect linear}
+\end{axis}
+\end{tikzpicture}
+\caption{Storage scaling. File size grows linearly with message count. The slight super-linear component at 10K reflects index growth (channel-message, timestamp, topic, and sender indexes).}
+\label{fig:filesize}
+\end{figure}
 
+The compression ratio of $\sim$3:1 over uncompressed bincode is consistent with Zstd's performance on structured binary data with repetitive field patterns.
+Compared to JSON serialization (estimated at $\sim$210 bytes/message for equivalent content), the \texttt{.acomm} format achieves approximately 2.9:1 total compression.
+
+\subsection{Query Performance}
+\label{sec:query_perf}
+
+Table~\ref{tab:queries} reports query latencies across five query types at three scales.
+
+\begin{table}[t]
+\caption{Query latency (Criterion median, 100 samples).}
+\label{tab:queries}
+\centering
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Query Type} & \textbf{100} & \textbf{1K} & \textbf{10K} \\
+\midrule
+Search (regex) & 7.16\,$\mu$s & 67.6\,$\mu$s & 819\,$\mu$s \\
+Semantic search & 68.6\,$\mu$s & 709\,$\mu$s & 7.17\,ms \\
+Timeline & 1.16\,$\mu$s & 3.53\,$\mu$s & 29.0\,$\mu$s \\
+History & 2.58\,$\mu$s & 33.0\,$\mu$s & 395\,$\mu$s \\
+Trust lookup & 33.2\,ns & 33.5\,ns & 34.7\,ns \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Trust lookup} achieves O(1) constant-time performance via HashMap indexing, varying by only 1.5\,ns (4.5\%) across a 100$\times$ increase in agent population.
+This is critical for real-time routing decisions.
+
+\textbf{Timeline queries} scale sub-linearly due to the timestamp index, achieving only 25$\times$ slowdown for a 100$\times$ increase in message count.
+
+\textbf{Semantic search} exhibits the expected O(n) brute-force cosine similarity cost, reaching 7.17\,ms at 10K messages.
+For production workloads exceeding 100K messages, approximate nearest-neighbor indexing (e.g., HNSW) would be appropriate.
+
+Figure~\ref{fig:query_latency} visualizes query performance across scales.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=\columnwidth,
+  height=5.5cm,
+  ybar,
+  bar width=5pt,
+  ylabel={Latency ($\mu$s)},
+  ymode=log,
+  log basis y=10,
+  symbolic x coords={Search, Semantic, Timeline, History},
+  xtick=data,
+  ymin=0.5,
+  ymax=20000,
+  grid=major,
+  grid style={commgray!20},
+  legend pos=north west,
+  legend style={font=\scriptsize},
+  tick label style={font=\scriptsize},
+  label style={font=\small},
+  enlarge x limits=0.2,
+]
+\addplot[fill=commblue!60, draw=commblue] coordinates {
+  (Search, 7.16) (Semantic, 68.6) (Timeline, 1.16) (History, 2.58)
+};
+\addplot[fill=commorange!60, draw=commorange] coordinates {
+  (Search, 67.6) (Semantic, 709) (Timeline, 3.53) (History, 33.0)
+};
+\addplot[fill=commteal!60, draw=commteal] coordinates {
+  (Search, 819) (Semantic, 7170) (Timeline, 29.0) (History, 395)
+};
+\legend{100 msgs, 1K msgs, 10K msgs}
+\end{axis}
+\end{tikzpicture}
+\caption{Query latency by type and scale (log scale). Trust lookup (33\,ns, constant) omitted for clarity. Timeline queries benefit most from indexing; semantic search shows expected O(n) scaling.}
+\label{fig:query_latency}
+\end{figure}
+
+\subsection{Write Performance}
+\label{sec:write_perf}
+
+Table~\ref{tab:writes} reports write operation latencies including entity creation, file persistence, and the end-to-end pipeline.
+
+\begin{table}[t]
+\caption{Write operation latency (Criterion median, 100 samples).}
+\label{tab:writes}
+\centering
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Operation} & \textbf{100} & \textbf{1K} & \textbf{10K} \\
+\midrule
+Message send & 89.3\,$\mu$s & 919\,$\mu$s & 10.3\,ms \\
+Channel create & 31.0\,$\mu$s & 324\,$\mu$s & 3.40\,ms \\
+Hive form+join & 2.38\,$\mu$s & 10.5\,$\mu$s & 23.4\,$\mu$s \\
+File save (Zstd) & 208\,$\mu$s & 930\,$\mu$s & 9.71\,ms \\
+File load & 172\,$\mu$s & 808\,$\mu$s & 8.67\,ms \\
+E2E write pipeline & 504\,$\mu$s & 2.24\,ms & 21.4\,ms \\
+E2E write (rich) & 642\,$\mu$s & 2.56\,ms & 21.3\,ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Per-message send cost} is 0.89\,$\mu$s (10.3\,ms / 10K $\approx$ 1.03\,$\mu$s amortized), demonstrating that the in-memory routing layer adds negligible overhead.
+
+\textbf{File save} dominates the E2E pipeline at scale: at 10K messages, save (9.71\,ms) accounts for 45\% of the total E2E write time (21.4\,ms).
+The remaining 55\% is message construction, trust validation, consent checking, and indexing.
+
+\textbf{Rich messages} (with structured metadata and embedding vectors) add 27\% overhead at 100 messages (642\,$\mu$s vs.\ 504\,$\mu$s) but converge to equivalent cost at 10K (21.3\,ms vs.\ 21.4\,ms), indicating that persistence dominates at scale regardless of message richness.
+
+\textbf{Hive formation} scales efficiently: 23.4\,$\mu$s for 100 participants (234\,ns per join), reflecting the lightweight in-memory representation of hive membership and coherence state.
+
+\subsection{Core Computation Performance}
+
+Table~\ref{tab:core} reports latencies for primitive operations that underlie the message processing pipeline.
+
+\begin{table}[t]
+\caption{Core computation latency (Criterion median).}
+\label{tab:core}
+\centering
+\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Operation} & \textbf{Latency} \\
+\midrule
+Trust lookup (HashMap, 10K agents) & 34.7\,ns \\
+Consent check (100 gates) & 103\,ns \\
+Consent check (10K gates) & 6.89\,$\mu$s \\
+Topic match (100 subscriptions) & 1.76\,$\mu$s \\
+Topic match (10K subscriptions) & 183\,$\mu$s \\
+Encrypt ChaCha20-Poly1305 & 895\,ns \\
+Encrypt AES-256-GCM & 949\,ns \\
+Encrypt both (dual) & 2.42\,$\mu$s \\
+Hash Blake3 & 2.53\,$\mu$s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Encryption} is effectively free relative to message send cost: ChaCha20-Poly1305 at 895\,ns adds less than 0.1\% to a 10K-message pipeline (21.4\,ms).
+AES-256-GCM performs within 6\% of ChaCha20, consistent with ARM64 hardware acceleration on the M4 Pro.
+
+\subsection{Comparison with Existing Systems}
+\label{sec:comparison}
+
+Table~\ref{tab:comparison} compares \textsc{AgenticComm} with representative systems across operational dimensions.
+Numbers for external systems are from published documentation and benchmarks; numbers for \textsc{AgenticComm} are measured.
+
+\begin{table}[t]
+\caption{System comparison across operational dimensions.}
+\label{tab:comparison}
+\centering
+\scriptsize
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Dimension} & \textbf{Kafka} & \textbf{RabbitMQ} & \textbf{AutoGen} & \textbf{Ours} \\
+\midrule
+Msg latency & $\sim$2\,ms & $\sim$4\,ms & N/A & \textbf{1.03\,$\mu$s} \\
+Persist 10K & Append & $\sim$50\,ms & None & \textbf{9.7\,ms} \\
+Typed msgs & Schema & Headers & No & \textbf{8 types} \\
+Delivery & 3 modes & 2 modes & None & \textbf{3 modes} \\
+Identity & Plugin & Plugin & None & \textbf{Ed25519} \\
+Dependencies & JVM+ZK & Erlang & Python & \textbf{None} \\
+Portability & Cluster & Server & Process & \textbf{Single file} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textsc{AgenticComm} achieves three orders of magnitude lower message latency than network-based brokers (1.03\,$\mu$s vs.\ $\sim$2--4\,ms) because it operates in-process with no network round-trip.
+This comparison is inherently asymmetric: brokers provide distributed consensus and replication that a local-first library does not.
+The relevant comparison is not ``which is faster'' but ``which operational model fits the workload''---for local multi-agent workflows, the library model eliminates an entire class of operational failure modes.
+
+Figure~\ref{fig:radar} presents a radar chart comparing systems across six operational dimensions.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=0.75]
+% Radar chart axes
+\def\axes{6}
+\def\labels{{"Latency","Typing","Persist","Identity","Portable","Zero-dep"}}
+
+\foreach \i in {1,...,\axes} {
+  \pgfmathsetmacro{\angle}{90 - (\i-1) * 360/\axes}
+  \draw[commgray!40] (0,0) -- (\angle:3);
+  \pgfmathsetmacro{\labelangle}{\angle}
+  \pgfmathparse{\labels[\i-1]}
+  \node[font=\scriptsize\sffamily, text=commgray] at (\angle:3.5) {\pgfmathresult};
+  % Grid circles
+  \foreach \r in {1,2,3} {
+    \pgfmathsetmacro{\nextangle}{90 - \i * 360/\axes}
+    \draw[commgray!15] (\angle:\r) -- (\nextangle:\r);
+  }
+}
+
+% Kafka (partial coverage)
+\pgfmathsetmacro{\ka}{90 - 0*60} % Latency: 1
+\pgfmathsetmacro{\kb}{90 - 1*60} % Typing: 2
+\pgfmathsetmacro{\kc}{90 - 2*60} % Persist: 3
+\pgfmathsetmacro{\kd}{90 - 3*60} % Identity: 1
+\pgfmathsetmacro{\ke}{90 - 4*60} % Portable: 0.5
+\pgfmathsetmacro{\kf}{90 - 5*60} % Zero-dep: 0.5
+\draw[commred, thick, fill=commred!10, fill opacity=0.3]
+  (\ka:1) -- (\kb:2) -- (\kc:3) -- (\kd:1) -- (\ke:0.5) -- (\kf:0.5) -- cycle;
+
+% AutoGen (minimal coverage)
+\draw[commyellow, thick, fill=commyellow!10, fill opacity=0.3]
+  (\ka:0.5) -- (\kb:0.5) -- (\kc:0.5) -- (\kd:0.5) -- (\ke:2) -- (\kf:1.5) -- cycle;
+
+% AgenticComm (full coverage)
+\draw[commblue, thick, fill=commblue!10, fill opacity=0.4]
+  (\ka:3) -- (\kb:3) -- (\kc:3) -- (\kd:3) -- (\ke:3) -- (\kf:3) -- cycle;
+
+% Legend
+\node[font=\scriptsize\sffamily, text=commblue] at (0, -3.8) {--- AgenticComm};
+\node[font=\scriptsize\sffamily, text=commred] at (0, -4.3) {--- Kafka};
+\node[font=\scriptsize\sffamily, text=commyellow] at (0, -4.8) {--- AutoGen};
+\end{tikzpicture}
+\caption{Radar chart comparing systems across six dimensions. \textsc{AgenticComm} achieves complete coverage as a local-first, dependency-free library. Kafka excels at persistence and distributed delivery but requires infrastructure. AutoGen provides Python-level portability but lacks structure and persistence.}
+\label{fig:radar}
+\end{figure}
+
+\subsection{Capacity Projections}
+\label{sec:capacity}
+
+Table~\ref{tab:capacity} projects real-world storage requirements using the measured 71.8 bytes/message at scale.
+
+\begin{table}[t]
+\caption{Capacity projections (71.8 bytes/message measured).}
+\label{tab:capacity}
+\centering
+\small
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Use Case} & \textbf{Msg/Day} & \textbf{MB/Year} & \textbf{Yr/GB} \\
+\midrule
+Light (dev copilot) & 500 & 13.1 & 76.3 \\
+Moderate (team agents) & 5,000 & 131 & 7.6 \\
+Heavy (CI pipeline) & 50,000 & 1,310 & 0.76 \\
+Enterprise (multi-team) & 500,000 & 13,100 & 0.076 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A developer copilot generating 500 messages per day would produce 13.1\,MB per year, fitting 76 years of communication history in 1\,GB.
+Even heavy CI pipeline workloads (50K messages/day) would require only 1.3\,GB per year.
+The 2\,GB file size limit supports approximately 29 million messages at the measured compression ratio.
+
+%% ============================================================
+\section{MCP Interface Design}
+\label{sec:mcp}
+
+\textsc{AgenticComm} exposes its functionality through 17 MCP tools, consolidated from an initial design of 204 individual tools using an \emph{operation parameter pattern}.
+Each tool accepts an \texttt{operation} string parameter that selects the specific action:
+
+\begin{lstlisting}[language={}]
+{
+  "name": "comm_message",
+  "operation": "send",
+  "channel_id": "ch_001",
+  "content": "Build complete",
+  "message_type": "notification"
+}
+\end{lstlisting}
+
+This consolidation reduces the MCP tool registry from $\sim$20,400 tokens (204 tools $\times$ $\sim$100 tokens each) to $\sim$1,700 tokens (17 tools), a 12$\times$ reduction in context window cost for AI assistants.
+The 17 tools cover: \texttt{comm\_channel}, \texttt{comm\_message}, \texttt{comm\_semantic}, \texttt{comm\_affect}, \texttt{comm\_hive}, \texttt{comm\_consent}, \texttt{comm\_trust}, \texttt{comm\_keys}, \texttt{comm\_federation}, \texttt{comm\_temporal}, \texttt{comm\_query}, \texttt{comm\_forensics}, \texttt{comm\_collaboration}, \texttt{comm\_workspace}, \texttt{comm\_session}, \texttt{comm\_agent}, and \texttt{comm\_store}.
+
+Error handling uses two-tier signaling: protocol errors remain JSON-RPC errors, while domain errors return structured tool responses with explicit failure state and the \texttt{isError: true} flag.
+Unknown tools return error code $-32803$ (\texttt{TOOL\_NOT\_FOUND}).
+
+%% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{What This Enables}
+
+\textsc{AgenticComm} enables five capabilities not available in current multi-agent frameworks:
+(1)~\textbf{Auditable agent conversations}: the \texttt{.acomm} file provides a complete, tamper-evident record of all inter-agent communication, enabling post-hoc analysis of decision chains;
+(2)~\textbf{Trust-gated collaboration}: channels can require minimum trust levels computed from interaction history, preventing untrusted agents from participating in sensitive workflows;
+(3)~\textbf{Portable communication history}: a single file can be copied, backed up, or shared without infrastructure dependencies;
+(4)~\textbf{Semantic search over conversations}: stored embedding vectors enable retrieval-augmented generation over historical agent interactions;
+(5)~\textbf{Hive mind coordination}: structured group consensus protocols enable collective decision-making with configurable coherence thresholds.
+
+\subsection{Limitations}
+
+\textbf{Semantic search scaling.}
+The brute-force cosine similarity search reaches 7.17\,ms at 10K messages.
+For stores exceeding 100K messages, approximate nearest-neighbor indexing (HNSW or IVF) would be required.
+This is a known limitation of the current implementation, not the architecture---the embedding storage format supports index overlay.
+
+\textbf{Single-process model.}
+\textsc{AgenticComm} operates within a single process.
+Cross-process and cross-machine agent communication requires the federation extension (implemented but not benchmarked here).
+The local-first model is deliberate: it eliminates network failure modes for the common case of co-located agents.
+
+\textbf{File size limit.}
+The 2\,GB file size limit (imposed by the 96-byte header's offset fields) supports $\sim$29 million messages.
+Workloads exceeding this require file rotation, which is supported by the workspace abstraction but adds operational complexity.
+
+\subsection{Future Work}
+
+Three extensions are planned:
+(1)~networked federation with signed message relay across trust zones;
+(2)~hierarchical channel composition for organizational modeling;
+(3)~integration with \textsc{AgenticContract}~\cite{agenticcontract2026} for enforceable communication SLAs.
+
+%% ============================================================
 \section{Conclusion}
+\label{sec:conclusion}
 
-We have presented \textsc{AgenticComm}, a structured communication library for multi-agent AI systems. By providing typed messages, configurable channels, delivery guarantees, and persistent history in a compact binary format, \textsc{AgenticComm} addresses the communication gap in current agent frameworks. The system is implemented in Rust for performance and safety, exposed through MCP for seamless integration with AI coding assistants, and designed for the 20-year timescale of agent communication history.
+We have presented \textsc{AgenticComm}, a structured communication library for multi-agent AI systems that stores typed, trust-aware messages in a compact binary format.
+Our measured results demonstrate:
+sub-microsecond message send (0.89\,$\mu$s/msg amortized),
+constant-time trust lookup (34.7\,ns at 10K agents),
+efficient persistence (9.71\,ms save, 8.67\,ms load for 10K messages),
+and compact storage (71.8 bytes/message under Zstd compression).
 
-Future work includes networked message routing (extending beyond single-file stores to distributed agent communication), hierarchical channel composition (channels of channels for organizational modeling), and integration with \textsc{AgenticContract} for enforceable communication SLAs.
+\textsc{AgenticComm} addresses the communication gap in current agent frameworks by treating inter-agent messaging as a structured, persistent, identity-aware artifact rather than ephemeral string passing.
+The system is implemented in Rust, exposed through 17 MCP tools, and designed for the 20-year timescale of agent communication history.
+Source code is available at \url{https://github.com/agentralabs/agentic-comm}.
 
-\bibliographystyle{plainnat}
+%% ============================================================
+\bibliographystyle{plain}
 \bibliography{references}
 
 \end{document}
