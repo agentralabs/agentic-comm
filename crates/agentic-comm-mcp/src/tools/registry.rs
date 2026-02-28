@@ -1,4 +1,6 @@
 //! Tool registration and dispatch for the MCP server.
+//!
+//! Consolidated API: 17 domain tools with an `operation` parameter.
 
 use serde_json::{json, Value};
 
@@ -21,2479 +23,803 @@ use super::invention_forensics;
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all tools (core + 6 invention modules).
+    /// Return definitions for all 17 consolidated tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
-        let mut tools = vec![
+        vec![
+            // 1. comm_channel
             ToolDefinition {
-                name: "comm_send_message".to_string(),
-                description: Some("Send a message to a channel or specific recipient".to_string()),
+                name: "comm_channel".to_string(),
+                description: Some("Manage communication channels".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID"
-                        },
-                        "sender": {
-                            "type": "string",
-                            "description": "Sender identity"
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Message body (1 byte to 1 MB)"
-                        },
-                        "message_type": {
-                            "type": "string",
-                            "description": "Message type: text, command, query, response, broadcast, notification, acknowledgment, error. Default: text",
-                            "default": "text"
-                        }
-                    },
-                    "required": ["channel_id", "sender", "content"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_receive_messages".to_string(),
-                description: Some(
-                    "Retrieve pending or recent messages from a channel".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to read from"
-                        },
-                        "recipient": {
-                            "type": "string",
-                            "description": "Optional recipient filter"
-                        },
-                        "since": {
-                            "type": "string",
-                            "description": "ISO 8601 timestamp — only return messages after this time"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_create_channel".to_string(),
-                description: Some("Create a new communication channel".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "Channel name (alphanumeric, hyphens, underscores; 1-128 chars)"
-                        },
-                        "channel_type": {
-                            "type": "string",
-                            "description": "Channel type: direct, group, broadcast, pubsub. Default: group",
-                            "default": "group"
-                        },
-                        "max_participants": {
-                            "type": "integer",
-                            "description": "Maximum participants (0 = unlimited). Default: 0",
-                            "default": 0
-                        },
-                        "ttl_seconds": {
-                            "type": "integer",
-                            "description": "Message TTL in seconds (0 = forever). Default: 0",
-                            "default": 0
-                        },
-                        "persistence": {
-                            "type": "boolean",
-                            "description": "Whether to persist messages. Default: true",
-                            "default": true
-                        },
-                        "encryption_required": {
-                            "type": "boolean",
-                            "description": "Whether encryption is required. Default: false",
-                            "default": false
-                        }
-                    },
-                    "required": ["name"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_list_channels".to_string(),
-                description: Some("List all available communication channels".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            ToolDefinition {
-                name: "comm_join_channel".to_string(),
-                description: Some("Join an existing communication channel".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to join"
-                        },
-                        "participant": {
-                            "type": "string",
-                            "description": "Name of the participant joining"
-                        }
-                    },
-                    "required": ["channel_id", "participant"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_leave_channel".to_string(),
-                description: Some("Leave a communication channel".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to leave"
-                        },
-                        "participant": {
-                            "type": "string",
-                            "description": "Name of the participant leaving"
-                        }
-                    },
-                    "required": ["channel_id", "participant"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_channel_info".to_string(),
-                description: Some("Get detailed information about a channel".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to inspect"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_subscribe".to_string(),
-                description: Some(
-                    "Subscribe to a pub/sub topic for message delivery".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "topic": {
+                        "operation": {
                             "type": "string",
-                            "description": "Topic to subscribe to (alphanumeric, hyphens, underscores, dots; 1-128 chars)"
+                            "enum": ["create", "list", "join", "leave", "info", "config", "pause", "resume", "drain", "close", "expire", "compact"],
+                            "description": "Operation to perform"
                         },
-                        "subscriber": {
-                            "type": "string",
-                            "description": "Subscriber identity"
-                        }
-                    },
-                    "required": ["topic", "subscriber"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_unsubscribe".to_string(),
-                description: Some("Remove a subscription from a pub/sub topic".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "subscription_id": {
-                            "type": "integer",
-                            "description": "Subscription ID to remove"
-                        }
+                        "name": { "type": "string", "description": "Channel name (for create)" },
+                        "channel_type": { "type": "string", "description": "direct, group, broadcast, pubsub (for create). Default: group" },
+                        "channel_id": { "type": "integer", "description": "Channel ID (for most operations)" },
+                        "participant": { "type": "string", "description": "Participant identity (for join/leave)" },
+                        "max_participants": { "type": "integer", "description": "Max participants (for create)" },
+                        "ttl_seconds": { "type": "integer", "description": "Message TTL in seconds (for create)" },
+                        "persistence": { "type": "boolean", "description": "Persist messages (for create)" },
+                        "encryption_required": { "type": "boolean", "description": "Require encryption (for create/config)" },
+                        "config": { "type": "object", "description": "Channel configuration (for config)" }
                     },
-                    "required": ["subscription_id"]
+                    "required": ["operation"]
                 }),
             },
+            // 2. comm_message
             ToolDefinition {
-                name: "comm_publish".to_string(),
-                description: Some(
-                    "Publish a message to all subscribers of a topic".to_string(),
-                ),
+                name: "comm_message".to_string(),
+                description: Some("Send, receive, search, and manage messages".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "topic": {
+                        "operation": {
                             "type": "string",
-                            "description": "Topic to publish to"
+                            "enum": ["send", "receive", "get", "search", "acknowledge", "broadcast", "publish", "subscribe", "unsubscribe", "query_history", "forward", "reply", "get_thread", "get_replies", "send_priority", "send_rich", "get_rich_content", "query_echo_chain", "get_echo_depth", "summarize"],
+                            "description": "Operation to perform"
                         },
-                        "sender": {
-                            "type": "string",
-                            "description": "Publisher identity"
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Message content (1 byte to 1 MB)"
-                        }
+                        "channel_id": { "type": "integer", "description": "Channel ID" },
+                        "message_id": { "type": "integer", "description": "Message ID" },
+                        "sender": { "type": "string", "description": "Sender identity" },
+                        "recipient": { "type": "string", "description": "Recipient identity" },
+                        "content": { "type": "string", "description": "Message content" },
+                        "message_type": { "type": "string", "description": "text, command, event, data. Default: text" },
+                        "topic": { "type": "string", "description": "PubSub topic (for publish/subscribe)" },
+                        "subscriber": { "type": "string", "description": "Subscriber identity" },
+                        "subscription_id": { "type": "integer", "description": "Subscription ID (for unsubscribe)" },
+                        "query": { "type": "string", "description": "Search query" },
+                        "max_results": { "type": "integer", "description": "Max results for search" },
+                        "since": { "type": "string", "description": "ISO 8601 timestamp filter" },
+                        "before": { "type": "string", "description": "ISO 8601 timestamp filter" },
+                        "limit": { "type": "integer", "description": "Result limit" },
+                        "parent_message_id": { "type": "integer", "description": "Parent message for reply" },
+                        "priority": { "type": "string", "description": "low, normal, high, critical" },
+                        "urgency": { "type": "string", "description": "Urgency level" },
+                        "target_channel_id": { "type": "integer", "description": "Target channel for forward" },
+                        "forwarder": { "type": "string", "description": "Forwarding identity" },
+                        "content_type": { "type": "string", "description": "MIME type for rich messages" },
+                        "metadata": { "type": "object", "description": "Additional metadata" }
                     },
-                    "required": ["topic", "sender", "content"]
+                    "required": ["operation"]
                 }),
             },
+            // 3. comm_semantic
             ToolDefinition {
-                name: "comm_broadcast".to_string(),
-                description: Some(
-                    "Send a message to all participants in a broadcast channel".to_string(),
-                ),
+                name: "comm_semantic".to_string(),
+                description: Some("Semantic messaging and NLP analysis".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Broadcast channel ID"
-                        },
-                        "sender": {
+                        "operation": {
                             "type": "string",
-                            "description": "Sender identity"
+                            "enum": [
+                                "send", "extract", "graft", "list_conflicts",
+                                "comm_semantic_compress", "comm_semantic_decompress", "comm_semantic_translate", "comm_semantic_align",
+                                "comm_echo_chamber_create", "comm_echo_chamber_detect", "comm_echo_chamber_break", "comm_echo_chamber_analyze",
+                                "comm_ghost_create", "comm_ghost_detect", "comm_ghost_exorcise", "comm_ghost_history",
+                                "comm_metamessage_encode", "comm_metamessage_decode", "comm_metamessage_layer", "comm_metamessage_strip"
+                            ],
+                            "description": "Operation to perform"
                         },
-                        "content": {
-                            "type": "string",
-                            "description": "Message content"
-                        }
+                        "channel_id": { "type": "integer" },
+                        "message_id": { "type": "integer" },
+                        "content": { "type": "string" },
+                        "sender": { "type": "string" },
+                        "intent": { "type": "string" },
+                        "entities": { "type": "array" },
+                        "sentiment": { "type": "string" },
+                        "source_message_id": { "type": "integer" },
+                        "target_message_id": { "type": "integer" }
                     },
-                    "required": ["channel_id", "sender", "content"]
+                    "required": ["operation"]
                 }),
             },
+            // 4. comm_affect
             ToolDefinition {
-                name: "comm_query_history".to_string(),
-                description: Some("Search message history with filters".to_string()),
+                name: "comm_affect".to_string(),
+                description: Some("Emotional state tracking and affect propagation".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to query"
-                        },
-                        "since": {
-                            "type": "string",
-                            "description": "ISO 8601 timestamp — only messages after this time"
-                        },
-                        "before": {
-                            "type": "string",
-                            "description": "ISO 8601 timestamp — only messages before this time"
-                        },
-                        "sender": {
+                        "operation": {
                             "type": "string",
-                            "description": "Filter by sender"
+                            "enum": [
+                                "send", "get_state", "set_resistance", "process_contagion", "get_history", "apply_decay",
+                                "comm_affect_contagion_simulate", "comm_affect_contagion_immunize", "comm_affect_contagion_trace", "comm_affect_contagion_predict",
+                                "comm_affect_archaeology_dig", "comm_affect_archaeology_artifacts", "comm_affect_archaeology_reconstruct",
+                                "comm_affect_prophecy_predict", "comm_affect_prophecy_similar", "comm_affect_prophecy_track", "comm_affect_prophecy_warn",
+                                "comm_unspeakable_encode", "comm_unspeakable_decode", "comm_unspeakable_detect", "comm_unspeakable_translate"
+                            ],
+                            "description": "Operation to perform"
                         },
-                        "message_type": {
-                            "type": "string",
-                            "description": "Filter by message type"
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum results (default: 100, range: 1-10000)",
-                            "default": 100
-                        }
+                        "channel_id": { "type": "integer" },
+                        "agent": { "type": "string" },
+                        "affect_state": { "type": "string" },
+                        "intensity": { "type": "number" },
+                        "source_agent": { "type": "string" },
+                        "decay_rate": { "type": "number" }
                     },
-                    "required": ["channel_id"]
+                    "required": ["operation"]
                 }),
             },
+            // 5. comm_hive
             ToolDefinition {
-                name: "comm_search_messages".to_string(),
-                description: Some("Full-text search across all messages".to_string()),
+                name: "comm_hive".to_string(),
+                description: Some("Hive-mind collective intelligence operations".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "query": {
+                        "operation": {
                             "type": "string",
-                            "description": "Search text"
+                            "enum": [
+                                "form", "dissolve", "join", "leave", "list", "get", "think", "meld",
+                                "comm_hive_consciousness_create", "comm_hive_consciousness_dissolve", "comm_hive_consciousness_join", "comm_hive_consciousness_think",
+                                "comm_collective_intelligence_vote", "comm_collective_intelligence_consensus", "comm_collective_intelligence_swarm", "comm_collective_intelligence_decide",
+                                "comm_ancestor_invoke", "comm_ancestor_listen", "comm_ancestor_honor", "comm_ancestor_lineage",
+                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever"
+                            ],
+                            "description": "Operation to perform"
                         },
-                        "max_results": {
-                            "type": "integer",
-                            "description": "Maximum results (default: 20, range: 1-10000)",
-                            "default": 20
-                        }
-                    },
-                    "required": ["query"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_message".to_string(),
-                description: Some("Retrieve a specific message by ID".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "Message ID to retrieve"
-                        }
+                        "name": { "type": "string", "description": "Hive name" },
+                        "hive_id": { "type": "integer", "description": "Hive ID" },
+                        "channel_id": { "type": "integer" },
+                        "agent": { "type": "string" },
+                        "role": { "type": "string" },
+                        "thought": { "type": "string" },
+                        "decision_mode": { "type": "string" },
+                        "members": { "type": "array" }
                     },
-                    "required": ["message_id"]
+                    "required": ["operation"]
                 }),
             },
+            // 6. comm_consent
             ToolDefinition {
-                name: "comm_acknowledge_message".to_string(),
-                description: Some(
-                    "Mark a message as received and acknowledged".to_string(),
-                ),
+                name: "comm_consent".to_string(),
+                description: Some("Consent management and privacy gates".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "Message ID to acknowledge"
-                        },
-                        "recipient": {
+                        "operation": {
                             "type": "string",
-                            "description": "Acknowledging participant"
-                        }
-                    },
-                    "required": ["message_id", "recipient"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_set_channel_config".to_string(),
-                description: Some(
-                    "Update configuration for a communication channel".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to update"
-                        },
-                        "max_participants": {
-                            "type": "integer",
-                            "description": "Maximum participants (0 = unlimited)"
-                        },
-                        "ttl_seconds": {
-                            "type": "integer",
-                            "description": "Message TTL in seconds (0 = forever)"
-                        },
-                        "persistence": {
-                            "type": "boolean",
-                            "description": "Whether to persist messages"
+                            "enum": ["grant", "revoke", "check", "list_gates", "list_pending", "respond"],
+                            "description": "Operation to perform"
                         },
-                        "encryption_required": {
-                            "type": "boolean",
-                            "description": "Whether encryption is required"
-                        }
+                        "grantor": { "type": "string" },
+                        "grantee": { "type": "string" },
+                        "scope": { "type": "string" },
+                        "channel_id": { "type": "integer" },
+                        "consent_id": { "type": "integer" },
+                        "response": { "type": "string" }
                     },
-                    "required": ["channel_id"]
+                    "required": ["operation"]
                 }),
             },
+            // 7. comm_trust
             ToolDefinition {
-                name: "comm_communication_log".to_string(),
-                description: Some(
-                    "Log intent and context behind communication actions (20-Year Clock)".to_string(),
-                ),
+                name: "comm_trust".to_string(),
+                description: Some("Trust level management between agents".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "intent": {
-                            "type": "string",
-                            "description": "Why the communication action is happening"
-                        },
-                        "observation": {
+                        "operation": {
                             "type": "string",
-                            "description": "What was noticed or concluded"
-                        },
-                        "related_message_id": {
-                            "type": "integer",
-                            "description": "Link to a related message ID"
+                            "enum": ["set", "get", "list"],
+                            "description": "Operation to perform"
                         },
-                        "topic": {
-                            "type": "string",
-                            "description": "Category or topic (e.g., 'agent-coordination', 'debugging')"
-                        }
+                        "agent_a": { "type": "string" },
+                        "agent_b": { "type": "string" },
+                        "trust_level": { "type": "string" }
                     },
-                    "required": ["intent"]
+                    "required": ["operation"]
                 }),
             },
-            // ---------------------------------------------------------------
-            // Consent tools
-            // ---------------------------------------------------------------
+            // 8. comm_keys
             ToolDefinition {
-                name: "comm_manage_consent".to_string(),
-                description: Some(
-                    "Manage consent between agents (grant or revoke)".to_string(),
-                ),
+                name: "comm_keys".to_string(),
+                description: Some("Cryptographic key and encryption operations".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "action": {
-                            "type": "string",
-                            "description": "Consent action: grant or revoke",
-                            "enum": ["grant", "revoke"]
-                        },
-                        "grantor": {
+                        "operation": {
                             "type": "string",
-                            "description": "Agent granting or revoking consent"
+                            "enum": ["generate_keypair", "get_public_key", "encrypt", "decrypt", "verify_signature", "generate", "list", "rotate", "revoke", "export", "get"],
+                            "description": "Operation to perform"
                         },
-                        "grantee": {
-                            "type": "string",
-                            "description": "Agent receiving or losing consent"
-                        },
-                        "scope": {
-                            "type": "string",
-                            "description": "Consent scope (e.g., receive-messages, join-channel, receive-semantic, receive-affect, telepathic-access, hive-formation, mind-meld, federation)"
-                        }
+                        "key_id": { "type": "integer" },
+                        "message_id": { "type": "integer" },
+                        "channel_id": { "type": "integer" },
+                        "content": { "type": "string" },
+                        "sender": { "type": "string" },
+                        "recipient": { "type": "string" },
+                        "algorithm": { "type": "string" },
+                        "key_size": { "type": "integer" }
                     },
-                    "required": ["action", "grantor", "grantee", "scope"]
+                    "required": ["operation"]
                 }),
             },
+            // 9. comm_federation
             ToolDefinition {
-                name: "comm_check_consent".to_string(),
-                description: Some(
-                    "Check if consent is granted between agents for a scope".to_string(),
-                ),
+                name: "comm_federation".to_string(),
+                description: Some("Federation, zones, and cross-instance routing".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "grantor": {
+                        "operation": {
                             "type": "string",
-                            "description": "Agent who may have granted consent"
+                            "enum": [
+                                "configure", "status", "set_policy", "add_zone", "remove_zone", "list_zones", "set_zone_policy",
+                                "comm_federation_gateway_create", "comm_federation_gateway_connect", "comm_federation_gateway_disconnect", "comm_federation_gateway_status",
+                                "comm_federation_route_message", "comm_federation_route_trace", "comm_federation_route_optimize", "comm_federation_route_policy",
+                                "comm_federation_zone_create", "comm_federation_zone_list", "comm_federation_zone_merge", "comm_federation_zone_policy",
+                                "comm_reality_fork", "comm_reality_merge", "comm_reality_detect", "comm_reality_bend"
+                            ],
+                            "description": "Operation to perform"
                         },
-                        "grantee": {
-                            "type": "string",
-                            "description": "Agent who may have received consent"
-                        },
-                        "scope": {
-                            "type": "string",
-                            "description": "Consent scope to check"
-                        }
+                        "zone_name": { "type": "string" },
+                        "zone_id": { "type": "string" },
+                        "policy": { "type": "object" },
+                        "endpoint": { "type": "string" }
                     },
-                    "required": ["grantor", "grantee", "scope"]
+                    "required": ["operation"]
                 }),
             },
-            // ---------------------------------------------------------------
-            // Trust tools
-            // ---------------------------------------------------------------
+            // 10. comm_temporal
             ToolDefinition {
-                name: "comm_set_trust_level".to_string(),
-                description: Some("Set trust level for an agent".to_string()),
+                name: "comm_temporal".to_string(),
+                description: Some("Scheduled messaging, dead letters, and temporal ops".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "agent_id": {
+                        "operation": {
                             "type": "string",
-                            "description": "Agent identity to set trust for"
+                            "enum": [
+                                "schedule", "list_scheduled", "cancel_scheduled", "deliver_pending",
+                                "list_dead_letters", "replay_dead_letter", "clear_dead_letters",
+                                "comm_precognition_predict", "comm_precognition_prepare", "comm_precognition_accuracy", "comm_precognition_calibrate",
+                                "comm_temporal_schedule", "comm_temporal_cancel", "comm_temporal_pending", "comm_temporal_reschedule",
+                                "comm_legacy_compose", "comm_legacy_seal", "comm_legacy_unseal", "comm_legacy_list",
+                                "comm_dead_letter_resurrect", "comm_dead_letter_autopsy", "comm_dead_letter_phoenix", "comm_dead_letter_analyze"
+                            ],
+                            "description": "Operation to perform"
                         },
-                        "level": {
-                            "type": "string",
-                            "description": "Trust level: none, minimal, basic, standard, high, full, absolute",
-                            "enum": ["none", "minimal", "basic", "standard", "high", "full", "absolute"]
-                        }
-                    },
-                    "required": ["agent_id", "level"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_trust_level".to_string(),
-                description: Some("Get trust level for an agent".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "agent_id": {
-                            "type": "string",
-                            "description": "Agent identity to query trust for"
-                        }
+                        "channel_id": { "type": "integer" },
+                        "sender": { "type": "string" },
+                        "content": { "type": "string" },
+                        "deliver_at": { "type": "string" },
+                        "schedule_id": { "type": "integer" },
+                        "dead_letter_id": { "type": "integer" }
                     },
-                    "required": ["agent_id"]
+                    "required": ["operation"]
                 }),
             },
-            // ---------------------------------------------------------------
-            // Temporal messaging tools
-            // ---------------------------------------------------------------
+            // 11. comm_query
             ToolDefinition {
-                name: "comm_schedule_message".to_string(),
-                description: Some(
-                    "Schedule a message for future delivery".to_string(),
-                ),
+                name: "comm_query".to_string(),
+                description: Some("Query relationships, echoes, conversations, and grounding".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID"
-                        },
-                        "sender": {
+                        "operation": {
                             "type": "string",
-                            "description": "Sender identity"
+                            "enum": ["relationships", "echoes", "conversations", "ground", "evidence", "suggest"],
+                            "description": "Operation to perform"
                         },
-                        "content": {
-                            "type": "string",
-                            "description": "Message body"
-                        },
-                        "delay_seconds": {
-                            "type": "integer",
-                            "description": "Deliver after this many seconds from now"
-                        },
-                        "deliver_at": {
-                            "type": "string",
-                            "description": "ISO 8601 timestamp for delivery"
-                        }
+                        "claim": { "type": "string" },
+                        "query": { "type": "string" },
+                        "channel_id": { "type": "integer" },
+                        "agent": { "type": "string" },
+                        "max_results": { "type": "integer" }
                     },
-                    "required": ["channel_id", "sender", "content"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_list_scheduled".to_string(),
-                description: Some(
-                    "List all scheduled temporal messages".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
+                    "required": ["operation"]
                 }),
             },
-            // ---------------------------------------------------------------
-            // Hive mind tools
-            // ---------------------------------------------------------------
+            // 12. comm_forensics
             ToolDefinition {
-                name: "comm_form_hive".to_string(),
-                description: Some("Form a new hive mind group".to_string()),
+                name: "comm_forensics".to_string(),
+                description: Some("Communication forensics, health, patterns, and oracles".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "Hive mind name"
-                        },
-                        "coordinator": {
+                        "operation": {
                             "type": "string",
-                            "description": "Coordinator agent identity"
+                            "enum": [
+                                "comm_forensics_investigate", "comm_forensics_evidence", "comm_forensics_timeline", "comm_forensics_report",
+                                "comm_pattern_detect", "comm_pattern_recurring", "comm_pattern_anomaly", "comm_pattern_predict",
+                                "comm_health_status", "comm_health_diagnose", "comm_health_prescribe", "comm_health_history",
+                                "comm_oracle_query", "comm_oracle_prophecy", "comm_oracle_calibrate", "comm_oracle_verify"
+                            ],
+                            "description": "Operation to perform"
                         },
-                        "decision_mode": {
-                            "type": "string",
-                            "description": "Decision mode: coordinator_decides, majority_vote, unanimous, weighted_vote. Default: coordinator_decides",
-                            "default": "coordinator_decides"
-                        }
+                        "channel_id": { "type": "integer" },
+                        "message_id": { "type": "integer" },
+                        "query": { "type": "string" }
                     },
-                    "required": ["name", "coordinator"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Stats tool
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_get_stats".to_string(),
-                description: Some(
-                    "Get comprehensive communication store statistics".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
+                    "required": ["operation"]
                 }),
             },
-            // ---------------------------------------------------------------
-            // Affect tool
-            // ---------------------------------------------------------------
+            // 13. comm_collaboration
             ToolDefinition {
-                name: "comm_send_affect".to_string(),
-                description: Some(
-                    "Send a message with emotional/affect context".to_string(),
-                ),
+                name: "comm_collaboration".to_string(),
+                description: Some("Advanced collaboration: consciousness, collective intel, ancestors, telepathy".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID"
-                        },
-                        "sender": {
+                        "operation": {
                             "type": "string",
-                            "description": "Sender identity"
+                            "enum": [
+                                "comm_hive_consciousness_create", "comm_hive_consciousness_dissolve", "comm_hive_consciousness_join", "comm_hive_consciousness_think",
+                                "comm_collective_intelligence_vote", "comm_collective_intelligence_consensus", "comm_collective_intelligence_swarm", "comm_collective_intelligence_decide",
+                                "comm_ancestor_invoke", "comm_ancestor_listen", "comm_ancestor_honor", "comm_ancestor_lineage",
+                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever"
+                            ],
+                            "description": "Operation to perform"
                         },
-                        "content": {
-                            "type": "string",
-                            "description": "Message body"
-                        },
-                        "valence": {
-                            "type": "number",
-                            "description": "Emotional valence (-1.0 negative to 1.0 positive)"
-                        },
-                        "arousal": {
-                            "type": "number",
-                            "description": "Emotional arousal (0.0 calm to 1.0 excited)"
-                        },
-                        "urgency": {
-                            "type": "string",
-                            "description": "Urgency level: none, low, medium, high, critical",
-                            "default": "none"
-                        }
-                    },
-                    "required": ["channel_id", "sender", "content"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Grounding tool
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_ground".to_string(),
-                description: Some(
-                    "Ground a claim against the communication store".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "claim": {
-                            "type": "string",
-                            "description": "The claim to verify against stored communications"
-                        }
-                    },
-                    "required": ["claim"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Evidence search tool
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_evidence".to_string(),
-                description: Some(
-                    "Search the communication store for evidence matching a query".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search query to find matching messages, channels, and agents"
-                        }
+                        "channel_id": { "type": "integer" },
+                        "agent": { "type": "string" },
+                        "content": { "type": "string" }
                     },
-                    "required": ["query"]
+                    "required": ["operation"]
                 }),
             },
-            // ---------------------------------------------------------------
-            // Suggestion tool
-            // ---------------------------------------------------------------
+            // 14. comm_workspace
             ToolDefinition {
-                name: "comm_suggest".to_string(),
-                description: Some(
-                    "Get fuzzy suggestions for agent names, channel names, or message content".to_string(),
-                ),
+                name: "comm_workspace".to_string(),
+                description: Some("Manage communication workspaces".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "query": {
+                        "operation": {
                             "type": "string",
-                            "description": "Search query for fuzzy matching"
+                            "enum": ["create", "add", "list", "query", "compare", "xref"],
+                            "description": "Operation to perform"
                         },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of suggestions to return (default: 10)",
-                            "default": 10
-                        }
-                    },
-                    "required": ["query"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Consent listing tool
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_list_consent_gates".to_string(),
-                description: Some(
-                    "List all consent gates, optionally filtered by agent".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "agent": {
-                            "type": "string",
-                            "description": "Optional agent ID to filter consent gates"
-                        }
-                    }
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Trust listing tool
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_list_trust_levels".to_string(),
-                description: Some(
-                    "List all trust level overrides".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Temporal management tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_cancel_scheduled".to_string(),
-                description: Some(
-                    "Cancel a scheduled temporal message".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "temporal_id": {
-                            "type": "integer",
-                            "description": "Temporal message ID to cancel"
-                        }
+                        "workspace_id": { "type": "string" },
+                        "name": { "type": "string" },
+                        "channel_id": { "type": "integer" },
+                        "query": { "type": "string" },
+                        "item": { "type": "string" },
+                        "role": { "type": "string" }
                     },
-                    "required": ["temporal_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_deliver_pending".to_string(),
-                description: Some(
-                    "Deliver all pending temporal messages that are due".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
+                    "required": ["operation"]
                 }),
             },
-            // ---------------------------------------------------------------
-            // Federation tools
-            // ---------------------------------------------------------------
+            // 15. comm_session
             ToolDefinition {
-                name: "comm_configure_federation".to_string(),
-                description: Some(
-                    "Configure federation settings".to_string(),
-                ),
+                name: "comm_session".to_string(),
+                description: Some("Session lifecycle, logging, and conversation context".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "enabled": {
-                            "type": "boolean",
-                            "description": "Whether federation is enabled"
-                        },
-                        "local_zone": {
+                        "operation": {
                             "type": "string",
-                            "description": "Local zone identifier"
+                            "enum": ["start", "end", "resume", "conversation_log", "communication_log", "log_communication", "get_comm_log", "get_audit_log"],
+                            "description": "Operation to perform"
                         },
-                        "policy": {
-                            "type": "string",
-                            "description": "Default federation policy: allow, deny, selective",
-                            "enum": ["allow", "deny", "selective"]
-                        }
+                        "summary": { "type": "string" },
+                        "create_episode": { "type": "boolean" },
+                        "limit": { "type": "integer" },
+                        "user_message": { "type": "string" },
+                        "agent_response": { "type": "string" },
+                        "topic": { "type": "string" },
+                        "intent": { "type": "string" },
+                        "outcome": { "type": "string" },
+                        "channel_id": { "type": "integer" },
+                        "direction": { "type": "string" },
+                        "participants": { "type": "array" }
                     },
-                    "required": ["enabled", "local_zone", "policy"]
+                    "required": ["operation"]
                 }),
             },
+            // 16. comm_agent
             ToolDefinition {
-                name: "comm_add_federated_zone".to_string(),
-                description: Some(
-                    "Add a federated zone".to_string(),
-                ),
+                name: "comm_agent".to_string(),
+                description: Some("Agent stats, CommId assignment, and identity operations".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "zone_id": {
-                            "type": "string",
-                            "description": "Zone identifier"
-                        },
-                        "name": {
+                        "operation": {
                             "type": "string",
-                            "description": "Human-readable zone name"
+                            "enum": ["stats", "assign_comm_ids", "get_by_comm_id"],
+                            "description": "Operation to perform"
                         },
-                        "endpoint": {
-                            "type": "string",
-                            "description": "Endpoint URL or address"
-                        },
-                        "policy": {
-                            "type": "string",
-                            "description": "Zone policy: allow, deny, selective",
-                            "enum": ["allow", "deny", "selective"]
-                        },
-                        "trust_level": {
-                            "type": "string",
-                            "description": "Trust level for this zone: none, minimal, basic, standard, high, full, absolute",
-                            "enum": ["none", "minimal", "basic", "standard", "high", "full", "absolute"]
-                        }
-                    },
-                    "required": ["zone_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_remove_federated_zone".to_string(),
-                description: Some(
-                    "Remove a federated zone".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "zone_id": {
-                            "type": "string",
-                            "description": "Zone identifier to remove"
-                        }
-                    },
-                    "required": ["zone_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_list_federated_zones".to_string(),
-                description: Some(
-                    "List all federated zones".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Hive mind management tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_dissolve_hive".to_string(),
-                description: Some(
-                    "Dissolve a hive mind".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "hive_id": {
-                            "type": "integer",
-                            "description": "Hive mind ID to dissolve"
-                        }
+                        "comm_id": { "type": "string", "description": "UUID for lookup" }
                     },
-                    "required": ["hive_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_join_hive".to_string(),
-                description: Some(
-                    "Join a hive mind".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "hive_id": {
-                            "type": "integer",
-                            "description": "Hive mind ID to join"
-                        },
-                        "agent_id": {
-                            "type": "string",
-                            "description": "Agent identity joining the hive"
-                        },
-                        "role": {
-                            "type": "string",
-                            "description": "Role in the hive: coordinator, member, observer. Default: member",
-                            "default": "member",
-                            "enum": ["coordinator", "member", "observer"]
-                        }
-                    },
-                    "required": ["hive_id", "agent_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_leave_hive".to_string(),
-                description: Some(
-                    "Leave a hive mind".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "hive_id": {
-                            "type": "integer",
-                            "description": "Hive mind ID to leave"
-                        },
-                        "agent_id": {
-                            "type": "string",
-                            "description": "Agent identity leaving the hive"
-                        }
-                    },
-                    "required": ["hive_id", "agent_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_list_hives".to_string(),
-                description: Some(
-                    "List all hive minds".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_hive".to_string(),
-                description: Some(
-                    "Get hive mind details".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "hive_id": {
-                            "type": "integer",
-                            "description": "Hive mind ID to retrieve"
-                        }
-                    },
-                    "required": ["hive_id"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Communication log tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_log_communication".to_string(),
-                description: Some(
-                    "Log a communication entry".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "content": {
-                            "type": "string",
-                            "description": "Communication content to log"
-                        },
-                        "role": {
-                            "type": "string",
-                            "description": "Role of the communicator (e.g., user, agent, system)"
-                        },
-                        "topic": {
-                            "type": "string",
-                            "description": "Optional topic or category"
-                        },
-                        "linked_message_id": {
-                            "type": "integer",
-                            "description": "Optional linked message ID"
-                        },
-                        "affect": {
-                            "type": "object",
-                            "description": "Optional affect state with valence, arousal, urgency",
-                            "properties": {
-                                "valence": {
-                                    "type": "number",
-                                    "description": "Emotional valence (-1.0 to 1.0)"
-                                },
-                                "arousal": {
-                                    "type": "number",
-                                    "description": "Emotional arousal (0.0 to 1.0)"
-                                },
-                                "urgency": {
-                                    "type": "string",
-                                    "description": "Urgency level: background, low, normal, high, urgent, critical"
-                                }
-                            }
-                        }
-                    },
-                    "required": ["content", "role"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_comm_log".to_string(),
-                description: Some(
-                    "Get communication log entries".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of entries to return (default: all, range: 1-10000)"
-                        }
-                    }
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Audit log tool
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_get_audit_log".to_string(),
-                description: Some(
-                    "Get audit log entries".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of entries to return (default: all, range: 1-10000)"
-                        }
-                    }
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Semantic tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_send_semantic".to_string(),
-                description: Some(
-                    "Send a structured semantic message to a channel".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID"
-                        },
-                        "sender": {
-                            "type": "string",
-                            "description": "Sender agent identity"
-                        },
-                        "topic": {
-                            "type": "string",
-                            "description": "Semantic topic (1-128 chars, alphanumeric + hyphen + underscore + dot)"
-                        },
-                        "focus_nodes": {
-                            "type": "array",
-                            "items": { "type": "string" },
-                            "description": "Semantic focus nodes (default: [])"
-                        },
-                        "depth": {
-                            "type": "integer",
-                            "description": "Semantic depth level (default: 1)"
-                        }
-                    },
-                    "required": ["channel_id", "sender", "topic"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_extract_semantic".to_string(),
-                description: Some(
-                    "Extract semantic structure from an existing message".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "ID of the message to extract semantics from"
-                        }
-                    },
-                    "required": ["message_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_graft_semantic".to_string(),
-                description: Some(
-                    "Graft (merge) two semantic layers together".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "source_id": {
-                            "type": "integer",
-                            "description": "Source semantic operation ID"
-                        },
-                        "target_id": {
-                            "type": "integer",
-                            "description": "Target semantic operation ID"
-                        },
-                        "strategy": {
-                            "type": "string",
-                            "description": "Merge strategy: union, intersect, override (default: union)"
-                        }
-                    },
-                    "required": ["source_id", "target_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_list_semantic_conflicts".to_string(),
-                description: Some(
-                    "List semantic conflicts, optionally filtered by channel or severity".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Filter by channel ID"
-                        },
-                        "severity": {
-                            "type": "string",
-                            "description": "Filter by severity: low, medium, high, critical"
-                        }
-                    }
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Affect tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_get_affect_state".to_string(),
-                description: Some(
-                    "Get the current affect state for an agent".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "agent_id": {
-                            "type": "string",
-                            "description": "Agent identity to query"
-                        }
-                    },
-                    "required": ["agent_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_set_affect_resistance".to_string(),
-                description: Some(
-                    "Set the affect resistance threshold (0.0-1.0)".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "resistance": {
-                            "type": "number",
-                            "description": "Resistance threshold between 0.0 and 1.0 (default: 0.5)"
-                        }
-                    },
-                    "required": ["resistance"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Hive extension tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_hive_think".to_string(),
-                description: Some(
-                    "Broadcast a question to all hive members and return aggregated response".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "hive_id": {
-                            "type": "integer",
-                            "description": "Hive mind ID"
-                        },
-                        "question": {
-                            "type": "string",
-                            "description": "Question to broadcast to hive members"
-                        },
-                        "timeout_ms": {
-                            "type": "integer",
-                            "description": "Timeout in milliseconds (default: 5000)"
-                        }
-                    },
-                    "required": ["hive_id", "question"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_initiate_meld".to_string(),
-                description: Some(
-                    "Initiate a deep mind-meld session with a partner agent".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "partner_id": {
-                            "type": "string",
-                            "description": "Partner agent identity to meld with"
-                        },
-                        "depth": {
-                            "type": "string",
-                            "description": "Meld depth: shallow, medium, deep (default: shallow)"
-                        },
-                        "duration_ms": {
-                            "type": "integer",
-                            "description": "Meld duration in milliseconds (default: 10000)"
-                        }
-                    },
-                    "required": ["partner_id"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Consent flow tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_list_pending_consent".to_string(),
-                description: Some(
-                    "List pending consent requests, optionally filtered by agent or type".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "agent_id": {
-                            "type": "string",
-                            "description": "Filter by agent identity"
-                        },
-                        "consent_type": {
-                            "type": "string",
-                            "description": "Filter by consent type"
-                        }
-                    }
-                }),
-            },
-            ToolDefinition {
-                name: "comm_respond_consent".to_string(),
-                description: Some(
-                    "Respond to a pending consent request".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "request_id": {
-                            "type": "string",
-                            "description": "Consent request ID to respond to"
-                        },
-                        "response": {
-                            "type": "string",
-                            "description": "Response: approve, deny, defer"
-                        }
-                    },
-                    "required": ["request_id", "response"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Query tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_query_relationships".to_string(),
-                description: Some(
-                    "Query relationships between agents (trust, consent, hive membership)".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "agent_id": {
-                            "type": "string",
-                            "description": "Agent identity to query relationships for"
-                        },
-                        "relationship_type": {
-                            "type": "string",
-                            "description": "Filter by type: trust, consent, hive (default: all)"
-                        },
-                        "depth": {
-                            "type": "integer",
-                            "description": "Traversal depth (default: 1)"
-                        }
-                    },
-                    "required": ["agent_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_query_echoes".to_string(),
-                description: Some(
-                    "Query conversation echoes (messages that reference or relate to a message)".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "Source message ID to find echoes for"
-                        },
-                        "depth": {
-                            "type": "integer",
-                            "description": "Echo depth (default: 1)"
-                        }
-                    },
-                    "required": ["message_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_query_conversations".to_string(),
-                description: Some(
-                    "Query conversation summaries, optionally filtered by channel or participant".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Filter by channel ID"
-                        },
-                        "participant": {
-                            "type": "string",
-                            "description": "Filter by participant agent identity"
-                        },
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of summaries to return (default: 50, range: 1-10000)"
-                        }
-                    }
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Federation extension tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_get_federation_status".to_string(),
-                description: Some(
-                    "Get the current federation status and zone information".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            ToolDefinition {
-                name: "comm_set_federation_policy".to_string(),
-                description: Some(
-                    "Set federation policy for a specific zone".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "zone_id": {
-                            "type": "string",
-                            "description": "Zone ID to configure"
-                        },
-                        "allow_semantic": {
-                            "type": "boolean",
-                            "description": "Allow semantic operations in this zone (default: true)"
-                        },
-                        "allow_affect": {
-                            "type": "boolean",
-                            "description": "Allow affect propagation in this zone (default: true)"
-                        },
-                        "allow_hive": {
-                            "type": "boolean",
-                            "description": "Allow hive operations in this zone (default: true)"
-                        },
-                        "max_message_size": {
-                            "type": "integer",
-                            "description": "Maximum message size in bytes (default: 1048576)"
-                        }
-                    },
-                    "required": ["zone_id"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Crypto / encryption tools
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_generate_keypair".to_string(),
-                description: Some(
-                    "Generate an Ed25519 key pair for cryptographic signing".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            ToolDefinition {
-                name: "comm_encrypt_message".to_string(),
-                description: Some(
-                    "Encrypt content with ChaCha20-Poly1305".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "content": {
-                            "type": "string",
-                            "description": "Plaintext content to encrypt"
-                        }
-                    },
-                    "required": ["content"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_decrypt_message".to_string(),
-                description: Some(
-                    "Decrypt content encrypted with ChaCha20-Poly1305".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "ciphertext": {
-                            "type": "string",
-                            "description": "Hex-encoded ciphertext"
-                        },
-                        "nonce": {
-                            "type": "string",
-                            "description": "Hex-encoded 12-byte nonce"
-                        },
-                        "epoch": {
-                            "type": "integer",
-                            "description": "Key epoch used for encryption (default: 1)"
-                        }
-                    },
-                    "required": ["ciphertext", "nonce"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_verify_signature".to_string(),
-                description: Some(
-                    "Verify an Ed25519 signature against a public key".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "public_key": {
-                            "type": "string",
-                            "description": "Hex-encoded Ed25519 public key (64 hex chars)"
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Original content that was signed"
-                        },
-                        "signature": {
-                            "type": "string",
-                            "description": "Hex-encoded Ed25519 signature (128 hex chars)"
-                        }
-                    },
-                    "required": ["public_key", "content", "signature"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_public_key".to_string(),
-                description: Some(
-                    "Get the current Ed25519 public key".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Messaging: replies, threads, priority
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_send_reply".to_string(),
-                description: Some("Send a reply linked to a parent message".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID"
-                        },
-                        "reply_to_id": {
-                            "type": "integer",
-                            "description": "ID of the message being replied to"
-                        },
-                        "sender": {
-                            "type": "string",
-                            "description": "Sender identity"
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Reply message body (1 byte to 1 MB)"
-                        },
-                        "message_type": {
-                            "type": "string",
-                            "description": "Message type: text, command, query, response, broadcast, notification, acknowledgment, error. Default: text",
-                            "default": "text"
-                        }
-                    },
-                    "required": ["channel_id", "reply_to_id", "sender", "content"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_thread".to_string(),
-                description: Some("Retrieve all messages in a thread by thread ID".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "thread_id": {
-                            "type": "string",
-                            "description": "Thread identifier"
-                        }
-                    },
-                    "required": ["thread_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_replies".to_string(),
-                description: Some("Retrieve all direct replies to a specific message".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "ID of the parent message"
-                        }
-                    },
-                    "required": ["message_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_send_with_priority".to_string(),
-                description: Some("Send a message with a specific priority level".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID"
-                        },
-                        "sender": {
-                            "type": "string",
-                            "description": "Sender identity"
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Message body (1 byte to 1 MB)"
-                        },
-                        "priority": {
-                            "type": "string",
-                            "description": "Priority level: low, normal, high, urgent, critical. Default: normal",
-                            "default": "normal"
-                        },
-                        "message_type": {
-                            "type": "string",
-                            "description": "Message type: text, command, query, response, broadcast, notification, acknowledgment, error. Default: text",
-                            "default": "text"
-                        }
-                    },
-                    "required": ["channel_id", "sender", "content"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Channel state management
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_pause_channel".to_string(),
-                description: Some("Pause a channel, blocking new sends and receives".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to pause"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_resume_channel".to_string(),
-                description: Some("Resume a paused channel back to active state".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to resume"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_drain_channel".to_string(),
-                description: Some("Set a channel to draining state, allowing receive but blocking send".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to drain"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_close_channel".to_string(),
-                description: Some("Close a channel, blocking all operations".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to close"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Dead letter queue
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_list_dead_letters".to_string(),
-                description: Some("List all messages in the dead letter queue".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            ToolDefinition {
-                name: "comm_replay_dead_letter".to_string(),
-                description: Some("Retry delivery of a dead letter by its index".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "index": {
-                            "type": "integer",
-                            "description": "Zero-based index of the dead letter to replay"
-                        }
-                    },
-                    "required": ["index"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_clear_dead_letters".to_string(),
-                description: Some("Clear all messages from the dead letter queue".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Maintenance
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_expire_messages".to_string(),
-                description: Some("Expire messages that have exceeded their channel TTL".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            ToolDefinition {
-                name: "comm_compact".to_string(),
-                description: Some("Compact the store by removing messages from closed channels".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Key management
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_generate_key".to_string(),
-                description: Some("Generate a new encryption key with metadata".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "algorithm": {
-                            "type": "string",
-                            "description": "Encryption algorithm name (e.g. aes-256-gcm, x25519)"
-                        },
-                        "label": {
-                            "type": "string",
-                            "description": "Optional channel ID to bind the key to",
-                            "default": null
-                        }
-                    },
-                    "required": ["algorithm"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_list_keys".to_string(),
-                description: Some("List all key entries in the key store".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
-                }),
-            },
-            ToolDefinition {
-                name: "comm_rotate_key".to_string(),
-                description: Some("Rotate a key by marking it rotated and generating a replacement".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "key_id": {
-                            "type": "integer",
-                            "description": "ID of the key to rotate"
-                        }
-                    },
-                    "required": ["key_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_revoke_key".to_string(),
-                description: Some("Revoke a key by its ID".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "key_id": {
-                            "type": "integer",
-                            "description": "ID of the key to revoke"
-                        }
-                    },
-                    "required": ["key_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_export_key".to_string(),
-                description: Some("Export a key fingerprint by its ID".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "key_id": {
-                            "type": "integer",
-                            "description": "ID of the key to export"
-                        },
-                        "include_private": {
-                            "type": "boolean",
-                            "description": "Whether to include private key material (stub, always false)",
-                            "default": false
-                        }
-                    },
-                    "required": ["key_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_key".to_string(),
-                description: Some("Retrieve a specific key entry by its ID".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "key_id": {
-                            "type": "integer",
-                            "description": "ID of the key to retrieve"
-                        }
-                    },
-                    "required": ["key_id"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Federation zone policy
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_set_zone_policy".to_string(),
-                description: Some("Set federation policy configuration for a specific zone".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "zone": {
-                            "type": "string",
-                            "description": "Zone identifier"
-                        },
-                        "allow_semantic": {
-                            "type": "boolean",
-                            "description": "Allow semantic operations through this zone",
-                            "default": true
-                        },
-                        "allow_affect": {
-                            "type": "boolean",
-                            "description": "Allow affect propagation through this zone",
-                            "default": true
-                        },
-                        "allow_hive": {
-                            "type": "boolean",
-                            "description": "Allow hive operations through this zone",
-                            "default": true
-                        },
-                        "max_message_size": {
-                            "type": "integer",
-                            "description": "Maximum message size in bytes (0 = unlimited)",
-                            "default": 1048576
-                        }
-                    },
-                    "required": ["zone"]
-                }),
-            },
-            // Workspace tools (multi-store comparison)
-            ToolDefinition {
-                name: "comm_workspace_create".to_string(),
-                description: Some("Create a new workspace for multi-store comparison".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "name": {
-                            "type": "string",
-                            "description": "Human-readable workspace name"
-                        }
-                    },
-                    "required": ["name"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_workspace_add".to_string(),
-                description: Some("Add an .acomm store context to an existing workspace".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "workspace_id": {
-                            "type": "string",
-                            "description": "Workspace identifier returned by comm_workspace_create"
-                        },
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the .acomm file to add"
-                        },
-                        "label": {
-                            "type": "string",
-                            "description": "Optional human-readable label for this context"
-                        },
-                        "role": {
-                            "type": "string",
-                            "description": "Context role: primary, secondary, reference, archive. Default: secondary",
-                            "default": "secondary"
-                        }
-                    },
-                    "required": ["workspace_id", "path"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_workspace_list".to_string(),
-                description: Some("List all contexts loaded in a workspace".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "workspace_id": {
-                            "type": "string",
-                            "description": "Workspace identifier"
-                        }
-                    },
-                    "required": ["workspace_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_workspace_query".to_string(),
-                description: Some("Search across all workspace contexts for matching messages, channels, and agents".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "workspace_id": {
-                            "type": "string",
-                            "description": "Workspace identifier"
-                        },
-                        "query": {
-                            "type": "string",
-                            "description": "Search text to match against messages, channels, and agents"
-                        },
-                        "max_per_context": {
-                            "type": "integer",
-                            "description": "Maximum matches per context (default: 20)",
-                            "default": 20
-                        }
-                    },
-                    "required": ["workspace_id", "query"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_workspace_compare".to_string(),
-                description: Some("Compare presence of an item across all workspace contexts".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "workspace_id": {
-                            "type": "string",
-                            "description": "Workspace identifier"
-                        },
-                        "item": {
-                            "type": "string",
-                            "description": "Item to compare (agent name, channel name, or content keyword)"
-                        },
-                        "max_per_context": {
-                            "type": "integer",
-                            "description": "Maximum matches per context (default: 50)",
-                            "default": 50
-                        }
-                    },
-                    "required": ["workspace_id", "item"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_workspace_xref".to_string(),
-                description: Some("Cross-reference an item across all workspace contexts".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "workspace_id": {
-                            "type": "string",
-                            "description": "Workspace identifier"
-                        },
-                        "item": {
-                            "type": "string",
-                            "description": "Item to cross-reference across all contexts"
-                        }
-                    },
-                    "required": ["workspace_id", "item"]
-                }),
-            },
-            // ---------------------------------------------------------------
-            // Session management tools (Phase 0: 20-Year Clock)
-            // ---------------------------------------------------------------
-            ToolDefinition {
-                name: "comm_session_start".to_string(),
-                description: Some(
-                    "Start a new communication session with optional metadata".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "metadata": {
-                            "type": "object",
-                            "description": "Optional session metadata (project, purpose, etc.)"
-                        }
-                    }
-                }),
-            },
-            ToolDefinition {
-                name: "session_start".to_string(),
-                description: Some(
-                    "Start a new communication session with optional metadata".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "metadata": {
-                            "type": "object",
-                            "description": "Optional session metadata (project, purpose, etc.)"
-                        }
-                    }
-                }),
-            },
-            ToolDefinition {
-                name: "comm_session_end".to_string(),
-                description: Some(
-                    "End the current session and return summary statistics".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "summary": {
-                            "type": "string",
-                            "description": "Optional session summary note"
-                        }
-                    }
-                }),
-            },
-            ToolDefinition {
-                name: "session_end".to_string(),
-                description: Some(
-                    "End the current session and return summary statistics".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "summary": {
-                            "type": "string",
-                            "description": "Optional session summary note"
-                        }
-                    }
-                }),
-            },
-            ToolDefinition {
-                name: "comm_session_resume".to_string(),
-                description: Some(
-                    "Resume context from current or previous session".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "limit": {
-                            "type": "integer",
-                            "description": "Maximum number of recent items to return (default: 15)",
-                            "default": 15
-                        }
-                    }
-                }),
-            },
-            ToolDefinition {
-                name: "comm_conversation_log".to_string(),
-                description: Some(
-                    "Log a user prompt and agent response into the session temporal chain".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "user_message": {
-                            "type": "string",
-                            "description": "The user's message or prompt"
-                        },
-                        "agent_response": {
-                            "type": "string",
-                            "description": "The agent's response"
-                        },
-                        "topic": {
-                            "type": "string",
-                            "description": "Category or topic of the conversation"
-                        }
-                    }
-                }),
-            },
-            // --- Affect Contagion Pipeline tools ---
-            ToolDefinition {
-                name: "comm_process_affect_contagion".to_string(),
-                description: Some(
-                    "Process affect contagion across participants in a channel".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to process contagion in"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_affect_history".to_string(),
-                description: Some(
-                    "Retrieve affect state history for an agent".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "agent": {
-                            "type": "string",
-                            "description": "Agent identity to get affect history for"
-                        }
-                    },
-                    "required": ["agent"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_apply_affect_decay".to_string(),
-                description: Some(
-                    "Apply temporal decay to all agent affect states".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "decay_rate": {
-                            "type": "number",
-                            "description": "Decay rate between 0.0 and 1.0"
-                        }
-                    },
-                    "required": ["decay_rate"]
-                }),
-            },
-            // --- Message Forwarding / Echo Tracking tools ---
-            ToolDefinition {
-                name: "comm_forward_message".to_string(),
-                description: Some(
-                    "Forward a message to another channel with echo tracking".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "ID of the message to forward"
-                        },
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID to forward to"
-                        },
-                        "forwarder": {
-                            "type": "string",
-                            "description": "Identity of the agent forwarding the message"
-                        }
-                    },
-                    "required": ["message_id", "channel_id", "forwarder"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_query_echo_chain".to_string(),
-                description: Some(
-                    "Trace the forwarding chain of a message across channels".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "Message ID to trace the echo chain for"
-                        }
-                    },
-                    "required": ["message_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_echo_depth".to_string(),
-                description: Some(
-                    "Get the forwarding depth of a message in its echo chain".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "Message ID to get the echo depth for"
-                        }
-                    },
-                    "required": ["message_id"]
-                }),
-            },
-            // --- Conversation Summarization tool ---
-            ToolDefinition {
-                name: "comm_summarize_conversation".to_string(),
-                description: Some(
-                    "Generate detailed statistics for a channel conversation".to_string(),
-                ),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Channel ID to summarize"
-                        }
-                    },
-                    "required": ["channel_id"]
-                }),
-            },
-            // Rich MessageContent and CommId tools
-            ToolDefinition {
-                name: "comm_send_rich_message".to_string(),
-                description: Some("Send a message with rich MessageContent to a channel".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "channel_id": {
-                            "type": "integer",
-                            "description": "Target channel ID"
-                        },
-                        "sender": {
-                            "type": "string",
-                            "description": "Sender identity"
-                        },
-                        "content_type": {
-                            "type": "string",
-                            "description": "Content type: text, semantic, affect, full, temporal, precognitive, meta, unspeakable"
-                        },
-                        "content_data": {
-                            "type": "object",
-                            "description": "Content payload matching the content_type schema"
-                        }
-                    },
-                    "required": ["channel_id", "sender", "content_type", "content_data"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_get_rich_content".to_string(),
-                description: Some("Get the rich content of a message by ID".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "message_id": {
-                            "type": "integer",
-                            "description": "Message ID to retrieve rich content for"
-                        }
-                    },
-                    "required": ["message_id"]
-                }),
-            },
-            ToolDefinition {
-                name: "comm_assign_comm_ids".to_string(),
-                description: Some("Assign UUID-based CommIds to all messages and channels".to_string()),
-                input_schema: json!({
-                    "type": "object",
-                    "properties": {}
+                    "required": ["operation"]
                 }),
             },
+            // 17. comm_store
             ToolDefinition {
-                name: "comm_get_by_comm_id".to_string(),
-                description: Some("Look up a message or channel by its CommId UUID".to_string()),
+                name: "comm_store".to_string(),
+                description: Some("Store maintenance and dead-letter management".to_string()),
                 input_schema: json!({
                     "type": "object",
                     "properties": {
-                        "comm_id": {
+                        "operation": {
                             "type": "string",
-                            "description": "UUID string to look up"
+                            "enum": ["expire", "compact", "list_dead_letters", "clear_dead_letters"],
+                            "description": "Operation to perform"
                         }
                     },
-                    "required": ["comm_id"]
+                    "required": ["operation"]
                 }),
             },
-        ];
-
-        // Extend with invention module definitions (6 modules, ~96 tools)
-        tools.extend(invention_collaboration::all_definitions());  // 16 tools
-        tools.extend(invention_semantics::all_definitions());      // 16 tools
-        tools.extend(invention_affect::all_definitions());         // 16 tools
-        tools.extend(invention_federation::all_definitions());     // 16 tools
-        tools.extend(invention_temporal::all_definitions());       // 16 tools
-        tools.extend(invention_forensics::all_definitions());      // 16 tools
-
-        tools
+        ]
     }
 
+    // -------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------
+
+    /// Extract the `operation` string from params.
+    fn get_operation(params: &Value) -> Result<String, McpError> {
+        params
+            .get("operation")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| McpError::InvalidParams("operation is required".to_string()))
+    }
+
+    // -------------------------------------------------------------------
+    // Dispatch
+    // -------------------------------------------------------------------
+
     /// Dispatch a tool call to the appropriate handler.
-    ///
-    /// Validation runs first — if it fails, the error is returned as a
-    /// `ToolCallResult` with `isError: true` (not a protocol-level error).
     pub fn dispatch(
         tool_name: &str,
         params: &Value,
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
-        // Run validation before dispatch. Validation errors become tool-level
-        // errors with isError: true, not protocol-level JSON-RPC errors.
-        let validation_result = match tool_name {
-            "comm_send_message" => validation::validate_send_message(params),
-            "comm_receive_messages" => validation::validate_receive_messages(params),
-            "comm_create_channel" => validation::validate_create_channel(params),
-            "comm_list_channels" => Ok(()), // No required params
-            "comm_join_channel" => validation::validate_join_channel(params),
-            "comm_leave_channel" => validation::validate_leave_channel(params),
-            "comm_get_channel_info" => validation::validate_get_channel_info(params),
-            "comm_subscribe" => validation::validate_subscribe(params),
-            "comm_unsubscribe" => validation::validate_unsubscribe(params),
-            "comm_publish" => validation::validate_publish(params),
-            "comm_broadcast" => validation::validate_broadcast(params),
-            "comm_query_history" => validation::validate_query_history(params),
-            "comm_search_messages" => validation::validate_search_messages(params),
-            "comm_get_message" => validation::validate_get_message(params),
-            "comm_acknowledge_message" => validation::validate_acknowledge_message(params),
-            "comm_set_channel_config" => validation::validate_set_channel_config(params),
-            "comm_communication_log" => validation::validate_communication_log(params),
-            "comm_manage_consent" => validation::validate_manage_consent(params),
-            "comm_check_consent" => validation::validate_check_consent(params),
-            "comm_set_trust_level" => validation::validate_set_trust_level(params),
-            "comm_get_trust_level" => validation::validate_get_trust_level(params),
-            "comm_schedule_message" => validation::validate_schedule_message(params),
-            "comm_list_scheduled" => validation::validate_list_scheduled(params),
-            "comm_form_hive" => validation::validate_form_hive(params),
-            "comm_get_stats" => validation::validate_get_stats(params),
-            "comm_send_affect" => validation::validate_send_affect(params),
-            "comm_ground" => (|| {
-                let claim = validation::require_string(params, "claim")?;
-                validation::validate_query(claim)?;
-                Ok(())
-            })(),
-            "comm_evidence" => (|| {
-                let query = validation::require_string(params, "query")?;
-                validation::validate_query(query)?;
-                Ok(())
-            })(),
-            "comm_suggest" => (|| {
-                let query = validation::require_string(params, "query")?;
-                validation::validate_query(query)?;
-                Ok(())
-            })(),
-            "comm_list_consent_gates" => validation::validate_list_consent_gates(params),
-            "comm_list_trust_levels" => Ok(()), // No required params
-            "comm_cancel_scheduled" => validation::validate_cancel_scheduled(params),
-            "comm_deliver_pending" => Ok(()), // No required params
-            "comm_configure_federation" => validation::validate_configure_federation(params),
-            "comm_add_federated_zone" => validation::validate_add_federated_zone(params),
-            "comm_remove_federated_zone" => validation::validate_remove_federated_zone(params),
-            "comm_list_federated_zones" => Ok(()), // No required params
-            "comm_dissolve_hive" => validation::validate_dissolve_hive(params),
-            "comm_join_hive" => validation::validate_join_hive(params),
-            "comm_leave_hive" => validation::validate_leave_hive(params),
-            "comm_list_hives" => Ok(()), // No required params
-            "comm_get_hive" => validation::validate_get_hive(params),
-            "comm_log_communication" => validation::validate_log_communication(params),
-            "comm_get_comm_log" => validation::validate_get_comm_log(params),
-            "comm_get_audit_log" => validation::validate_get_audit_log(params),
-            // Semantic tools
-            "comm_send_semantic" => validation::validate_send_semantic(params),
-            "comm_extract_semantic" => validation::validate_extract_semantic(params),
-            "comm_graft_semantic" => validation::validate_graft_semantic(params),
-            "comm_list_semantic_conflicts" => validation::validate_list_semantic_conflicts(params),
-            // Affect tools
-            "comm_get_affect_state" => validation::validate_get_affect_state(params),
-            "comm_set_affect_resistance" => validation::validate_set_affect_resistance(params),
-            // Hive extension tools
-            "comm_hive_think" => validation::validate_hive_think(params),
-            "comm_initiate_meld" => validation::validate_initiate_meld(params),
-            // Consent flow tools
-            "comm_list_pending_consent" => validation::validate_list_pending_consent(params),
-            "comm_respond_consent" => validation::validate_respond_consent(params),
-            // Query tools
-            "comm_query_relationships" => validation::validate_query_relationships(params),
-            "comm_query_echoes" => validation::validate_query_echoes(params),
-            "comm_query_conversations" => validation::validate_query_conversations(params),
-            // Federation extension tools
-            "comm_get_federation_status" => validation::validate_get_federation_status(params),
-            "comm_set_federation_policy" => validation::validate_set_federation_policy(params),
-            // Crypto / encryption tools
-            "comm_generate_keypair" => Ok(()), // No required params
-            "comm_encrypt_message" => validation::validate_encrypt_message(params),
-            "comm_decrypt_message" => validation::validate_decrypt_message(params),
-            "comm_verify_signature" => validation::validate_verify_signature(params),
-            "comm_get_public_key" => Ok(()), // No required params
-            // Messaging: replies, threads, priority
-            "comm_send_reply" => validation::validate_send_reply(params),
-            "comm_get_thread" => validation::validate_get_thread(params),
-            "comm_get_replies" => validation::validate_get_replies(params),
-            "comm_send_with_priority" => validation::validate_send_with_priority(params),
-            // Channel state management
-            "comm_pause_channel" => validation::validate_channel_state_change(params),
-            "comm_resume_channel" => validation::validate_channel_state_change(params),
-            "comm_drain_channel" => validation::validate_channel_state_change(params),
-            "comm_close_channel" => validation::validate_channel_state_change(params),
-            // Dead letter queue
-            "comm_list_dead_letters" => Ok(()), // No required params
-            "comm_replay_dead_letter" => validation::validate_replay_dead_letter(params),
-            "comm_clear_dead_letters" => Ok(()), // No required params
-            // Maintenance
-            "comm_expire_messages" => Ok(()), // No required params
-            "comm_compact" => Ok(()), // No required params
-            // Key management
-            "comm_generate_key" => validation::validate_generate_key(params),
-            "comm_list_keys" => Ok(()), // No required params
-            "comm_rotate_key" => validation::validate_key_id(params),
-            "comm_revoke_key" => validation::validate_key_id(params),
-            "comm_export_key" => validation::validate_key_id(params),
-            "comm_get_key" => validation::validate_key_id(params),
-            // Federation zone policy
-            "comm_set_zone_policy" => validation::validate_set_zone_policy(params),
-            // Workspace tools
-            "comm_workspace_create" => validation::validate_workspace_create(params),
-            "comm_workspace_add" => validation::validate_workspace_add(params),
-            "comm_workspace_list" => validation::validate_workspace_id(params),
-            "comm_workspace_query" => validation::validate_workspace_query(params),
-            "comm_workspace_compare" => validation::validate_workspace_compare(params),
-            "comm_workspace_xref" => validation::validate_workspace_xref(params),
-            // Session management tools (Phase 0)
-            "comm_session_start" | "session_start" => Ok(()), // No required params
-            "comm_session_end" | "session_end" => Ok(()), // No required params
-            "comm_session_resume" => validation::validate_session_resume(params),
-            "comm_conversation_log" => Ok(()), // All params optional
-            // Affect Contagion / Echo Chain / Summarization tools
-            "comm_process_affect_contagion" => validation::validate_affect_contagion(params),
-            "comm_get_affect_history" => (|| {
-                let agent = validation::require_string(params, "agent")?;
-                validation::validate_agent_id(agent)?;
-                Ok(())
-            })(),
-            "comm_apply_affect_decay" => validation::validate_affect_decay(params),
-            "comm_forward_message" => validation::validate_forward_message(params),
-            "comm_query_echo_chain" => (|| {
-                validation::validate_message_id(params)?;
-                Ok(())
-            })(),
-            "comm_get_echo_depth" => (|| {
-                validation::validate_message_id(params)?;
-                Ok(())
-            })(),
-            "comm_summarize_conversation" => validation::validate_summarize_conversation(params),
-            // Rich content and CommId tools
-            "comm_send_rich_message" => validation::validate_send_rich_message(params),
-            "comm_get_rich_content" => validation::validate_get_rich_content(params),
-            "comm_assign_comm_ids" => Ok(()), // No required params
-            "comm_get_by_comm_id" => validation::validate_get_by_comm_id(params),
-            // Invention modules handle their own validation
-            _ => Ok(()),
-        };
-
-        // If validation failed, return the error result directly
-        if let Err(error_result) = validation_result {
-            return Ok(error_result);
-        }
-
-        // Dispatch to actual handler
         match tool_name {
-            "comm_send_message" => Self::handle_send_message(params, session),
-            "comm_receive_messages" => Self::handle_receive_messages(params, session),
-            "comm_create_channel" => Self::handle_create_channel(params, session),
-            "comm_list_channels" => Self::handle_list_channels(session),
-            "comm_join_channel" => Self::handle_join_channel(params, session),
-            "comm_leave_channel" => Self::handle_leave_channel(params, session),
-            "comm_get_channel_info" => Self::handle_get_channel_info(params, session),
-            "comm_subscribe" => Self::handle_subscribe(params, session),
-            "comm_unsubscribe" => Self::handle_unsubscribe(params, session),
-            "comm_publish" => Self::handle_publish(params, session),
-            "comm_broadcast" => Self::handle_broadcast(params, session),
-            "comm_query_history" => Self::handle_query_history(params, session),
-            "comm_search_messages" => Self::handle_search_messages(params, session),
-            "comm_get_message" => Self::handle_get_message(params, session),
-            "comm_acknowledge_message" => Self::handle_acknowledge_message(params, session),
-            "comm_set_channel_config" => Self::handle_set_channel_config(params, session),
-            "comm_communication_log" => Self::handle_communication_log(params, session),
-            "comm_manage_consent" => Self::handle_manage_consent(params, session),
-            "comm_check_consent" => Self::handle_check_consent(params, session),
-            "comm_set_trust_level" => Self::handle_set_trust_level(params, session),
-            "comm_get_trust_level" => Self::handle_get_trust_level(params, session),
-            "comm_schedule_message" => Self::handle_schedule_message(params, session),
-            "comm_list_scheduled" => Self::handle_list_scheduled(session),
-            "comm_form_hive" => Self::handle_form_hive(params, session),
-            "comm_get_stats" => Self::handle_get_stats(session),
-            "comm_send_affect" => Self::handle_send_affect(params, session),
-            "comm_ground" => Self::handle_comm_ground(params, session),
-            "comm_evidence" => Self::handle_comm_evidence(params, session),
-            "comm_suggest" => Self::handle_comm_suggest(params, session),
-            "comm_list_consent_gates" => Self::handle_list_consent_gates(params, session),
-            "comm_list_trust_levels" => Self::handle_list_trust_levels(session),
-            "comm_cancel_scheduled" => Self::handle_cancel_scheduled(params, session),
-            "comm_deliver_pending" => Self::handle_deliver_pending(session),
-            "comm_configure_federation" => Self::handle_configure_federation(params, session),
-            "comm_add_federated_zone" => Self::handle_add_federated_zone(params, session),
-            "comm_remove_federated_zone" => Self::handle_remove_federated_zone(params, session),
-            "comm_list_federated_zones" => Self::handle_list_federated_zones(session),
-            "comm_dissolve_hive" => Self::handle_dissolve_hive(params, session),
-            "comm_join_hive" => Self::handle_join_hive(params, session),
-            "comm_leave_hive" => Self::handle_leave_hive(params, session),
-            "comm_list_hives" => Self::handle_list_hives(session),
-            "comm_get_hive" => Self::handle_get_hive(params, session),
-            "comm_log_communication" => Self::handle_log_communication(params, session),
-            "comm_get_comm_log" => Self::handle_get_comm_log(params, session),
-            "comm_get_audit_log" => Self::handle_get_audit_log(params, session),
-            // Semantic tools
-            "comm_send_semantic" => Self::handle_send_semantic(params, session),
-            "comm_extract_semantic" => Self::handle_extract_semantic(params, session),
-            "comm_graft_semantic" => Self::handle_graft_semantic(params, session),
-            "comm_list_semantic_conflicts" => Self::handle_list_semantic_conflicts(params, session),
-            // Affect tools
-            "comm_get_affect_state" => Self::handle_get_affect_state(params, session),
-            "comm_set_affect_resistance" => Self::handle_set_affect_resistance(params, session),
-            // Hive extension tools
-            "comm_hive_think" => Self::handle_hive_think(params, session),
-            "comm_initiate_meld" => Self::handle_initiate_meld(params, session),
-            // Consent flow tools
-            "comm_list_pending_consent" => Self::handle_list_pending_consent(params, session),
-            "comm_respond_consent" => Self::handle_respond_consent(params, session),
-            // Query tools
-            "comm_query_relationships" => Self::handle_query_relationships(params, session),
-            "comm_query_echoes" => Self::handle_query_echoes(params, session),
-            "comm_query_conversations" => Self::handle_query_conversations(params, session),
-            // Federation extension tools
-            "comm_get_federation_status" => Self::handle_get_federation_status(session),
-            "comm_set_federation_policy" => Self::handle_set_federation_policy(params, session),
-            // Crypto / encryption tools
-            "comm_generate_keypair" => Self::handle_generate_keypair(session),
-            "comm_encrypt_message" => Self::handle_encrypt_message(params, session),
-            "comm_decrypt_message" => Self::handle_decrypt_message(params, session),
-            "comm_verify_signature" => Self::handle_verify_signature(params, session),
-            "comm_get_public_key" => Self::handle_get_public_key(session),
-            // Messaging: replies, threads, priority
-            "comm_send_reply" => Self::handle_send_reply(params, session),
-            "comm_get_thread" => Self::handle_get_thread(params, session),
-            "comm_get_replies" => Self::handle_get_replies(params, session),
-            "comm_send_with_priority" => Self::handle_send_with_priority(params, session),
-            // Channel state management
-            "comm_pause_channel" => Self::handle_pause_channel(params, session),
-            "comm_resume_channel" => Self::handle_resume_channel(params, session),
-            "comm_drain_channel" => Self::handle_drain_channel(params, session),
-            "comm_close_channel" => Self::handle_close_channel(params, session),
-            // Dead letter queue
-            "comm_list_dead_letters" => Self::handle_list_dead_letters(session),
-            "comm_replay_dead_letter" => Self::handle_replay_dead_letter(params, session),
-            "comm_clear_dead_letters" => Self::handle_clear_dead_letters(session),
-            // Maintenance
-            "comm_expire_messages" => Self::handle_expire_messages(session),
-            "comm_compact" => Self::handle_compact(session),
-            // Key management
-            "comm_generate_key" => Self::handle_generate_key(params, session),
-            "comm_list_keys" => Self::handle_list_keys(session),
-            "comm_rotate_key" => Self::handle_rotate_key(params, session),
-            "comm_revoke_key" => Self::handle_revoke_key(params, session),
-            "comm_export_key" => Self::handle_export_key(params, session),
-            "comm_get_key" => Self::handle_get_key(params, session),
-            // Federation zone policy
-            "comm_set_zone_policy" => Self::handle_set_zone_policy(params, session),
-            // Workspace tools
-            "comm_workspace_create" => Self::handle_workspace_create(params, session),
-            "comm_workspace_add" => Self::handle_workspace_add(params, session),
-            "comm_workspace_list" => Self::handle_workspace_list(params, session),
-            "comm_workspace_query" => Self::handle_workspace_query(params, session),
-            "comm_workspace_compare" => Self::handle_workspace_compare(params, session),
-            "comm_workspace_xref" => Self::handle_workspace_xref(params, session),
-            // Session management tools (Phase 0)
-            "comm_session_start" | "session_start" => Self::handle_session_start(params, session),
-            "comm_session_end" | "session_end" => Self::handle_session_end(params, session),
-            "comm_session_resume" => Self::handle_session_resume(params, session),
-            "comm_conversation_log" => Self::handle_conversation_log(params, session),
-            // Affect Contagion / Echo Chain / Summarization tools
-            "comm_process_affect_contagion" => Self::handle_process_affect_contagion(params, session),
-            "comm_get_affect_history" => Self::handle_get_affect_history(params, session),
-            "comm_apply_affect_decay" => Self::handle_apply_affect_decay(params, session),
-            "comm_forward_message" => Self::handle_forward_message(params, session),
-            "comm_query_echo_chain" => Self::handle_query_echo_chain(params, session),
-            "comm_get_echo_depth" => Self::handle_get_echo_depth(params, session),
-            "comm_summarize_conversation" => Self::handle_summarize_conversation(params, session),
-            // Rich content and CommId tools
-            "comm_send_rich_message" => Self::handle_send_rich_message(params, session),
-            "comm_get_rich_content" => Self::handle_get_rich_content(params, session),
-            "comm_assign_comm_ids" => Self::handle_assign_comm_ids(session),
-            "comm_get_by_comm_id" => Self::handle_get_by_comm_id(params, session),
-            // Invention modules — delegate to modular try_execute
-            _ => {
-                // Try each invention module in order
-                if let Some(result) = invention_collaboration::try_execute(tool_name, params.clone(), session) {
-                    return result.map_err(|e| McpError::InternalError(e));
+            "comm_channel"       => Self::route_channel(params, session),
+            "comm_message"       => Self::route_message(params, session),
+            "comm_semantic"      => Self::route_semantic(params, session),
+            "comm_affect"        => Self::route_affect(params, session),
+            "comm_hive"          => Self::route_hive(params, session),
+            "comm_consent"       => Self::route_consent(params, session),
+            "comm_trust"         => Self::route_trust(params, session),
+            "comm_keys"          => Self::route_keys(params, session),
+            "comm_federation"    => Self::route_federation(params, session),
+            "comm_temporal"      => Self::route_temporal(params, session),
+            "comm_query"         => Self::route_query(params, session),
+            "comm_forensics"     => Self::route_forensics(params, session),
+            "comm_collaboration" => Self::route_collaboration(params, session),
+            "comm_workspace"     => Self::route_workspace(params, session),
+            "comm_session"       => Self::route_session(params, session),
+            "comm_agent"         => Self::route_agent(params, session),
+            "comm_store"         => Self::route_store(params, session),
+            // Legacy aliases
+            "session_start"      => Self::handle_session_start(params, session),
+            "session_end"        => Self::handle_session_end(params, session),
+            _ => Err(McpError::ToolNotFound(tool_name.to_string())),
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // Route functions (one per consolidated tool)
+    // -------------------------------------------------------------------
+
+    fn route_channel(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "create"  => Self::handle_create_channel(params, session),
+            "list"    => Self::handle_list_channels(session),
+            "join"    => Self::handle_join_channel(params, session),
+            "leave"   => Self::handle_leave_channel(params, session),
+            "info"    => Self::handle_get_channel_info(params, session),
+            "config"  => Self::handle_set_channel_config(params, session),
+            "pause"   => Self::handle_pause_channel(params, session),
+            "resume"  => Self::handle_resume_channel(params, session),
+            "drain"   => Self::handle_drain_channel(params, session),
+            "close"   => Self::handle_close_channel(params, session),
+            "expire"  => Self::handle_expire_messages(session),
+            "compact" => Self::handle_compact(session),
+            _ => Ok(ToolCallResult::error(format!("comm_channel: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_message(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "send"             => Self::handle_send_message(params, session),
+            "receive"          => Self::handle_receive_messages(params, session),
+            "get"              => Self::handle_get_message(params, session),
+            "search"           => Self::handle_search_messages(params, session),
+            "acknowledge"      => Self::handle_acknowledge_message(params, session),
+            "broadcast"        => Self::handle_broadcast(params, session),
+            "publish"          => Self::handle_publish(params, session),
+            "subscribe"        => Self::handle_subscribe(params, session),
+            "unsubscribe"      => Self::handle_unsubscribe(params, session),
+            "query_history"    => Self::handle_query_history(params, session),
+            "forward"          => Self::handle_forward_message(params, session),
+            "reply"            => Self::handle_send_reply(params, session),
+            "get_thread"       => Self::handle_get_thread(params, session),
+            "get_replies"      => Self::handle_get_replies(params, session),
+            "send_priority"    => Self::handle_send_with_priority(params, session),
+            "send_rich"        => Self::handle_send_rich_message(params, session),
+            "get_rich_content" => Self::handle_get_rich_content(params, session),
+            "query_echo_chain" => Self::handle_query_echo_chain(params, session),
+            "get_echo_depth"   => Self::handle_get_echo_depth(params, session),
+            "summarize"        => Self::handle_summarize_conversation(params, session),
+            _ => Ok(ToolCallResult::error(format!("comm_message: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_semantic(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "send"             => Self::handle_send_semantic(params, session),
+            "extract"          => Self::handle_extract_semantic(params, session),
+            "graft"            => Self::handle_graft_semantic(params, session),
+            "list_conflicts"   => Self::handle_list_semantic_conflicts(params, session),
+            // Invention-semantics pass-through
+            name if name.starts_with("comm_semantic_")
+                || name.starts_with("comm_echo_chamber_")
+                || name.starts_with("comm_ghost_")
+                || name.starts_with("comm_metamessage_") =>
+            {
+                if let Some(result) = invention_semantics::try_execute(name, params.clone(), session) {
+                    result.map_err(|e| McpError::InternalError(e))
+                } else {
+                    Ok(ToolCallResult::error(format!("comm_semantic: unknown operation '{op}'")))
                 }
-                if let Some(result) = invention_semantics::try_execute(tool_name, params.clone(), session) {
-                    return result.map_err(|e| McpError::InternalError(e));
-                }
-                if let Some(result) = invention_affect::try_execute(tool_name, params.clone(), session) {
-                    return result.map_err(|e| McpError::InternalError(e));
-                }
-                if let Some(result) = invention_federation::try_execute(tool_name, params.clone(), session) {
-                    return result.map_err(|e| McpError::InternalError(e));
-                }
-                if let Some(result) = invention_temporal::try_execute(tool_name, params.clone(), session) {
-                    return result.map_err(|e| McpError::InternalError(e));
-                }
-                if let Some(result) = invention_forensics::try_execute(tool_name, params.clone(), session) {
-                    return result.map_err(|e| McpError::InternalError(e));
-                }
-                Err(McpError::ToolNotFound(tool_name.to_string()))
             }
+            _ => Ok(ToolCallResult::error(format!("comm_semantic: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_affect(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "send"              => Self::handle_send_affect(params, session),
+            "get_state"         => Self::handle_get_affect_state(params, session),
+            "set_resistance"    => Self::handle_set_affect_resistance(params, session),
+            "process_contagion" => Self::handle_process_affect_contagion(params, session),
+            "get_history"       => Self::handle_get_affect_history(params, session),
+            "apply_decay"       => Self::handle_apply_affect_decay(params, session),
+            // Invention-affect pass-through
+            name if name.starts_with("comm_affect_contagion_")
+                || name.starts_with("comm_affect_archaeology_")
+                || name.starts_with("comm_affect_prophecy_")
+                || name.starts_with("comm_unspeakable_") =>
+            {
+                if let Some(result) = invention_affect::try_execute(name, params.clone(), session) {
+                    result.map_err(|e| McpError::InternalError(e))
+                } else {
+                    Ok(ToolCallResult::error(format!("comm_affect: unknown operation '{op}'")))
+                }
+            }
+            _ => Ok(ToolCallResult::error(format!("comm_affect: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_hive(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "form"     => Self::handle_form_hive(params, session),
+            "dissolve" => Self::handle_dissolve_hive(params, session),
+            "join"     => Self::handle_join_hive(params, session),
+            "leave"    => Self::handle_leave_hive(params, session),
+            "list"     => Self::handle_list_hives(session),
+            "get"      => Self::handle_get_hive(params, session),
+            "think"    => Self::handle_hive_think(params, session),
+            "meld"     => Self::handle_initiate_meld(params, session),
+            // Invention-collaboration pass-through for hive operations
+            name if name.starts_with("comm_hive_consciousness_")
+                || name.starts_with("comm_collective_intelligence_")
+                || name.starts_with("comm_ancestor_")
+                || name.starts_with("comm_telepathy_") =>
+            {
+                if let Some(result) = invention_collaboration::try_execute(name, params.clone(), session) {
+                    result.map_err(|e| McpError::InternalError(e))
+                } else {
+                    Ok(ToolCallResult::error(format!("comm_hive: unknown operation '{op}'")))
+                }
+            }
+            _ => Ok(ToolCallResult::error(format!("comm_hive: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_consent(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "grant" | "revoke" => {
+                // handle_manage_consent expects an "action" field
+                let mut p = params.clone();
+                if let Some(obj) = p.as_object_mut() {
+                    obj.insert("action".to_string(), json!(op));
+                }
+                Self::handle_manage_consent(&p, session)
+            }
+            "check"        => Self::handle_check_consent(params, session),
+            "list_gates"   => Self::handle_list_consent_gates(params, session),
+            "list_pending" => Self::handle_list_pending_consent(params, session),
+            "respond"      => Self::handle_respond_consent(params, session),
+            _ => Ok(ToolCallResult::error(format!("comm_consent: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_trust(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "set"  => Self::handle_set_trust_level(params, session),
+            "get"  => Self::handle_get_trust_level(params, session),
+            "list" => Self::handle_list_trust_levels(session),
+            _ => Ok(ToolCallResult::error(format!("comm_trust: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_keys(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "generate_keypair"   => Self::handle_generate_keypair(session),
+            "get_public_key"     => Self::handle_get_public_key(session),
+            "encrypt"            => Self::handle_encrypt_message(params, session),
+            "decrypt"            => Self::handle_decrypt_message(params, session),
+            "verify_signature"   => Self::handle_verify_signature(params, session),
+            "generate"           => Self::handle_generate_key(params, session),
+            "list"               => Self::handle_list_keys(session),
+            "rotate"             => Self::handle_rotate_key(params, session),
+            "revoke"             => Self::handle_revoke_key(params, session),
+            "export"             => Self::handle_export_key(params, session),
+            "get"                => Self::handle_get_key(params, session),
+            _ => Ok(ToolCallResult::error(format!("comm_keys: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_federation(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "configure"       => Self::handle_configure_federation(params, session),
+            "status"          => Self::handle_get_federation_status(session),
+            "set_policy"      => Self::handle_set_federation_policy(params, session),
+            "add_zone"        => Self::handle_add_federated_zone(params, session),
+            "remove_zone"     => Self::handle_remove_federated_zone(params, session),
+            "list_zones"      => Self::handle_list_federated_zones(session),
+            "set_zone_policy" => Self::handle_set_zone_policy(params, session),
+            // Invention-federation pass-through
+            name if name.starts_with("comm_federation_gateway_")
+                || name.starts_with("comm_federation_route_")
+                || name.starts_with("comm_federation_zone_")
+                || name.starts_with("comm_reality_") =>
+            {
+                if let Some(result) = invention_federation::try_execute(name, params.clone(), session) {
+                    result.map_err(|e| McpError::InternalError(e))
+                } else {
+                    Ok(ToolCallResult::error(format!("comm_federation: unknown operation '{op}'")))
+                }
+            }
+            _ => Ok(ToolCallResult::error(format!("comm_federation: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_temporal(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "schedule"            => Self::handle_schedule_message(params, session),
+            "list_scheduled"      => Self::handle_list_scheduled(session),
+            "cancel_scheduled"    => Self::handle_cancel_scheduled(params, session),
+            "deliver_pending"     => Self::handle_deliver_pending(session),
+            "list_dead_letters"   => Self::handle_list_dead_letters(session),
+            "replay_dead_letter"  => Self::handle_replay_dead_letter(params, session),
+            "clear_dead_letters"  => Self::handle_clear_dead_letters(session),
+            // Invention-temporal pass-through
+            name if name.starts_with("comm_precognition_")
+                || name.starts_with("comm_temporal_")
+                || name.starts_with("comm_legacy_")
+                || name.starts_with("comm_dead_letter_") =>
+            {
+                if let Some(result) = invention_temporal::try_execute(name, params.clone(), session) {
+                    result.map_err(|e| McpError::InternalError(e))
+                } else {
+                    Ok(ToolCallResult::error(format!("comm_temporal: unknown operation '{op}'")))
+                }
+            }
+            _ => Ok(ToolCallResult::error(format!("comm_temporal: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_query(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "relationships"  => Self::handle_query_relationships(params, session),
+            "echoes"         => Self::handle_query_echoes(params, session),
+            "conversations"  => Self::handle_query_conversations(params, session),
+            "ground"         => Self::handle_comm_ground(params, session),
+            "evidence"       => Self::handle_comm_evidence(params, session),
+            "suggest"        => Self::handle_comm_suggest(params, session),
+            _ => Ok(ToolCallResult::error(format!("comm_query: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_forensics(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        // All forensics operations are invention module names
+        match op.as_str() {
+            name if name.starts_with("comm_forensics_")
+                || name.starts_with("comm_pattern_")
+                || name.starts_with("comm_health_")
+                || name.starts_with("comm_oracle_") =>
+            {
+                if let Some(result) = invention_forensics::try_execute(name, params.clone(), session) {
+                    result.map_err(|e| McpError::InternalError(e))
+                } else {
+                    Ok(ToolCallResult::error(format!("comm_forensics: unknown operation '{op}'")))
+                }
+            }
+            _ => Ok(ToolCallResult::error(format!("comm_forensics: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_collaboration(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        // All collaboration operations are invention module names
+        match op.as_str() {
+            name if name.starts_with("comm_hive_consciousness_")
+                || name.starts_with("comm_collective_intelligence_")
+                || name.starts_with("comm_ancestor_")
+                || name.starts_with("comm_telepathy_") =>
+            {
+                if let Some(result) = invention_collaboration::try_execute(name, params.clone(), session) {
+                    result.map_err(|e| McpError::InternalError(e))
+                } else {
+                    Ok(ToolCallResult::error(format!("comm_collaboration: unknown operation '{op}'")))
+                }
+            }
+            _ => Ok(ToolCallResult::error(format!("comm_collaboration: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_workspace(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "create"  => Self::handle_workspace_create(params, session),
+            "add"     => Self::handle_workspace_add(params, session),
+            "list"    => Self::handle_workspace_list(params, session),
+            "query"   => Self::handle_workspace_query(params, session),
+            "compare" => Self::handle_workspace_compare(params, session),
+            "xref"    => Self::handle_workspace_xref(params, session),
+            _ => Ok(ToolCallResult::error(format!("comm_workspace: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_session(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "start"             => Self::handle_session_start(params, session),
+            "end"               => Self::handle_session_end(params, session),
+            "resume"            => Self::handle_session_resume(params, session),
+            "conversation_log"  => Self::handle_conversation_log(params, session),
+            "communication_log" => Self::handle_communication_log(params, session),
+            "log_communication" => Self::handle_log_communication(params, session),
+            "get_comm_log"      => Self::handle_get_comm_log(params, session),
+            "get_audit_log"     => Self::handle_get_audit_log(params, session),
+            _ => Ok(ToolCallResult::error(format!("comm_session: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_agent(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "stats"           => Self::handle_get_stats(session),
+            "assign_comm_ids" => Self::handle_assign_comm_ids(session),
+            "get_by_comm_id"  => Self::handle_get_by_comm_id(params, session),
+            _ => Ok(ToolCallResult::error(format!("comm_agent: unknown operation '{op}'"))),
+        }
+    }
+
+    fn route_store(params: &Value, session: &mut SessionManager) -> Result<ToolCallResult, McpError> {
+        let op = Self::get_operation(params)?;
+        match op.as_str() {
+            "expire"             => Self::handle_expire_messages(session),
+            "compact"            => Self::handle_compact(session),
+            "list_dead_letters"  => Self::handle_list_dead_letters(session),
+            "clear_dead_letters" => Self::handle_clear_dead_letters(session),
+            _ => Ok(ToolCallResult::error(format!("comm_store: unknown operation '{op}'"))),
         }
     }
 
@@ -5239,223 +3565,27 @@ impl ToolRegistry {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tool-name extraction index for `check-command-surface.sh` (Pattern C).
-// This function is never called at runtime — it exists solely so that the
-// guardrail grep `tool_name == "..."` can discover every registered tool.
-// ---------------------------------------------------------------------------
+// -------------------------------------------------------------------
+// Tool extraction index
+// -------------------------------------------------------------------
+
 #[allow(dead_code)]
 fn _tool_extraction_index(tool_name: &str) -> bool {
-    // Core tools
-    tool_name == "comm_send_message"
-        || tool_name == "comm_receive_messages"
-        || tool_name == "comm_create_channel"
-        || tool_name == "comm_list_channels"
-        || tool_name == "comm_join_channel"
-        || tool_name == "comm_leave_channel"
-        || tool_name == "comm_get_channel_info"
-        || tool_name == "comm_subscribe"
-        || tool_name == "comm_unsubscribe"
-        || tool_name == "comm_publish"
-        || tool_name == "comm_broadcast"
-        || tool_name == "comm_query_history"
-        || tool_name == "comm_search_messages"
-        || tool_name == "comm_get_message"
-        || tool_name == "comm_acknowledge_message"
-        || tool_name == "comm_set_channel_config"
-        || tool_name == "comm_communication_log"
-        || tool_name == "comm_manage_consent"
-        || tool_name == "comm_check_consent"
-        || tool_name == "comm_set_trust_level"
-        || tool_name == "comm_get_trust_level"
-        || tool_name == "comm_schedule_message"
-        || tool_name == "comm_list_scheduled"
-        || tool_name == "comm_form_hive"
-        || tool_name == "comm_get_stats"
-        || tool_name == "comm_send_affect"
-        || tool_name == "comm_ground"
-        || tool_name == "comm_evidence"
-        || tool_name == "comm_suggest"
-        || tool_name == "comm_list_consent_gates"
-        || tool_name == "comm_respond_consent"
-        || tool_name == "comm_list_pending_consent"
-        || tool_name == "comm_list_trust_levels"
-        || tool_name == "comm_query_relationships"
-        || tool_name == "comm_send_reply"
-        || tool_name == "comm_get_replies"
-        || tool_name == "comm_get_thread"
-        || tool_name == "comm_forward_message"
-        || tool_name == "comm_query_echo_chain"
-        || tool_name == "comm_query_echoes"
-        || tool_name == "comm_get_echo_depth"
-        || tool_name == "comm_query_conversations"
-        || tool_name == "comm_summarize_conversation"
-        || tool_name == "comm_send_with_priority"
-        || tool_name == "comm_expire_messages"
-        || tool_name == "comm_cancel_scheduled"
-        || tool_name == "comm_deliver_pending"
-        || tool_name == "comm_configure_federation"
-        || tool_name == "comm_add_federated_zone"
-        || tool_name == "comm_remove_federated_zone"
-        || tool_name == "comm_list_federated_zones"
-        || tool_name == "comm_get_federation_status"
-        || tool_name == "comm_set_federation_policy"
-        || tool_name == "comm_set_zone_policy"
-        || tool_name == "comm_dissolve_hive"
-        || tool_name == "comm_join_hive"
-        || tool_name == "comm_leave_hive"
-        || tool_name == "comm_list_hives"
-        || tool_name == "comm_get_hive"
-        || tool_name == "comm_hive_think"
-        || tool_name == "comm_initiate_meld"
-        || tool_name == "comm_get_affect_state"
-        || tool_name == "comm_process_affect_contagion"
-        || tool_name == "comm_apply_affect_decay"
-        || tool_name == "comm_set_affect_resistance"
-        || tool_name == "comm_get_affect_history"
-        || tool_name == "comm_send_semantic"
-        || tool_name == "comm_extract_semantic"
-        || tool_name == "comm_graft_semantic"
-        || tool_name == "comm_list_semantic_conflicts"
-        || tool_name == "comm_generate_keypair"
-        || tool_name == "comm_verify_signature"
-        || tool_name == "comm_generate_key"
-        || tool_name == "comm_encrypt_message"
-        || tool_name == "comm_decrypt_message"
-        || tool_name == "comm_list_keys"
-        || tool_name == "comm_get_key"
-        || tool_name == "comm_rotate_key"
-        || tool_name == "comm_revoke_key"
-        || tool_name == "comm_export_key"
-        || tool_name == "comm_get_public_key"
-        || tool_name == "comm_get_audit_log"
-        || tool_name == "comm_list_dead_letters"
-        || tool_name == "comm_replay_dead_letter"
-        || tool_name == "comm_clear_dead_letters"
-        || tool_name == "comm_close_channel"
-        || tool_name == "comm_pause_channel"
-        || tool_name == "comm_resume_channel"
-        || tool_name == "comm_drain_channel"
-        || tool_name == "comm_compact"
-        || tool_name == "comm_workspace_create"
-        || tool_name == "comm_workspace_add"
-        || tool_name == "comm_workspace_list"
-        || tool_name == "comm_workspace_query"
-        || tool_name == "comm_workspace_compare"
-        || tool_name == "comm_workspace_xref"
-        || tool_name == "comm_log_communication"
-        || tool_name == "comm_get_comm_log"
-        || tool_name == "comm_conversation_log"
-        || tool_name == "comm_send_rich_message"
-        || tool_name == "comm_get_rich_content"
-        || tool_name == "comm_assign_comm_ids"
-        || tool_name == "comm_get_by_comm_id"
-        || tool_name == "comm_id"
-        || tool_name == "comm_session_start"
-        || tool_name == "comm_session_end"
-        || tool_name == "comm_session_resume"
-        || tool_name == "session_start"
-        || tool_name == "session_end"
-        // Invention: collaboration
-        || tool_name == "comm_hive_consciousness_sync"
-        || tool_name == "comm_hive_consciousness_merge"
-        || tool_name == "comm_hive_consciousness_split"
-        || tool_name == "comm_hive_consciousness_status"
-        || tool_name == "comm_collective_intelligence_contribute"
-        || tool_name == "comm_collective_intelligence_query"
-        || tool_name == "comm_collective_intelligence_consensus"
-        || tool_name == "comm_collective_intelligence_dissent"
-        || tool_name == "comm_ancestor_trace"
-        || tool_name == "comm_ancestor_lineage"
-        || tool_name == "comm_ancestor_inherit"
-        || tool_name == "comm_ancestor_verify"
-        || tool_name == "comm_telepathy_link"
-        || tool_name == "comm_telepathy_broadcast"
-        || tool_name == "comm_telepathy_listen"
-        || tool_name == "comm_telepathy_consensus"
-        // Invention: semantics
-        || tool_name == "comm_semantic_graft"
-        || tool_name == "comm_semantic_extract"
-        || tool_name == "comm_semantic_merge"
-        || tool_name == "comm_semantic_cluster"
-        || tool_name == "comm_echo_chamber_detect"
-        || tool_name == "comm_echo_chamber_break"
-        || tool_name == "comm_echo_chamber_analyze"
-        || tool_name == "comm_echo_chamber_health"
-        || tool_name == "comm_ghost_create"
-        || tool_name == "comm_ghost_reveal"
-        || tool_name == "comm_ghost_list"
-        || tool_name == "comm_ghost_dissolve"
-        || tool_name == "comm_metamessage_encode"
-        || tool_name == "comm_metamessage_decode"
-        || tool_name == "comm_metamessage_inject"
-        || tool_name == "comm_metamessage_trace"
-        // Invention: affect
-        || tool_name == "comm_affect_contagion_simulate"
-        || tool_name == "comm_affect_contagion_immunize"
-        || tool_name == "comm_affect_contagion_outbreak"
-        || tool_name == "comm_affect_contagion_model"
-        || tool_name == "comm_affect_archaeology_dig"
-        || tool_name == "comm_affect_archaeology_timeline"
-        || tool_name == "comm_affect_archaeology_artifacts"
-        || tool_name == "comm_affect_archaeology_reconstruct"
-        || tool_name == "comm_affect_prophecy_predict"
-        || tool_name == "comm_affect_prophecy_similar"
-        || tool_name == "comm_affect_prophecy_track"
-        || tool_name == "comm_affect_prophecy_warn"
-        || tool_name == "comm_unspeakable_encode"
-        || tool_name == "comm_unspeakable_decode"
-        || tool_name == "comm_unspeakable_detect"
-        || tool_name == "comm_unspeakable_translate"
-        // Invention: federation
-        || tool_name == "comm_federation_gateway_create"
-        || tool_name == "comm_federation_gateway_connect"
-        || tool_name == "comm_federation_gateway_disconnect"
-        || tool_name == "comm_federation_gateway_status"
-        || tool_name == "comm_federation_route_message"
-        || tool_name == "comm_federation_route_trace"
-        || tool_name == "comm_federation_route_optimize"
-        || tool_name == "comm_federation_route_policy"
-        || tool_name == "comm_federation_zone_create"
-        || tool_name == "comm_federation_zone_list"
-        || tool_name == "comm_federation_zone_merge"
-        || tool_name == "comm_federation_zone_policy"
-        || tool_name == "comm_reality_fork"
-        || tool_name == "comm_reality_merge"
-        || tool_name == "comm_reality_detect"
-        || tool_name == "comm_reality_bend"
-        // Invention: temporal
-        || tool_name == "comm_precognition_predict"
-        || tool_name == "comm_precognition_prepare"
-        || tool_name == "comm_precognition_accuracy"
-        || tool_name == "comm_precognition_calibrate"
-        || tool_name == "comm_temporal_schedule"
-        || tool_name == "comm_temporal_cancel"
-        || tool_name == "comm_temporal_pending"
-        || tool_name == "comm_temporal_reschedule"
-        || tool_name == "comm_legacy_compose"
-        || tool_name == "comm_legacy_seal"
-        || tool_name == "comm_legacy_unseal"
-        || tool_name == "comm_legacy_list"
-        || tool_name == "comm_dead_letter_resurrect"
-        || tool_name == "comm_dead_letter_autopsy"
-        || tool_name == "comm_dead_letter_phoenix"
-        || tool_name == "comm_dead_letter_analyze"
-        // Invention: forensics
-        || tool_name == "comm_forensics_investigate"
-        || tool_name == "comm_forensics_evidence"
-        || tool_name == "comm_forensics_timeline"
-        || tool_name == "comm_forensics_report"
-        || tool_name == "comm_pattern_detect"
-        || tool_name == "comm_pattern_recurring"
-        || tool_name == "comm_pattern_anomaly"
-        || tool_name == "comm_pattern_predict"
-        || tool_name == "comm_health_status"
-        || tool_name == "comm_health_diagnose"
-        || tool_name == "comm_health_prescribe"
-        || tool_name == "comm_health_history"
-        || tool_name == "comm_oracle_query"
-        || tool_name == "comm_oracle_prophecy"
-        || tool_name == "comm_oracle_calibrate"
-        || tool_name == "comm_oracle_verify"
+    tool_name == "comm_channel"
+        || tool_name == "comm_message"
+        || tool_name == "comm_semantic"
+        || tool_name == "comm_affect"
+        || tool_name == "comm_hive"
+        || tool_name == "comm_consent"
+        || tool_name == "comm_trust"
+        || tool_name == "comm_keys"
+        || tool_name == "comm_federation"
+        || tool_name == "comm_temporal"
+        || tool_name == "comm_query"
+        || tool_name == "comm_forensics"
+        || tool_name == "comm_collaboration"
+        || tool_name == "comm_workspace"
+        || tool_name == "comm_session"
+        || tool_name == "comm_agent"
+        || tool_name == "comm_store"
 }

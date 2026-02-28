@@ -1,8 +1,11 @@
-//! Input validation for all MCP tool parameters.
+//! Input validation for consolidated MCP tools.
 //!
-//! Every tool parameter is validated before dispatch. Validation failures
-//! produce `ToolCallResult::error()` with `isError: true` and a specific
-//! error message describing what was wrong.
+//! The public API is a single `validate()` function that routes to domain
+//! validators based on the tool name and `operation` parameter. All existing
+//! field-level helpers are preserved and reused by the domain validators.
+//!
+//! Validation failures produce `ToolCallResult::error()` with `isError: true`
+//! and a specific error message describing what was wrong.
 
 use serde_json::Value;
 
@@ -17,12 +20,105 @@ const MAX_NAME_LEN: usize = 128;
 /// Maximum allowed limit value.
 const MAX_LIMIT: u64 = 10_000;
 
-/// Result type for validation — Ok means valid, Err holds the error result.
+/// Result type for validation -- Ok means valid, Err holds the error result.
 pub type ValidationResult = Result<(), ToolCallResult>;
 
-// ---------------------------------------------------------------------------
-// Individual field validators
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Public entry point
+// ===========================================================================
+
+/// Validate parameters for a consolidated tool call.
+///
+/// Routes to the appropriate domain validator based on `tool_name` and the
+/// `operation` field inside `params`.
+pub fn validate(tool_name: &str, params: &Value) -> ValidationResult {
+    let operation = params.get("operation").and_then(|v| v.as_str());
+
+    match tool_name {
+        "comm_channel" => validate_channel(operation, params),
+        "comm_message" => validate_message(operation, params),
+        "comm_semantic" => validate_semantic(operation, params),
+        "comm_affect" => validate_affect(operation, params),
+        "comm_hive" => validate_hive(operation, params),
+        "comm_consent" => validate_consent(operation, params),
+        "comm_trust" => validate_trust(operation, params),
+        "comm_keys" => validate_keys(operation, params),
+        "comm_federation" => validate_federation(operation, params),
+        "comm_temporal" => validate_temporal(operation, params),
+        "comm_query" => validate_query_tool(operation, params),
+        "comm_forensics" => validate_forensics(operation, params),
+        "comm_collaboration" => validate_collaboration(operation, params),
+        "comm_workspace" => validate_workspace(operation, params),
+        "comm_session" | "session_start" | "session_end" => {
+            validate_session(tool_name, operation, params)
+        }
+        "comm_agent" => validate_agent(operation, params),
+        "comm_store" => validate_store(operation, params),
+        _ => Err(ToolCallResult::error(format!("Unknown tool: {tool_name}"))),
+    }
+}
+
+// ===========================================================================
+// Shared helpers
+// ===========================================================================
+
+/// Require the `operation` parameter to be present.
+fn require_operation(op: Option<&str>) -> Result<&str, ToolCallResult> {
+    op.ok_or_else(|| ToolCallResult::error("Validation error: operation is required".to_string()))
+}
+
+/// Require a `channel_id` (positive integer) in params.
+fn require_channel_id(params: &Value) -> ValidationResult {
+    let id = params
+        .get("channel_id")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: channel_id is required and must be a positive integer"
+                    .to_string(),
+            )
+        })?;
+    if id == 0 {
+        return Err(ToolCallResult::error(
+            "Validation error: channel_id must be a positive integer (got 0)".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Require a string field to be present and non-empty.
+fn require_str(params: &Value, field: &str) -> ValidationResult {
+    let val = params.get(field).and_then(|v| v.as_str()).ok_or_else(|| {
+        ToolCallResult::error(format!(
+            "Validation error: {field} is required and must be a string"
+        ))
+    })?;
+    if val.is_empty() {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: {field} must not be empty"
+        )));
+    }
+    Ok(())
+}
+
+/// Require a positive integer field.
+fn require_positive_id(params: &Value, field: &str) -> ValidationResult {
+    let id = params.get(field).and_then(|v| v.as_u64()).ok_or_else(|| {
+        ToolCallResult::error(format!(
+            "Validation error: {field} is required and must be a positive integer"
+        ))
+    })?;
+    if id == 0 {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: {field} must be a positive integer (got 0)"
+        )));
+    }
+    Ok(())
+}
+
+// ===========================================================================
+// Individual field validators (preserved from original)
+// ===========================================================================
 
 /// Validate a channel name: 1-128 chars, alphanumeric + hyphen + underscore only.
 pub fn validate_channel_name(name: &str) -> ValidationResult {
@@ -200,20 +296,13 @@ pub fn validate_participant(name: &str) -> ValidationResult {
 }
 
 /// Validate a required string field from params, returning the value.
-pub fn require_string<'a>(
-    params: &'a Value,
-    field: &str,
-) -> Result<&'a str, ToolCallResult> {
-    params
-        .get(field)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| {
-            ToolCallResult::error(format!(
-                "Validation error: {field} is required and must be a string"
-            ))
-        })
+pub fn require_string<'a>(params: &'a Value, field: &str) -> Result<&'a str, ToolCallResult> {
+    params.get(field).and_then(|v| v.as_str()).ok_or_else(|| {
+        ToolCallResult::error(format!(
+            "Validation error: {field} is required and must be a string"
+        ))
+    })
 }
-
 
 /// Validate an agent_id: must be non-empty.
 pub fn validate_agent_id(agent_id: &str) -> ValidationResult {
@@ -289,7 +378,8 @@ pub fn validate_arousal(params: &Value) -> Result<Option<f64>, ToolCallResult> {
 }
 
 /// Valid urgency levels (must match UrgencyLevel enum in types.rs).
-const VALID_URGENCY_LEVELS: &[&str] = &["background", "low", "normal", "high", "urgent", "critical"];
+const VALID_URGENCY_LEVELS: &[&str] =
+    &["background", "low", "normal", "high", "urgent", "critical"];
 
 /// Validate an urgency string if present.
 pub fn validate_urgency(params: &Value) -> ValidationResult {
@@ -301,141 +391,6 @@ pub fn validate_urgency(params: &Value) -> ValidationResult {
                 VALID_URGENCY_LEVELS.join(", ")
             )));
         }
-    }
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Composite validators for each tool
-// ---------------------------------------------------------------------------
-
-/// Validate send_message parameters.
-pub fn validate_send_message(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    Ok(())
-}
-
-/// Validate receive_messages parameters.
-pub fn validate_receive_messages(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    Ok(())
-}
-
-/// Validate create_channel parameters.
-pub fn validate_create_channel(params: &Value) -> Result<(), ToolCallResult> {
-    let name = require_string(params, "name")?;
-    validate_channel_name(name)?;
-    Ok(())
-}
-
-/// Validate join_channel parameters.
-pub fn validate_join_channel(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    let participant = require_string(params, "participant")?;
-    validate_participant(participant)?;
-    Ok(())
-}
-
-/// Validate leave_channel parameters.
-pub fn validate_leave_channel(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    let participant = require_string(params, "participant")?;
-    validate_participant(participant)?;
-    Ok(())
-}
-
-/// Validate get_channel_info parameters.
-pub fn validate_get_channel_info(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    Ok(())
-}
-
-/// Validate subscribe parameters.
-pub fn validate_subscribe(params: &Value) -> Result<(), ToolCallResult> {
-    let topic = require_string(params, "topic")?;
-    validate_topic(topic)?;
-    let subscriber = require_string(params, "subscriber")?;
-    validate_sender(subscriber)?;
-    Ok(())
-}
-
-/// Validate unsubscribe parameters.
-pub fn validate_unsubscribe(params: &Value) -> Result<(), ToolCallResult> {
-    validate_subscription_id(params)?;
-    Ok(())
-}
-
-/// Validate publish parameters.
-pub fn validate_publish(params: &Value) -> Result<(), ToolCallResult> {
-    let topic = require_string(params, "topic")?;
-    validate_topic(topic)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    Ok(())
-}
-
-/// Validate broadcast parameters.
-pub fn validate_broadcast(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    Ok(())
-}
-
-/// Validate query_history parameters.
-pub fn validate_query_history(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    validate_limit(params, "limit")?;
-    Ok(())
-}
-
-/// Validate search_messages parameters.
-pub fn validate_search_messages(params: &Value) -> Result<(), ToolCallResult> {
-    let query = require_string(params, "query")?;
-    validate_query(query)?;
-    validate_limit(params, "max_results")?;
-    Ok(())
-}
-
-/// Validate get_message parameters.
-pub fn validate_get_message(params: &Value) -> Result<(), ToolCallResult> {
-    validate_message_id(params)?;
-    Ok(())
-}
-
-/// Validate acknowledge_message parameters.
-pub fn validate_acknowledge_message(params: &Value) -> Result<(), ToolCallResult> {
-    validate_message_id(params)?;
-    let recipient = require_string(params, "recipient")?;
-    validate_participant(recipient)?;
-    Ok(())
-}
-
-/// Validate set_channel_config parameters.
-pub fn validate_set_channel_config(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    Ok(())
-}
-
-/// Validate communication_log parameters.
-pub fn validate_communication_log(params: &Value) -> Result<(), ToolCallResult> {
-    let intent = require_string(params, "intent")?;
-    if intent.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: intent must not be empty".to_string(),
-        ));
-    }
-    // Validate topic if present
-    if let Some(topic) = params.get("topic").and_then(|v| v.as_str()) {
-        validate_topic(topic)?;
     }
     Ok(())
 }
@@ -496,8 +451,7 @@ pub fn validate_hive_id(params: &Value) -> Result<u64, ToolCallResult> {
         .and_then(|v| v.as_u64())
         .ok_or_else(|| {
             ToolCallResult::error(
-                "Validation error: hive_id is required and must be a positive integer"
-                    .to_string(),
+                "Validation error: hive_id is required and must be a positive integer".to_string(),
             )
         })?;
     if id == 0 {
@@ -509,854 +463,936 @@ pub fn validate_hive_id(params: &Value) -> Result<u64, ToolCallResult> {
 }
 
 /// Validate a required boolean field from params, returning the value.
-pub fn require_bool(
-    params: &Value,
-    field: &str,
-) -> Result<bool, ToolCallResult> {
-    params
-        .get(field)
-        .and_then(|v| v.as_bool())
-        .ok_or_else(|| {
-            ToolCallResult::error(format!(
-                "Validation error: {field} is required and must be a boolean"
-            ))
-        })
+pub fn require_bool(params: &Value, field: &str) -> Result<bool, ToolCallResult> {
+    params.get(field).and_then(|v| v.as_bool()).ok_or_else(|| {
+        ToolCallResult::error(format!(
+            "Validation error: {field} is required and must be a boolean"
+        ))
+    })
 }
-
-// ---------------------------------------------------------------------------
-// New tool validators (Tools 18-26)
-// ---------------------------------------------------------------------------
-
-/// Validate manage_consent parameters.
-pub fn validate_manage_consent(params: &Value) -> Result<(), ToolCallResult> {
-    let action = require_string(params, "action")?;
-    if action != "grant" && action != "revoke" {
-        return Err(ToolCallResult::error(
-            "Validation error: action must be 'grant' or 'revoke'".to_string(),
-        ));
-    }
-    let grantor = require_string(params, "grantor")?;
-    validate_agent_id(grantor)?;
-    let grantee = require_string(params, "grantee")?;
-    validate_agent_id(grantee)?;
-    let scope = require_string(params, "scope")?;
-    validate_consent_scope(scope)?;
-    Ok(())
-}
-
-/// Validate check_consent parameters.
-pub fn validate_check_consent(params: &Value) -> Result<(), ToolCallResult> {
-    let grantor = require_string(params, "grantor")?;
-    validate_agent_id(grantor)?;
-    let grantee = require_string(params, "grantee")?;
-    validate_agent_id(grantee)?;
-    let scope = require_string(params, "scope")?;
-    validate_consent_scope(scope)?;
-    Ok(())
-}
-
-/// Validate set_trust_level parameters.
-pub fn validate_set_trust_level(params: &Value) -> Result<(), ToolCallResult> {
-    let agent_id = require_string(params, "agent_id")?;
-    validate_agent_id(agent_id)?;
-    let level = require_string(params, "level")?;
-    validate_trust_level(level)?;
-    Ok(())
-}
-
-/// Validate get_trust_level parameters.
-pub fn validate_get_trust_level(params: &Value) -> Result<(), ToolCallResult> {
-    let agent_id = require_string(params, "agent_id")?;
-    validate_agent_id(agent_id)?;
-    Ok(())
-}
-
-/// Validate schedule_message parameters.
-pub fn validate_schedule_message(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    Ok(())
-}
-
-/// Validate list_scheduled parameters (no validation needed).
-pub fn validate_list_scheduled(_params: &Value) -> Result<(), ToolCallResult> {
-    Ok(())
-}
-
-/// Validate form_hive parameters.
-pub fn validate_form_hive(params: &Value) -> Result<(), ToolCallResult> {
-    let name = require_string(params, "name")?;
-    if name.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: hive name must not be empty".to_string(),
-        ));
-    }
-    let initiator = require_string(params, "coordinator")?;
-    if initiator.is_empty() {
-        return Err(ToolCallResult::error(
-          "Validation error: coordinator must not be empty".to_string(),
-        ));
-    }
-    let members = params
-        .get("members")
-        .and_then(|v| v.as_array())
-        .ok_or_else(|| {
-            ToolCallResult::error(
-              "Validation error: members is required and must be an array".to_string(),
-            )
-        })?;
-    if members.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: members array must not be empty".to_string(),
-        ));
-    }
-    for (i, member) in members.iter().enumerate() {
-        match member.as_str() {
-            Some(s) if s.is_empty() => {
-                return Err(ToolCallResult::error(format!(
-                    "Validation error: member at index {i} must not be empty"
-                )));
-            }
-            Some(_) => {}
-            None => {
-                return Err(ToolCallResult::error(format!(
-                    "Validation error: member at index {i} must be a string"
-                )));
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Validate get_stats parameters (no validation needed).
-pub fn validate_get_stats(_params: &Value) -> Result<(), ToolCallResult> {
-    Ok(())
-}
-
-/// Validate send_affect parameters.
-pub fn validate_send_affect(params: &Value) -> Result<(), ToolCallResult> {
-    validate_channel_id(params)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    validate_valence(params)?;
-    validate_arousal(params)?;
-    validate_urgency(params)?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// New tool validators (Tools 28-43)
-// ---------------------------------------------------------------------------
-
-/// Validate list_consent_gates parameters.
-pub fn validate_list_consent_gates(params: &Value) -> Result<(), ToolCallResult> {
-    // agent is optional — if present, validate it's non-empty
-    if let Some(agent) = params.get("agent").and_then(|v| v.as_str()) {
-        validate_agent_id(agent)?;
-    }
-    Ok(())
-}
-
-/// Validate cancel_scheduled parameters.
-pub fn validate_cancel_scheduled(params: &Value) -> Result<(), ToolCallResult> {
-    validate_temporal_id(params)?;
-    Ok(())
-}
-
-/// Validate configure_federation parameters.
-pub fn validate_configure_federation(params: &Value) -> Result<(), ToolCallResult> {
-    require_bool(params, "enabled")?;
-    let local_zone = require_string(params, "local_zone")?;
-    if local_zone.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: local_zone must not be empty".to_string(),
-        ));
-    }
-    let policy = require_string(params, "policy")?;
-    validate_federation_policy(policy)?;
-    Ok(())
-}
-
-/// Validate add_federated_zone parameters.
-pub fn validate_add_federated_zone(params: &Value) -> Result<(), ToolCallResult> {
-    let zone_id = require_string(params, "zone_id")?;
-    if zone_id.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: zone_id must not be empty".to_string(),
-        ));
-    }
-    // Validate optional policy if present
-    if let Some(policy) = params.get("policy").and_then(|v| v.as_str()) {
-        validate_federation_policy(policy)?;
-    }
-    // Validate optional trust_level if present
-    if let Some(level) = params.get("trust_level").and_then(|v| v.as_str()) {
-        validate_trust_level(level)?;
-    }
-    Ok(())
-}
-
-/// Validate remove_federated_zone parameters.
-pub fn validate_remove_federated_zone(params: &Value) -> Result<(), ToolCallResult> {
-    let zone_id = require_string(params, "zone_id")?;
-    if zone_id.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: zone_id must not be empty".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-/// Validate dissolve_hive parameters.
-pub fn validate_dissolve_hive(params: &Value) -> Result<(), ToolCallResult> {
-    validate_hive_id(params)?;
-    Ok(())
-}
-
-/// Validate join_hive parameters.
-pub fn validate_join_hive(params: &Value) -> Result<(), ToolCallResult> {
-    validate_hive_id(params)?;
-    let agent_id = require_string(params, "agent_id")?;
-    validate_agent_id(agent_id)?;
-    // Validate optional role if present
-    if let Some(role) = params.get("role").and_then(|v| v.as_str()) {
-        validate_hive_role(role)?;
-    }
-    Ok(())
-}
-
-/// Validate leave_hive parameters.
-pub fn validate_leave_hive(params: &Value) -> Result<(), ToolCallResult> {
-    validate_hive_id(params)?;
-    let agent_id = require_string(params, "agent_id")?;
-    validate_agent_id(agent_id)?;
-    Ok(())
-}
-
-/// Validate get_hive parameters.
-pub fn validate_get_hive(params: &Value) -> Result<(), ToolCallResult> {
-    validate_hive_id(params)?;
-    Ok(())
-}
-
-/// Validate log_communication parameters.
-pub fn validate_log_communication(params: &Value) -> Result<(), ToolCallResult> {
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    let role = require_string(params, "role")?;
-    if role.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: role must not be empty".to_string(),
-        ));
-    }
-    // Validate optional topic if present
-    if let Some(topic) = params.get("topic").and_then(|v| v.as_str()) {
-        validate_topic(topic)?;
-    }
-    Ok(())
-}
-
-/// Validate get_comm_log parameters.
-pub fn validate_get_comm_log(params: &Value) -> Result<(), ToolCallResult> {
-    validate_limit(params, "limit")?;
-    Ok(())
-}
-
-/// Validate get_audit_log parameters.
-pub fn validate_get_audit_log(params: &Value) -> Result<(), ToolCallResult> {
-    validate_limit(params, "limit")?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Semantic tool validators
-// ---------------------------------------------------------------------------
-
-/// Validate send_semantic parameters.
-pub fn validate_send_semantic(params: &Value) -> ValidationResult {
-    validate_channel_id(params)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let topic = require_string(params, "topic")?;
-    validate_topic(topic)?;
-    // focus_nodes is optional array, depth is optional integer — no strict validation needed
-    Ok(())
-}
-
-/// Validate extract_semantic parameters.
-pub fn validate_extract_semantic(params: &Value) -> ValidationResult {
-    validate_message_id(params)?;
-    Ok(())
-}
-
-/// Validate graft_semantic parameters.
-pub fn validate_graft_semantic(params: &Value) -> ValidationResult {
-    let source_id = params
-        .get("source_id")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| {
-            ToolCallResult::error(
-                "Validation error: source_id is required and must be a positive integer"
-                    .to_string(),
-            )
-        })?;
-    if source_id == 0 {
-        return Err(ToolCallResult::error(
-            "Validation error: source_id must be a positive integer (got 0)".to_string(),
-        ));
-    }
-    let target_id = params
-        .get("target_id")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| {
-            ToolCallResult::error(
-                "Validation error: target_id is required and must be a positive integer"
-                    .to_string(),
-            )
-        })?;
-    if target_id == 0 {
-        return Err(ToolCallResult::error(
-            "Validation error: target_id must be a positive integer (got 0)".to_string(),
-        ));
-    }
-    // strategy is optional string, no strict validation needed
-    Ok(())
-}
-
-/// Validate list_semantic_conflicts parameters.
-pub fn validate_list_semantic_conflicts(params: &Value) -> ValidationResult {
-    // channel_id and severity are both optional
-    if params.get("channel_id").is_some() {
-        validate_channel_id(params)?;
-    }
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Affect tool validators
-// ---------------------------------------------------------------------------
-
-/// Validate get_affect_state parameters.
-pub fn validate_get_affect_state(params: &Value) -> ValidationResult {
-    let agent_id = require_string(params, "agent_id")?;
-    validate_agent_id(agent_id)?;
-    Ok(())
-}
-
-/// Validate set_affect_resistance parameters.
-pub fn validate_set_affect_resistance(params: &Value) -> ValidationResult {
-    let resistance = params
-        .get("resistance")
-        .and_then(|v| v.as_f64())
-        .ok_or_else(|| {
-            ToolCallResult::error(
-                "Validation error: resistance is required and must be a number".to_string(),
-            )
-        })?;
-    if !(0.0..=1.0).contains(&resistance) {
-        return Err(ToolCallResult::error(format!(
-            "Validation error: resistance must be between 0.0 and 1.0 (got {resistance})"
-        )));
-    }
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Hive extension validators
-// ---------------------------------------------------------------------------
-
-/// Validate hive_think parameters.
-pub fn validate_hive_think(params: &Value) -> ValidationResult {
-    validate_hive_id(params)?;
-    let question = require_string(params, "question")?;
-    validate_content(question)?;
-    // timeout_ms is optional
-    Ok(())
-}
-
-/// Validate initiate_meld parameters.
-pub fn validate_initiate_meld(params: &Value) -> ValidationResult {
-    let partner_id = require_string(params, "partner_id")?;
-    validate_agent_id(partner_id)?;
-    // depth and duration_ms are optional
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Consent flow validators
-// ---------------------------------------------------------------------------
-
-/// Validate list_pending_consent parameters.
-pub fn validate_list_pending_consent(params: &Value) -> ValidationResult {
-    // agent_id and consent_type are both optional
-    if let Some(agent_id) = params.get("agent_id").and_then(|v| v.as_str()) {
-        validate_agent_id(agent_id)?;
-    }
-    Ok(())
-}
-
-/// Validate respond_consent parameters.
-pub fn validate_respond_consent(params: &Value) -> ValidationResult {
-    let request_id = require_string(params, "request_id")?;
-    if request_id.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: request_id must not be empty".to_string(),
-        ));
-    }
-    let response = require_string(params, "response")?;
-    if response.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: response must not be empty".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Query tool validators
-// ---------------------------------------------------------------------------
-
-/// Validate query_relationships parameters.
-pub fn validate_query_relationships(params: &Value) -> ValidationResult {
-    let agent_id = require_string(params, "agent_id")?;
-    validate_agent_id(agent_id)?;
-    // relationship_type and depth are optional
-    Ok(())
-}
-
-/// Validate query_echoes parameters.
-pub fn validate_query_echoes(params: &Value) -> ValidationResult {
-    validate_message_id(params)?;
-    // depth is optional
-    Ok(())
-}
-
-/// Validate query_conversations parameters.
-pub fn validate_query_conversations(params: &Value) -> ValidationResult {
-    // All parameters are optional
-    if params.get("channel_id").is_some() {
-        validate_channel_id(params)?;
-    }
-    validate_limit(params, "limit")?;
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Federation extension validators
-// ---------------------------------------------------------------------------
-
-/// Validate get_federation_status parameters.
-pub fn validate_get_federation_status(_params: &Value) -> ValidationResult {
-    // No required params
-    Ok(())
-}
-
-/// Validate set_federation_policy parameters.
-pub fn validate_set_federation_policy(params: &Value) -> ValidationResult {
-    let zone_id = require_string(params, "zone_id")?;
-    if zone_id.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: zone_id must not be empty".to_string(),
-        ));
-    }
-    // allow_semantic, allow_affect, allow_hive, max_message_size are all optional with defaults
-    Ok(())
-}
-
-// ---------------------------------------------------------------------------
-// Crypto / encryption tool validators
-// ---------------------------------------------------------------------------
-
-/// Validate encrypt_message parameters.
-pub fn validate_encrypt_message(params: &Value) -> Result<(), ToolCallResult> {
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    Ok(())
-}
-
-/// Validate decrypt_message parameters.
-pub fn validate_decrypt_message(params: &Value) -> Result<(), ToolCallResult> {
-    let ciphertext = require_string(params, "ciphertext")?;
-    if ciphertext.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: ciphertext must not be empty".to_string(),
-        ));
-    }
-    let nonce = require_string(params, "nonce")?;
-    if nonce.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: nonce must not be empty".to_string(),
-        ));
-    }
-    // epoch is optional — if present, must be a positive integer
-    if let Some(epoch_val) = params.get("epoch") {
-        if epoch_val.as_u64().is_none() {
-            return Err(ToolCallResult::error(
-                "Validation error: epoch must be a non-negative integer".to_string(),
-            ));
-        }
-    }
-    Ok(())
-}
-
-/// Validate verify_signature parameters.
-pub fn validate_verify_signature(params: &Value) -> Result<(), ToolCallResult> {
-    let public_key = require_string(params, "public_key")?;
-    if public_key.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: public_key must not be empty".to_string(),
-        ));
-    }
-    let content = require_string(params, "content")?;
-    if content.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: content must not be empty".to_string(),
-        ));
-    }
-    let signature = require_string(params, "signature")?;
-    if signature.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: signature must not be empty".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-
-// ---------------------------------------------------------------------------
-// New tool validators: replies, threads, priority, channel state, dead letters,
-// maintenance, key management, zone policy
-// ---------------------------------------------------------------------------
 
 /// Valid priority levels.
 const VALID_PRIORITIES: &[&str] = &["low", "normal", "high", "urgent", "critical"];
 
-/// Validate send_reply parameters.
-pub fn validate_send_reply(params: &Value) -> ValidationResult {
-    validate_channel_id(params)?;
-    let _reply_to = params
-        .get("reply_to_id")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| {
-            ToolCallResult::error(
-                "Validation error: reply_to_id is required and must be a positive integer"
-                    .to_string(),
-            )
-        })?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    Ok(())
-}
+// ===========================================================================
+// Domain validators (1 per consolidated tool)
+// ===========================================================================
 
-/// Validate get_thread parameters.
-pub fn validate_get_thread(params: &Value) -> ValidationResult {
-    let thread_id = require_string(params, "thread_id")?;
-    if thread_id.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: thread_id must not be empty".to_string(),
-        ));
-    }
-    Ok(())
-}
+// ---------------------------------------------------------------------------
+// 1. comm_channel
+// ---------------------------------------------------------------------------
 
-/// Validate get_replies parameters.
-pub fn validate_get_replies(params: &Value) -> ValidationResult {
-    validate_message_id(params)?;
-    Ok(())
-}
-
-/// Validate send_with_priority parameters.
-pub fn validate_send_with_priority(params: &Value) -> ValidationResult {
-    validate_channel_id(params)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content = require_string(params, "content")?;
-    validate_content(content)?;
-    // Validate optional priority if present
-    if let Some(priority) = params.get("priority").and_then(|v| v.as_str()) {
-        if !VALID_PRIORITIES.contains(&priority) {
-            return Err(ToolCallResult::error(format!(
-                "Validation error: invalid priority '{}'. Must be one of: {}",
-                priority,
-                VALID_PRIORITIES.join(", ")
-            )));
+fn validate_channel(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "create" => {
+            require_str(params, "name")?;
+            if let Some(name) = params.get("name").and_then(|v| v.as_str()) {
+                validate_channel_name(name)?;
+            }
+            Ok(())
         }
+        "join" | "leave" => {
+            require_channel_id(params)?;
+            require_str(params, "participant")?;
+            Ok(())
+        }
+        "info" | "pause" | "resume" | "drain" | "close" | "expire" | "compact" => {
+            require_channel_id(params)?;
+            Ok(())
+        }
+        "config" => {
+            require_channel_id(params)?;
+            Ok(())
+        }
+        "list" | "stats" | "list_channels" => Ok(()),
+        "subscribe" => {
+            let topic = require_string(params, "topic")?;
+            validate_topic(topic)?;
+            let subscriber = require_string(params, "subscriber")?;
+            validate_sender(subscriber)?;
+            Ok(())
+        }
+        "unsubscribe" => {
+            validate_subscription_id(params)?;
+            Ok(())
+        }
+        "publish" => {
+            let topic = require_string(params, "topic")?;
+            validate_topic(topic)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            Ok(())
+        }
+        "broadcast" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            Ok(())
+        }
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown channel operation: {op}"
+        ))),
     }
-    Ok(())
-}
-
-/// Validate channel state change parameters (pause, resume, drain, close).
-pub fn validate_channel_state_change(params: &Value) -> ValidationResult {
-    validate_channel_id(params)?;
-    Ok(())
-}
-
-/// Validate replay_dead_letter parameters.
-pub fn validate_replay_dead_letter(params: &Value) -> ValidationResult {
-    let _index = params
-        .get("index")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| {
-            ToolCallResult::error(
-                "Validation error: index is required and must be a non-negative integer"
-                    .to_string(),
-            )
-        })?;
-    Ok(())
-}
-
-/// Validate generate_key parameters.
-pub fn validate_generate_key(params: &Value) -> ValidationResult {
-    let algorithm = require_string(params, "algorithm")?;
-    if algorithm.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: algorithm must not be empty".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-/// Validate a key_id parameter: must be present and non-negative.
-pub fn validate_key_id(params: &Value) -> ValidationResult {
-    params
-        .get("key_id")
-        .and_then(|v| v.as_u64())
-        .ok_or_else(|| {
-            ToolCallResult::error(
-                "Validation error: key_id is required and must be a non-negative integer"
-                    .to_string(),
-            )
-        })?;
-    Ok(())
-}
-
-/// Validate set_zone_policy parameters.
-pub fn validate_set_zone_policy(params: &Value) -> ValidationResult {
-    let zone = require_string(params, "zone")?;
-    if zone.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: zone must not be empty".to_string(),
-        ));
-    }
-    // allow_semantic, allow_affect, allow_hive, max_message_size are all optional with defaults
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
-// Workspace tool validation
+// 2. comm_message
 // ---------------------------------------------------------------------------
 
-/// Validate comm_workspace_create parameters.
-pub fn validate_workspace_create(params: &Value) -> ValidationResult {
-    let name = require_string(params, "name")?;
-    if name.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: workspace name must not be empty".to_string(),
-        ));
-    }
-    if name.len() > MAX_NAME_LEN {
-        return Err(ToolCallResult::error(format!(
-            "Validation error: workspace name exceeds maximum length of {MAX_NAME_LEN} characters (got {})",
-            name.len()
-        )));
-    }
-    Ok(())
-}
-
-/// Validate comm_workspace_add parameters.
-pub fn validate_workspace_add(params: &Value) -> ValidationResult {
-    let _ws_id = require_string(params, "workspace_id")?;
-    let path = require_string(params, "path")?;
-    if path.is_empty() {
-        return Err(ToolCallResult::error(
-            "Validation error: path must not be empty".to_string(),
-        ));
-    }
-    // label and role are optional
-    Ok(())
-}
-
-/// Validate parameters that require only workspace_id.
-pub fn validate_workspace_id(params: &Value) -> ValidationResult {
-    let _ws_id = require_string(params, "workspace_id")?;
-    Ok(())
-}
-
-/// Validate comm_workspace_query parameters.
-pub fn validate_workspace_query(params: &Value) -> ValidationResult {
-    let _ws_id = require_string(params, "workspace_id")?;
-    let query = require_string(params, "query")?;
-    validate_query(query)?;
-    // max_per_context is optional
-    Ok(())
-}
-
-/// Validate comm_workspace_compare parameters.
-pub fn validate_workspace_compare(params: &Value) -> ValidationResult {
-    let _ws_id = require_string(params, "workspace_id")?;
-    let item = require_string(params, "item")?;
-    validate_query(item)?;
-    // max_per_context is optional
-    Ok(())
-}
-
-/// Validate comm_workspace_xref parameters.
-pub fn validate_workspace_xref(params: &Value) -> ValidationResult {
-    let _ws_id = require_string(params, "workspace_id")?;
-    let item = require_string(params, "item")?;
-    validate_query(item)?;
-    Ok(())
-}
-
-/// Validate comm_session_resume parameters.
-pub fn validate_session_resume(params: &Value) -> ValidationResult {
-    if let Some(limit) = params.get("limit") {
-        if let Some(n) = limit.as_u64() {
-            if n == 0 {
+fn validate_message(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "send" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            Ok(())
+        }
+        "receive" => {
+            require_channel_id(params)?;
+            Ok(())
+        }
+        "search" => {
+            let query = require_string(params, "query")?;
+            validate_query(query)?;
+            validate_limit(params, "max_results")?;
+            Ok(())
+        }
+        "get" | "ack" | "delete" => {
+            require_positive_id(params, "message_id")?;
+            Ok(())
+        }
+        "forward" => {
+            require_positive_id(params, "message_id")?;
+            require_channel_id(params)?;
+            if let Some(forwarder) = params.get("forwarder").and_then(|v| v.as_str()) {
+                validate_sender(forwarder)?;
+            }
+            Ok(())
+        }
+        "reply" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            // reply_to_id or parent_id
+            if params.get("reply_to_id").and_then(|v| v.as_u64()).is_none()
+                && params.get("parent_id").and_then(|v| v.as_u64()).is_none()
+            {
                 return Err(ToolCallResult::error(
-                    "Validation error: limit must be greater than 0".to_string(),
+                    "Validation error: reply_to_id or parent_id is required".to_string(),
                 ));
             }
-            if n > MAX_LIMIT {
+            Ok(())
+        }
+        "thread" | "replies" => {
+            if params.get("thread_id").and_then(|v| v.as_str()).is_some()
+                || params.get("thread_id").and_then(|v| v.as_u64()).is_some()
+                || params.get("message_id").and_then(|v| v.as_u64()).is_some()
+            {
+                Ok(())
+            } else {
+                Err(ToolCallResult::error(
+                    "Validation error: thread_id or message_id is required".to_string(),
+                ))
+            }
+        }
+        "rich_send" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content_type = require_string(params, "content_type")?;
+            let valid_types = [
+                "text",
+                "semantic",
+                "affect",
+                "full",
+                "temporal",
+                "precognitive",
+                "meta",
+                "unspeakable",
+            ];
+            if !valid_types.contains(&content_type) {
                 return Err(ToolCallResult::error(format!(
-                    "Validation error: limit exceeds maximum of {MAX_LIMIT} (got {n})"
+                    "Validation error: content_type must be one of: {}",
+                    valid_types.join(", ")
                 )));
             }
-        } else if let Some(n) = limit.as_i64() {
-            if n <= 0 {
+            if params.get("content_data").is_none() {
                 return Err(ToolCallResult::error(
-                    "Validation error: limit must be a positive integer".to_string(),
+                    "Validation error: content_data is required".to_string(),
                 ));
             }
+            Ok(())
         }
+        "rich_get" => {
+            require_positive_id(params, "message_id")?;
+            Ok(())
+        }
+        "get_by_comm_id" => {
+            let comm_id = require_string(params, "comm_id")?;
+            // Basic UUID format check
+            if comm_id.len() != 36 || comm_id.chars().filter(|c| *c == '-').count() != 4 {
+                return Err(ToolCallResult::error(
+                    "Validation error: comm_id must be a valid UUID string (e.g., 550e8400-e29b-41d4-a716-446655440000)".to_string(),
+                ));
+            }
+            Ok(())
+        }
+        "priority_send" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            // Validate optional priority
+            if let Some(priority) = params.get("priority").and_then(|v| v.as_str()) {
+                if !VALID_PRIORITIES.contains(&priority) {
+                    return Err(ToolCallResult::error(format!(
+                        "Validation error: invalid priority '{}'. Must be one of: {}",
+                        priority,
+                        VALID_PRIORITIES.join(", ")
+                    )));
+                }
+            }
+            Ok(())
+        }
+        "history" => {
+            require_channel_id(params)?;
+            validate_limit(params, "limit")?;
+            Ok(())
+        }
+        "summarize" => {
+            require_channel_id(params)?;
+            Ok(())
+        }
+        "dead_letters" | "list_dead_letters" => Ok(()),
+        "replay_dead_letter" => {
+            params
+                .get("index")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    ToolCallResult::error(
+                        "Validation error: index is required and must be a non-negative integer"
+                            .to_string(),
+                    )
+                })?;
+            Ok(())
+        }
+        "echo_chain" | "echo_depth" => {
+            require_positive_id(params, "message_id")?;
+            Ok(())
+        }
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown message operation: {op}"
+        ))),
     }
+}
+
+// ---------------------------------------------------------------------------
+// 3. comm_semantic
+// ---------------------------------------------------------------------------
+
+fn validate_semantic(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "send" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let topic = require_string(params, "topic")?;
+            validate_topic(topic)?;
+            Ok(())
+        }
+        "extract" => {
+            require_positive_id(params, "message_id")?;
+            Ok(())
+        }
+        "graft" => {
+            require_positive_id(params, "source_id")?;
+            require_positive_id(params, "target_id")?;
+            Ok(())
+        }
+        "conflicts" => {
+            // channel_id is optional
+            if params.get("channel_id").is_some() {
+                require_channel_id(params)?;
+            }
+            Ok(())
+        }
+        // Invention-level semantic ops -- handlers validate internally
+        _ => Ok(()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 4. comm_affect
+// ---------------------------------------------------------------------------
+
+fn validate_affect(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "send" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            validate_valence(params)?;
+            validate_arousal(params)?;
+            validate_urgency(params)?;
+            Ok(())
+        }
+        "get_state" => {
+            let agent_id = require_string(params, "agent_id")?;
+            validate_agent_id(agent_id)?;
+            Ok(())
+        }
+        "set_resistance" => {
+            let resistance = params
+                .get("resistance")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| {
+                    ToolCallResult::error(
+                        "Validation error: resistance is required and must be a number".to_string(),
+                    )
+                })?;
+            if !(0.0..=1.0).contains(&resistance) {
+                return Err(ToolCallResult::error(format!(
+                    "Validation error: resistance must be between 0.0 and 1.0 (got {resistance})"
+                )));
+            }
+            Ok(())
+        }
+        "contagion" => {
+            require_channel_id(params)?;
+            Ok(())
+        }
+        "decay" => {
+            let rate = params.get("decay_rate").ok_or_else(|| {
+                ToolCallResult::error("Validation error: decay_rate is required".to_string())
+            })?;
+            let rate_val = rate.as_f64().ok_or_else(|| {
+                ToolCallResult::error("Validation error: decay_rate must be a number".to_string())
+            })?;
+            if !(0.0..=1.0).contains(&rate_val) {
+                return Err(ToolCallResult::error(
+                    "Validation error: decay_rate must be between 0.0 and 1.0".to_string(),
+                ));
+            }
+            Ok(())
+        }
+        "history" => {
+            let agent = require_string(params, "agent")?;
+            validate_agent_id(agent)?;
+            Ok(())
+        }
+        "blend" => {
+            let agent = require_string(params, "agent_id")?;
+            validate_agent_id(agent)?;
+            Ok(())
+        }
+        // Invention-level affect ops -- handlers validate internally
+        _ => Ok(()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 5. comm_hive
+// ---------------------------------------------------------------------------
+
+fn validate_hive(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "form" | "create" => {
+            let name = require_string(params, "name")?;
+            if name.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: hive name must not be empty".to_string(),
+                ));
+            }
+            let coordinator = require_string(params, "coordinator")?;
+            if coordinator.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: coordinator must not be empty".to_string(),
+                ));
+            }
+            let members = params
+                .get("members")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| {
+                    ToolCallResult::error(
+                        "Validation error: members is required and must be an array".to_string(),
+                    )
+                })?;
+            if members.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: members array must not be empty".to_string(),
+                ));
+            }
+            for (i, member) in members.iter().enumerate() {
+                match member.as_str() {
+                    Some(s) if s.is_empty() => {
+                        return Err(ToolCallResult::error(format!(
+                            "Validation error: member at index {i} must not be empty"
+                        )));
+                    }
+                    Some(_) => {}
+                    None => {
+                        return Err(ToolCallResult::error(format!(
+                            "Validation error: member at index {i} must be a string"
+                        )));
+                    }
+                }
+            }
+            Ok(())
+        }
+        "join" => {
+            validate_hive_id(params)?;
+            let agent_id = require_string(params, "agent_id")?;
+            validate_agent_id(agent_id)?;
+            if let Some(role) = params.get("role").and_then(|v| v.as_str()) {
+                validate_hive_role(role)?;
+            }
+            Ok(())
+        }
+        "leave" => {
+            validate_hive_id(params)?;
+            let agent_id = require_string(params, "agent_id")?;
+            validate_agent_id(agent_id)?;
+            Ok(())
+        }
+        "dissolve" => {
+            validate_hive_id(params)?;
+            Ok(())
+        }
+        "get" | "info" | "status" => {
+            validate_hive_id(params)?;
+            Ok(())
+        }
+        "think" => {
+            validate_hive_id(params)?;
+            let question = require_string(params, "question")?;
+            validate_content(question)?;
+            Ok(())
+        }
+        "meld" => {
+            let partner_id = require_string(params, "partner_id")?;
+            validate_agent_id(partner_id)?;
+            Ok(())
+        }
+        "list" => Ok(()),
+        // Invention-level hive ops -- handlers validate internally
+        _ => Ok(()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 6. comm_consent
+// ---------------------------------------------------------------------------
+
+fn validate_consent(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "grant" | "revoke" => {
+            let grantor = require_string(params, "grantor")?;
+            validate_agent_id(grantor)?;
+            let grantee = require_string(params, "grantee")?;
+            validate_agent_id(grantee)?;
+            let scope = require_string(params, "scope")?;
+            validate_consent_scope(scope)?;
+            Ok(())
+        }
+        "check" => {
+            let grantor = require_string(params, "grantor")?;
+            validate_agent_id(grantor)?;
+            let grantee = require_string(params, "grantee")?;
+            validate_agent_id(grantee)?;
+            let scope = require_string(params, "scope")?;
+            validate_consent_scope(scope)?;
+            Ok(())
+        }
+        "list_gates" => {
+            // agent is optional
+            if let Some(agent) = params.get("agent").and_then(|v| v.as_str()) {
+                validate_agent_id(agent)?;
+            }
+            Ok(())
+        }
+        "list_pending" => {
+            if let Some(agent_id) = params.get("agent_id").and_then(|v| v.as_str()) {
+                validate_agent_id(agent_id)?;
+            }
+            Ok(())
+        }
+        "respond" => {
+            require_str(params, "request_id")?;
+            require_str(params, "response")?;
+            Ok(())
+        }
+        "manage" => {
+            let action = require_string(params, "action")?;
+            if action != "grant" && action != "revoke" {
+                return Err(ToolCallResult::error(
+                    "Validation error: action must be 'grant' or 'revoke'".to_string(),
+                ));
+            }
+            let grantor = require_string(params, "grantor")?;
+            validate_agent_id(grantor)?;
+            let grantee = require_string(params, "grantee")?;
+            validate_agent_id(grantee)?;
+            let scope = require_string(params, "scope")?;
+            validate_consent_scope(scope)?;
+            Ok(())
+        }
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown consent operation: {op}"
+        ))),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 7. comm_trust
+// ---------------------------------------------------------------------------
+
+fn validate_trust(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "set" => {
+            let agent_id = require_string(params, "agent_id")?;
+            validate_agent_id(agent_id)?;
+            let level = require_string(params, "level")?;
+            validate_trust_level(level)?;
+            Ok(())
+        }
+        "get" => {
+            let agent_id = require_string(params, "agent_id")?;
+            validate_agent_id(agent_id)?;
+            Ok(())
+        }
+        "list" => Ok(()),
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown trust operation: {op}"
+        ))),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 8. comm_keys
+// ---------------------------------------------------------------------------
+
+fn validate_keys(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "generate" => {
+            require_str(params, "algorithm")?;
+            Ok(())
+        }
+        "rotate" | "revoke" | "export" | "get" => {
+            params
+                .get("key_id")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    ToolCallResult::error(
+                        "Validation error: key_id is required and must be a non-negative integer"
+                            .to_string(),
+                    )
+                })?;
+            Ok(())
+        }
+        "list" => Ok(()),
+        "encrypt" => {
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            Ok(())
+        }
+        "decrypt" => {
+            let ciphertext = require_string(params, "ciphertext")?;
+            if ciphertext.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: ciphertext must not be empty".to_string(),
+                ));
+            }
+            let nonce = require_string(params, "nonce")?;
+            if nonce.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: nonce must not be empty".to_string(),
+                ));
+            }
+            // epoch is optional
+            if let Some(epoch_val) = params.get("epoch") {
+                if epoch_val.as_u64().is_none() {
+                    return Err(ToolCallResult::error(
+                        "Validation error: epoch must be a non-negative integer".to_string(),
+                    ));
+                }
+            }
+            Ok(())
+        }
+        "verify_signature" => {
+            require_str(params, "public_key")?;
+            require_str(params, "content")?;
+            require_str(params, "signature")?;
+            Ok(())
+        }
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown keys operation: {op}"
+        ))),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 9. comm_federation
+// ---------------------------------------------------------------------------
+
+fn validate_federation(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "configure" => {
+            require_bool(params, "enabled")?;
+            let local_zone = require_string(params, "local_zone")?;
+            if local_zone.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: local_zone must not be empty".to_string(),
+                ));
+            }
+            let policy = require_string(params, "policy")?;
+            validate_federation_policy(policy)?;
+            Ok(())
+        }
+        "add_zone" => {
+            let zone_id = require_string(params, "zone_id")?;
+            if zone_id.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: zone_id must not be empty".to_string(),
+                ));
+            }
+            if let Some(policy) = params.get("policy").and_then(|v| v.as_str()) {
+                validate_federation_policy(policy)?;
+            }
+            if let Some(level) = params.get("trust_level").and_then(|v| v.as_str()) {
+                validate_trust_level(level)?;
+            }
+            Ok(())
+        }
+        "remove_zone" => {
+            require_str(params, "zone_id")?;
+            Ok(())
+        }
+        "status" => Ok(()),
+        "set_policy" => {
+            require_str(params, "zone_id")?;
+            Ok(())
+        }
+        "set_zone_policy" => {
+            require_str(params, "zone")?;
+            Ok(())
+        }
+        // Invention-level federation ops -- handlers validate internally
+        _ => Ok(()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 10. comm_temporal
+// ---------------------------------------------------------------------------
+
+fn validate_temporal(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "schedule" => {
+            require_channel_id(params)?;
+            let sender = require_string(params, "sender")?;
+            validate_sender(sender)?;
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            Ok(())
+        }
+        "cancel" => {
+            validate_temporal_id(params)?;
+            Ok(())
+        }
+        "list" | "pending" | "list_scheduled" => Ok(()),
+        // Invention-level temporal ops -- handlers validate internally
+        _ => Ok(()),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 11. comm_query
+// ---------------------------------------------------------------------------
+
+fn validate_query_tool(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "relationships" => {
+            let agent_id = require_string(params, "agent_id")?;
+            validate_agent_id(agent_id)?;
+            Ok(())
+        }
+        "echoes" => {
+            require_positive_id(params, "message_id")?;
+            Ok(())
+        }
+        "conversations" => {
+            if params.get("channel_id").is_some() {
+                require_channel_id(params)?;
+            }
+            validate_limit(params, "limit")?;
+            Ok(())
+        }
+        "claims" => {
+            let claim = require_string(params, "claim")?;
+            validate_query(claim)?;
+            Ok(())
+        }
+        "evidence" => {
+            let q = require_string(params, "query")?;
+            validate_query(q)?;
+            Ok(())
+        }
+        "suggest" => {
+            let q = require_string(params, "query")?;
+            validate_query(q)?;
+            Ok(())
+        }
+        "audit_log" | "comm_log" => {
+            validate_limit(params, "limit")?;
+            Ok(())
+        }
+        "stats" => Ok(()),
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown query operation: {op}"
+        ))),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 12. comm_forensics (invention module -- minimal validation)
+// ---------------------------------------------------------------------------
+
+fn validate_forensics(op: Option<&str>, _params: &Value) -> ValidationResult {
+    let _op = require_operation(op)?;
+    // Invention handlers validate internally
     Ok(())
 }
 
 // ---------------------------------------------------------------------------
-// Affect Contagion / Echo Chain / Summarization validators
+// 13. comm_collaboration (invention module -- minimal validation)
 // ---------------------------------------------------------------------------
 
-/// Validate affect contagion parameters.
-pub fn validate_affect_contagion(params: &Value) -> ValidationResult {
-    validate_channel_id(params)?;
+fn validate_collaboration(op: Option<&str>, _params: &Value) -> ValidationResult {
+    let _op = require_operation(op)?;
+    // Invention handlers validate internally
     Ok(())
 }
-
-/// Validate affect decay parameters.
-pub fn validate_affect_decay(params: &Value) -> ValidationResult {
-    let rate = params
-        .get("decay_rate")
-        .ok_or_else(|| {
-            ToolCallResult::error(
-                "Validation error: decay_rate is required".to_string(),
-            )
-        })?;
-    let rate_val = rate.as_f64().ok_or_else(|| {
-        ToolCallResult::error(
-            "Validation error: decay_rate must be a number".to_string(),
-        )
-    })?;
-    if !(0.0..=1.0).contains(&rate_val) {
-        return Err(ToolCallResult::error(
-            "Validation error: decay_rate must be between 0.0 and 1.0".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-/// Validate forward message parameters.
-pub fn validate_forward_message(params: &Value) -> ValidationResult {
-    validate_message_id(params)?;
-    validate_channel_id(params)?;
-    let forwarder = require_string(params, "forwarder")?;
-    validate_sender(forwarder)?;
-    Ok(())
-}
-
-/// Validate summarize conversation parameters.
-pub fn validate_summarize_conversation(params: &Value) -> ValidationResult {
-    validate_channel_id(params)?;
-    Ok(())
-}
-
-/// Validate get_affect_history parameters.
-pub fn validate_get_affect_history(params: &Value) -> ValidationResult {
-    let agent = require_string(params, "agent")?;
-    validate_agent_id(agent)?;
-    Ok(())
-}
-
-/// Validate query_echo_chain parameters.
-pub fn validate_query_echo_chain(params: &Value) -> ValidationResult {
-    validate_message_id(params)?;
-    Ok(())
-}
-
-/// Validate get_echo_depth parameters.
-pub fn validate_get_echo_depth(params: &Value) -> ValidationResult {
-    validate_message_id(params)?;
-    Ok(())
-}
-
 
 // ---------------------------------------------------------------------------
-// Rich MessageContent and CommId validation
+// 14. comm_workspace
 // ---------------------------------------------------------------------------
 
-/// Validate `comm_send_rich_message` params.
-pub fn validate_send_rich_message(params: &Value) -> ValidationResult {
-    validate_channel_id(params)?;
-    let sender = require_string(params, "sender")?;
-    validate_sender(sender)?;
-    let content_type = require_string(params, "content_type")?;
-    let valid_types = [
-        "text", "semantic", "affect", "full", "temporal",
-        "precognitive", "meta", "unspeakable",
-    ];
-    if !valid_types.contains(&content_type) {
-        return Err(ToolCallResult::error(format!(
-            "Validation error: content_type must be one of: {}",
-            valid_types.join(", ")
-        )));
+fn validate_workspace(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "create" => {
+            let name = require_string(params, "name")?;
+            if name.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: workspace name must not be empty".to_string(),
+                ));
+            }
+            if name.len() > MAX_NAME_LEN {
+                return Err(ToolCallResult::error(format!(
+                    "Validation error: workspace name exceeds maximum length of {MAX_NAME_LEN} characters (got {})",
+                    name.len()
+                )));
+            }
+            Ok(())
+        }
+        "add" => {
+            require_str(params, "workspace_id")?;
+            require_str(params, "path")?;
+            Ok(())
+        }
+        "list" => {
+            require_str(params, "workspace_id")?;
+            Ok(())
+        }
+        "query" => {
+            require_str(params, "workspace_id")?;
+            let q = require_string(params, "query")?;
+            validate_query(q)?;
+            Ok(())
+        }
+        "compare" => {
+            require_str(params, "workspace_id")?;
+            let item = require_string(params, "item")?;
+            validate_query(item)?;
+            Ok(())
+        }
+        "xref" => {
+            require_str(params, "workspace_id")?;
+            let item = require_string(params, "item")?;
+            validate_query(item)?;
+            Ok(())
+        }
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown workspace operation: {op}"
+        ))),
     }
-    if params.get("content_data").is_none() {
-        return Err(ToolCallResult::error(
-            "Validation error: content_data is required".to_string(),
-        ));
-    }
-    Ok(())
 }
 
-/// Validate `comm_get_rich_content` params.
-pub fn validate_get_rich_content(params: &Value) -> ValidationResult {
-    validate_message_id(params)?;
-    Ok(())
+// ---------------------------------------------------------------------------
+// 15. comm_session / session_start / session_end
+// ---------------------------------------------------------------------------
+
+fn validate_session(tool_name: &str, _op: Option<&str>, params: &Value) -> ValidationResult {
+    match tool_name {
+        "session_start" => Ok(()),
+        "session_end" => Ok(()),
+        "comm_session" => {
+            // Operation-based session tool
+            let op = params
+                .get("operation")
+                .and_then(|v| v.as_str())
+                .unwrap_or("resume");
+            match op {
+                "start" => Ok(()),
+                "end" => Ok(()),
+                "resume" => {
+                    if let Some(limit) = params.get("limit") {
+                        if let Some(n) = limit.as_u64() {
+                            if n == 0 {
+                                return Err(ToolCallResult::error(
+                                    "Validation error: limit must be greater than 0".to_string(),
+                                ));
+                            }
+                            if n > MAX_LIMIT {
+                                return Err(ToolCallResult::error(format!(
+                                    "Validation error: limit exceeds maximum of {MAX_LIMIT} (got {n})"
+                                )));
+                            }
+                        } else if let Some(n) = limit.as_i64() {
+                            if n <= 0 {
+                                return Err(ToolCallResult::error(
+                                    "Validation error: limit must be a positive integer"
+                                        .to_string(),
+                                ));
+                            }
+                        }
+                    }
+                    Ok(())
+                }
+                _ => Err(ToolCallResult::error(format!(
+                    "Unknown session operation: {op}"
+                ))),
+            }
+        }
+        _ => Ok(()),
+    }
 }
 
-/// Validate `comm_get_by_comm_id` params.
-pub fn validate_get_by_comm_id(params: &Value) -> ValidationResult {
-    let comm_id = require_string(params, "comm_id")?;
-    // Basic UUID format check (36 chars with hyphens)
-    if comm_id.len() != 36 || comm_id.chars().filter(|c| *c == '-').count() != 4 {
-        return Err(ToolCallResult::error(
-            "Validation error: comm_id must be a valid UUID string (e.g., 550e8400-e29b-41d4-a716-446655440000)".to_string(),
-        ));
+// ---------------------------------------------------------------------------
+// 16. comm_agent
+// ---------------------------------------------------------------------------
+
+fn validate_agent(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "register" => {
+            require_str(params, "agent_id")?;
+            Ok(())
+        }
+        "info" | "status" | "presence" => {
+            require_str(params, "agent_id")?;
+            Ok(())
+        }
+        "set_presence" => {
+            require_str(params, "agent_id")?;
+            require_str(params, "status")?;
+            Ok(())
+        }
+        "list" => Ok(()),
+        "log" => {
+            let content = require_string(params, "content")?;
+            validate_content(content)?;
+            let role = require_string(params, "role")?;
+            if role.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: role must not be empty".to_string(),
+                ));
+            }
+            if let Some(topic) = params.get("topic").and_then(|v| v.as_str()) {
+                validate_topic(topic)?;
+            }
+            Ok(())
+        }
+        "communication_log" => {
+            let intent = require_string(params, "intent")?;
+            if intent.is_empty() {
+                return Err(ToolCallResult::error(
+                    "Validation error: intent must not be empty".to_string(),
+                ));
+            }
+            if let Some(topic) = params.get("topic").and_then(|v| v.as_str()) {
+                validate_topic(topic)?;
+            }
+            Ok(())
+        }
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown agent operation: {op}"
+        ))),
     }
-    Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// 17. comm_store
+// ---------------------------------------------------------------------------
+
+fn validate_store(op: Option<&str>, params: &Value) -> ValidationResult {
+    let op = require_operation(op)?;
+    match op {
+        "save" => {
+            require_str(params, "path")?;
+            Ok(())
+        }
+        "load" => {
+            require_str(params, "path")?;
+            Ok(())
+        }
+        "export" => {
+            require_str(params, "path")?;
+            Ok(())
+        }
+        "import" => {
+            require_str(params, "path")?;
+            Ok(())
+        }
+        "stats" | "status" => Ok(()),
+        _ => Err(ToolCallResult::error(format!(
+            "Unknown store operation: {op}"
+        ))),
+    }
+}
+
+// ===========================================================================
+// Tests
+// ===========================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // ── Field-level helper tests ─────────────────────────────────────────
 
     #[test]
     fn test_validate_channel_name_valid() {
@@ -1447,74 +1483,208 @@ mod tests {
         assert!(validate_query("").is_err());
     }
 
+    // ── Consolidated entry-point tests ───────────────────────────────────
+
     #[test]
-    fn test_validate_send_message_composite() {
+    fn test_validate_unknown_tool() {
+        assert!(validate("unknown_tool", &json!({"operation": "x"})).is_err());
+    }
+
+    #[test]
+    fn test_validate_channel_create() {
+        let valid = json!({"operation": "create", "name": "my-channel"});
+        assert!(validate("comm_channel", &valid).is_ok());
+
+        let no_name = json!({"operation": "create"});
+        assert!(validate("comm_channel", &no_name).is_err());
+    }
+
+    #[test]
+    fn test_validate_channel_join() {
+        let valid = json!({"operation": "join", "channel_id": 1, "participant": "alice"});
+        assert!(validate("comm_channel", &valid).is_ok());
+
+        let no_channel = json!({"operation": "join", "participant": "alice"});
+        assert!(validate("comm_channel", &no_channel).is_err());
+    }
+
+    #[test]
+    fn test_validate_message_send() {
         let valid = json!({
+            "operation": "send",
             "channel_id": 1,
             "sender": "alice",
             "content": "hello"
         });
-        assert!(validate_send_message(&valid).is_ok());
+        assert!(validate("comm_message", &valid).is_ok());
 
-        let no_sender = json!({"channel_id": 1, "content": "hello"});
-        assert!(validate_send_message(&no_sender).is_err());
+        let no_sender = json!({"operation": "send", "channel_id": 1, "content": "hello"});
+        assert!(validate("comm_message", &no_sender).is_err());
 
-        let empty_content = json!({"channel_id": 1, "sender": "alice", "content": ""});
-        assert!(validate_send_message(&empty_content).is_err());
+        let empty_content = json!({
+            "operation": "send",
+            "channel_id": 1,
+            "sender": "alice",
+            "content": ""
+        });
+        assert!(validate("comm_message", &empty_content).is_err());
     }
 
     #[test]
-    fn test_validate_manage_consent_valid() {
+    fn test_validate_message_search() {
+        let valid = json!({"operation": "search", "query": "hello"});
+        assert!(validate("comm_message", &valid).is_ok());
+
+        let empty_query = json!({"operation": "search", "query": ""});
+        assert!(validate("comm_message", &empty_query).is_err());
+    }
+
+    #[test]
+    fn test_validate_consent_grant() {
         let valid = json!({
-            "action": "grant",
+            "operation": "grant",
             "grantor": "agent-001",
             "grantee": "agent-002",
             "scope": "read_messages"
         });
-        assert!(validate_manage_consent(&valid).is_ok());
+        assert!(validate("comm_consent", &valid).is_ok());
     }
 
     #[test]
-    fn test_validate_set_trust_level_valid() {
-        let valid = json!({"agent_id": "agent-001", "level": "basic"});
-        assert!(validate_set_trust_level(&valid).is_ok());
-    }
-
-    #[test]
-    fn test_validate_schedule_message_valid() {
-        let valid = json!({"channel_id": 1, "sender": "alice", "content": "hello"});
-        assert!(validate_schedule_message(&valid).is_ok());
-    }
-
-    #[test]
-    fn test_validate_form_hive_valid() {
+    fn test_validate_trust_set() {
         let valid = json!({
+            "operation": "set",
+            "agent_id": "agent-001",
+            "level": "basic"
+        });
+        assert!(validate("comm_trust", &valid).is_ok());
+
+        let bad_level = json!({
+            "operation": "set",
+            "agent_id": "agent-001",
+            "level": "superdupermax"
+        });
+        assert!(validate("comm_trust", &bad_level).is_err());
+    }
+
+    #[test]
+    fn test_validate_hive_form() {
+        let valid = json!({
+            "operation": "form",
             "name": "hive-alpha",
             "coordinator": "agent-001",
             "members": ["agent-001", "agent-002"]
         });
-        assert!(validate_form_hive(&valid).is_ok());
+        assert!(validate("comm_hive", &valid).is_ok());
     }
 
     #[test]
-    fn test_validate_send_affect_valid() {
+    fn test_validate_affect_send() {
         let valid = json!({
-            "channel_id": 1, "sender": "alice",
-            "content": "hello", "valence": 0.5,
-            "arousal": 0.3, "urgency": "low"
+            "operation": "send",
+            "channel_id": 1,
+            "sender": "alice",
+            "content": "hello",
+            "valence": 0.5,
+            "arousal": 0.3,
+            "urgency": "low"
         });
-        assert!(validate_send_affect(&valid).is_ok());
+        assert!(validate("comm_affect", &valid).is_ok());
     }
 
     #[test]
-    fn test_validate_get_stats() {
-        assert!(validate_get_stats(&json!({})).is_ok());
+    fn test_validate_workspace_create() {
+        let valid = json!({"operation": "create", "name": "test-ws"});
+        assert!(validate("comm_workspace", &valid).is_ok());
+
+        let empty_name = json!({"operation": "create", "name": ""});
+        assert!(validate("comm_workspace", &empty_name).is_err());
     }
 
     #[test]
-    fn test_validate_list_scheduled() {
-        assert!(validate_list_scheduled(&json!({})).is_ok());
+    fn test_validate_keys_generate() {
+        let valid = json!({"operation": "generate", "algorithm": "ed25519"});
+        assert!(validate("comm_keys", &valid).is_ok());
+
+        let no_algo = json!({"operation": "generate"});
+        assert!(validate("comm_keys", &no_algo).is_err());
     }
 
+    #[test]
+    fn test_validate_session_resume() {
+        let valid = json!({"operation": "resume", "limit": 10});
+        assert!(validate("comm_session", &valid).is_ok());
 
+        let zero_limit = json!({"operation": "resume", "limit": 0});
+        assert!(validate("comm_session", &zero_limit).is_err());
+    }
+
+    #[test]
+    fn test_validate_forensics_requires_operation() {
+        let no_op = json!({});
+        assert!(validate("comm_forensics", &no_op).is_err());
+
+        let with_op = json!({"operation": "investigate"});
+        assert!(validate("comm_forensics", &with_op).is_ok());
+    }
+
+    #[test]
+    fn test_validate_collaboration_requires_operation() {
+        let no_op = json!({});
+        assert!(validate("comm_collaboration", &no_op).is_err());
+
+        let with_op = json!({"operation": "start"});
+        assert!(validate("comm_collaboration", &with_op).is_ok());
+    }
+
+    #[test]
+    fn test_validate_missing_operation() {
+        let no_op = json!({"channel_id": 1});
+        assert!(validate("comm_channel", &no_op).is_err());
+        assert!(validate("comm_message", &no_op).is_err());
+        assert!(validate("comm_trust", &no_op).is_err());
+    }
+
+    #[test]
+    fn test_validate_federation_configure() {
+        let valid = json!({
+            "operation": "configure",
+            "enabled": true,
+            "local_zone": "zone-a",
+            "policy": "allow"
+        });
+        assert!(validate("comm_federation", &valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_temporal_schedule() {
+        let valid = json!({
+            "operation": "schedule",
+            "channel_id": 1,
+            "sender": "alice",
+            "content": "later"
+        });
+        assert!(validate("comm_temporal", &valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_query_relationships() {
+        let valid = json!({"operation": "relationships", "agent_id": "agent-001"});
+        assert!(validate("comm_query", &valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_agent_register() {
+        let valid = json!({"operation": "register", "agent_id": "agent-001"});
+        assert!(validate("comm_agent", &valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_store_save() {
+        let valid = json!({"operation": "save", "path": "/tmp/test.acomm"});
+        assert!(validate("comm_store", &valid).is_ok());
+
+        let no_path = json!({"operation": "save"});
+        assert!(validate("comm_store", &no_path).is_err());
+    }
 }
