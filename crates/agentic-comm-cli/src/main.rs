@@ -237,6 +237,32 @@ enum Commands {
         #[command(subcommand)]
         action: ConversationAction,
     },
+    /// Create a new .acomm store file
+    #[command(name = "init", alias = "create")]
+    Init {
+        /// Path for the new .acomm file (defaults to .acomm/store.acomm)
+        file: Option<PathBuf>,
+    },
+    /// Return supporting evidence for a query
+    Evidence {
+        /// Path to the .acomm file
+        file: PathBuf,
+        /// Query text
+        query: String,
+        /// Maximum results
+        #[arg(long, default_value = "10")]
+        limit: usize,
+    },
+    /// Suggest similar grounding suggestions for a phrase
+    Suggest {
+        /// Path to the .acomm file
+        file: PathBuf,
+        /// Query text
+        query: String,
+        /// Maximum results
+        #[arg(long, default_value = "5")]
+        limit: usize,
+    },
 }
 
 
@@ -2988,5 +3014,93 @@ fn main() {
                 }
             }
         },
+
+        // -----------------------------------------------------------------
+        // Init — create a new .acomm store
+        // -----------------------------------------------------------------
+        Commands::Init { file } => {
+            let target = file.unwrap_or_else(|| store_path.clone());
+            if target.exists() {
+                eprintln!("Store already exists at {}", target.display());
+                output(
+                    &serde_json::json!({
+                        "status": "exists",
+                        "path": target.display().to_string(),
+                    }),
+                    json_mode,
+                );
+            } else {
+                let store = CommStore::new();
+                if let Some(parent) = target.parent() {
+                    if !parent.exists() {
+                        std::fs::create_dir_all(parent).unwrap_or_else(|e| {
+                            eprintln!("Warning: could not create parent directory: {e}");
+                        });
+                    }
+                }
+                match store.save(&target) {
+                    Ok(()) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "created",
+                                "path": target.display().to_string(),
+                            }),
+                            json_mode,
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Error: failed to create store: {e}");
+                    }
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Evidence — grounding evidence lookup
+        // -----------------------------------------------------------------
+        Commands::Evidence { file, query, limit } => {
+            let target = if file.exists() { file } else { store_path.clone() };
+            let store = load_or_create(&target);
+            let evidence = store.ground_evidence(&query);
+            let capped: Vec<_> = evidence.into_iter().take(limit).collect();
+            if json_mode {
+                output(&serde_json::to_value(&capped).unwrap(), json_mode);
+            } else if capped.is_empty() {
+                println!("No evidence found for {:?}.", query);
+            } else {
+                println!("Evidence for {:?} ({} results):", query, capped.len());
+                for ev in &capped {
+                    println!(
+                        "  [{}] {}",
+                        ev.evidence_type, ev.content
+                    );
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Suggest — grounding suggestions
+        // -----------------------------------------------------------------
+        Commands::Suggest { file, query, limit } => {
+            let target = if file.exists() { file } else { store_path.clone() };
+            let store = load_or_create(&target);
+            let suggestions = store.ground_suggest(&query, limit);
+            if json_mode {
+                output(
+                    &serde_json::json!({
+                        "query": query,
+                        "suggestions": suggestions,
+                    }),
+                    json_mode,
+                );
+            } else if suggestions.is_empty() {
+                println!("No suggestions found for {:?}.", query);
+            } else {
+                println!("Suggestions for {:?}:", query);
+                for s in &suggestions {
+                    println!("  - {}", s);
+                }
+            }
+        }
     }
 }

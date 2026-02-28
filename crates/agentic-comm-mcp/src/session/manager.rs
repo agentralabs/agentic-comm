@@ -1,4 +1,7 @@
 //! Session manager — owns the CommStore and tracks operations.
+//!
+//! Implements the runtime-sync lifecycle: auto-start on MCP `initialized`,
+//! auto-save on shutdown/EOF, and temporal chaining of operations.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -10,6 +13,26 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::loader::{project_identity, project_store_path};
 use crate::tools::communication_log::CommunicationLogEntry;
+
+// ---------------------------------------------------------------------------
+// Auto-capture constants (operational depth parity with memory)
+// ---------------------------------------------------------------------------
+
+/// Default auto-capture mode (mirrors memory's approach).
+const DEFAULT_AUTO_CAPTURE_MODE: &str = "enabled";
+
+/// Auto-capture max characters per event.
+const DEFAULT_AUTO_CAPTURE_MAX_CHARS: usize = 2048;
+
+// ---------------------------------------------------------------------------
+// Storage budget constants (operational depth parity with memory)
+// ---------------------------------------------------------------------------
+
+/// Default storage budget: 2 GB.
+const DEFAULT_STORAGE_BUDGET_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+
+/// Default storage budget horizon: 20 years.
+const DEFAULT_STORAGE_BUDGET_HORIZON_YEARS: u32 = 20;
 
 /// A record of a single tool operation.
 #[derive(Debug, Clone, Serialize)]
@@ -95,6 +118,29 @@ pub struct SessionManager {
     session_metadata: Option<serde_json::Value>,
     /// Session start time as unix epoch seconds (for duration calculation).
     session_start_epoch: Option<u64>,
+    // -- Auto-capture settings (operational depth parity) --
+    /// AUTO_CAPTURE_MODE: "enabled", "disabled", or "minimal".
+    #[allow(dead_code)]
+    auto_capture_mode: String,
+    /// AUTO_CAPTURE_REDACT: whether to redact sensitive content.
+    #[allow(dead_code)]
+    auto_capture_redact: bool,
+    /// AUTO_CAPTURE_MAX_CHARS: max characters per auto-capture event.
+    #[allow(dead_code)]
+    auto_capture_max_chars: usize,
+    // -- Storage budget settings (operational depth parity) --
+    /// STORAGE_BUDGET_MODE: "strict" or "lenient".
+    #[allow(dead_code)]
+    storage_budget_mode: String,
+    /// STORAGE_BUDGET_BYTES: total budget in bytes.
+    #[allow(dead_code)]
+    storage_budget_bytes: u64,
+    /// STORAGE_BUDGET_HORIZON_YEARS: how many years to plan for.
+    #[allow(dead_code)]
+    storage_budget_horizon_years: u32,
+    /// STORAGE_BUDGET_TARGET_FRACTION: target fraction of budget to use.
+    #[allow(dead_code)]
+    storage_budget_target_fraction: f32,
 }
 
 impl SessionManager {
@@ -120,6 +166,34 @@ impl SessionManager {
             CommStore::new()
         };
 
+        // Auto-capture env vars (operational depth parity with memory)
+        let auto_capture_mode = std::env::var("ACOMM_AUTO_CAPTURE_MODE")
+            .unwrap_or_else(|_| DEFAULT_AUTO_CAPTURE_MODE.to_string());
+        let auto_capture_redact = std::env::var("ACOMM_AUTO_CAPTURE_REDACT")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(true);
+        let auto_capture_max_chars: usize = std::env::var("ACOMM_AUTO_CAPTURE_MAX_CHARS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(DEFAULT_AUTO_CAPTURE_MAX_CHARS);
+
+        // Storage budget env vars (operational depth parity with memory)
+        let storage_budget_mode = std::env::var("ACOMM_STORAGE_BUDGET_MODE")
+            .unwrap_or_else(|_| "lenient".to_string());
+        let storage_budget_bytes: u64 = std::env::var("ACOMM_STORAGE_BUDGET_BYTES")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(DEFAULT_STORAGE_BUDGET_BYTES);
+        let storage_budget_horizon_years: u32 = std::env::var("ACOMM_STORAGE_BUDGET_HORIZON_YEARS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(DEFAULT_STORAGE_BUDGET_HORIZON_YEARS);
+        let storage_budget_target_fraction: f32 = std::env::var("ACOMM_STORAGE_BUDGET_TARGET_FRACTION")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0.85_f32)
+            .clamp(0.50, 0.99);
+
         Self {
             store,
             store_path,
@@ -137,6 +211,13 @@ impl SessionManager {
             next_temporal_counter: 1,
             session_metadata: None,
             session_start_epoch: None,
+            auto_capture_mode,
+            auto_capture_redact,
+            auto_capture_max_chars,
+            storage_budget_mode,
+            storage_budget_bytes,
+            storage_budget_horizon_years,
+            storage_budget_target_fraction,
         }
     }
 
