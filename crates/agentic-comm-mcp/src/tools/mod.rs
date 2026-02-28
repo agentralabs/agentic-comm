@@ -2,3 +2,4 @@
 
 pub mod communication_log;
 pub mod registry;
+pub mod validation;

@@ -57,6 +57,14 @@ pub enum CommError {
     #[error("Participant '{0}' is already in channel {1}")]
     AlreadyInChannel(String, u64),
 
+    /// Channel is in a state that does not allow the operation.
+    #[error("Channel {0} is {1} — operation not allowed")]
+    ChannelStateViolation(u64, String),
+
+    /// Dead letter index out of bounds.
+    #[error("Dead letter index {0} out of bounds")]
+    DeadLetterNotFound(usize),
+
     /// I/O error.
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
@@ -139,6 +147,216 @@ impl std::str::FromStr for MessageType {
     }
 }
 
+// ---------------------------------------------------------------------------
+// MessageStatus
+// ---------------------------------------------------------------------------
+
+/// Lifecycle status of a message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MessageStatus {
+    /// Message has been created but not yet sent.
+    Created,
+    /// Message has been sent.
+    Sent,
+    /// Message has been delivered to the recipient.
+    Delivered,
+    /// Message has been read by the recipient.
+    Read,
+    /// Message has been acknowledged by the recipient.
+    Acknowledged,
+    /// Message sending failed.
+    Failed,
+    /// Message has expired (TTL exceeded).
+    Expired,
+    /// Message has been moved to the dead letter queue.
+    DeadLettered,
+}
+
+impl Default for MessageStatus {
+    fn default() -> Self {
+        MessageStatus::Created
+    }
+}
+
+impl std::fmt::Display for MessageStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessageStatus::Created => write!(f, "created"),
+            MessageStatus::Sent => write!(f, "sent"),
+            MessageStatus::Delivered => write!(f, "delivered"),
+            MessageStatus::Read => write!(f, "read"),
+            MessageStatus::Acknowledged => write!(f, "acknowledged"),
+            MessageStatus::Failed => write!(f, "failed"),
+            MessageStatus::Expired => write!(f, "expired"),
+            MessageStatus::DeadLettered => write!(f, "dead_lettered"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MessagePriority
+// ---------------------------------------------------------------------------
+
+/// Priority level for a message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum MessagePriority {
+    /// Low priority.
+    Low = 0,
+    /// Normal priority (default).
+    Normal = 1,
+    /// High priority.
+    High = 2,
+    /// Urgent priority.
+    Urgent = 3,
+    /// Critical priority.
+    Critical = 4,
+}
+
+impl Default for MessagePriority {
+    fn default() -> Self {
+        MessagePriority::Normal
+    }
+}
+
+impl std::fmt::Display for MessagePriority {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessagePriority::Low => write!(f, "low"),
+            MessagePriority::Normal => write!(f, "normal"),
+            MessagePriority::High => write!(f, "high"),
+            MessagePriority::Urgent => write!(f, "urgent"),
+            MessagePriority::Critical => write!(f, "critical"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ChannelState
+// ---------------------------------------------------------------------------
+
+/// Operational state of a channel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChannelState {
+    /// Channel is active and fully operational.
+    Active,
+    /// Channel is paused — no new messages can be sent or received.
+    Paused,
+    /// Channel is draining — receives are allowed but sends are blocked.
+    Draining,
+    /// Channel is closed — all operations are blocked.
+    Closed,
+}
+
+impl Default for ChannelState {
+    fn default() -> Self {
+        ChannelState::Active
+    }
+}
+
+impl std::fmt::Display for ChannelState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ChannelState::Active => write!(f, "active"),
+            ChannelState::Paused => write!(f, "paused"),
+            ChannelState::Draining => write!(f, "draining"),
+            ChannelState::Closed => write!(f, "closed"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DeliveryMode
+// ---------------------------------------------------------------------------
+
+/// Message delivery semantics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeliveryMode {
+    /// Message may be lost (fire and forget).
+    AtMostOnce,
+    /// Message will be delivered at least once (may duplicate).
+    AtLeastOnce,
+    /// Message will be delivered exactly once.
+    ExactlyOnce,
+}
+
+impl Default for DeliveryMode {
+    fn default() -> Self {
+        DeliveryMode::AtLeastOnce
+    }
+}
+
+// ---------------------------------------------------------------------------
+// RetentionPolicy
+// ---------------------------------------------------------------------------
+
+/// How long messages are retained in a channel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RetentionPolicy {
+    /// Messages are retained forever.
+    Forever,
+    /// Messages are retained for a given number of seconds.
+    Duration(u64),
+    /// Only the most recent N messages are retained.
+    MessageCount(u64),
+}
+
+impl Default for RetentionPolicy {
+    fn default() -> Self {
+        RetentionPolicy::Forever
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DeadLetter
+// ---------------------------------------------------------------------------
+
+/// Reason a message was dead-lettered.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeadLetterReason {
+    /// The target channel was closed.
+    ChannelClosed,
+    /// The target channel was not found.
+    ChannelNotFound,
+    /// The intended recipient was unavailable.
+    RecipientUnavailable,
+    /// Maximum retry attempts were exceeded.
+    MaxRetriesExceeded,
+    /// The message expired (TTL exceeded).
+    Expired,
+    /// The message failed validation.
+    ValidationFailed(String),
+}
+
+impl std::fmt::Display for DeadLetterReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeadLetterReason::ChannelClosed => write!(f, "channel_closed"),
+            DeadLetterReason::ChannelNotFound => write!(f, "channel_not_found"),
+            DeadLetterReason::RecipientUnavailable => write!(f, "recipient_unavailable"),
+            DeadLetterReason::MaxRetriesExceeded => write!(f, "max_retries_exceeded"),
+            DeadLetterReason::Expired => write!(f, "expired"),
+            DeadLetterReason::ValidationFailed(s) => write!(f, "validation_failed: {s}"),
+        }
+    }
+}
+
+/// A message that could not be delivered and was placed in the dead letter queue.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeadLetter {
+    /// The original message that failed delivery.
+    pub original_message: Message,
+    /// Why the message was dead-lettered.
+    pub reason: DeadLetterReason,
+    /// When the message was dead-lettered.
+    pub dead_lettered_at: DateTime<Utc>,
+    /// Number of delivery retries attempted.
+    pub retry_count: u32,
+}
+
+// ---------------------------------------------------------------------------
+// Message
+// ---------------------------------------------------------------------------
+
 /// A single message in the communication system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -163,6 +381,21 @@ pub struct Message {
     /// Set of participants who have acknowledged this message.
     #[serde(default)]
     pub acknowledged_by: Vec<String>,
+    /// Lifecycle status of this message.
+    #[serde(default)]
+    pub status: MessageStatus,
+    /// Priority level of this message.
+    #[serde(default)]
+    pub priority: MessagePriority,
+    /// ID of the message this is a reply to.
+    #[serde(default)]
+    pub reply_to: Option<u64>,
+    /// Correlation ID for request/response pairing.
+    #[serde(default)]
+    pub correlation_id: Option<String>,
+    /// Thread grouping identifier.
+    #[serde(default)]
+    pub thread_id: Option<String>,
 }
 
 /// The type of a communication channel.
@@ -213,6 +446,12 @@ pub struct ChannelConfig {
     pub persistence: bool,
     /// Whether encryption is required for this channel.
     pub encryption_required: bool,
+    /// Message delivery semantics.
+    #[serde(default)]
+    pub delivery_mode: DeliveryMode,
+    /// How long messages are retained.
+    #[serde(default)]
+    pub retention_policy: RetentionPolicy,
 }
 
 impl Default for ChannelConfig {
@@ -222,6 +461,8 @@ impl Default for ChannelConfig {
             ttl_seconds: 0,
             persistence: true,
             encryption_required: false,
+            delivery_mode: DeliveryMode::default(),
+            retention_policy: RetentionPolicy::default(),
         }
     }
 }
@@ -241,6 +482,9 @@ pub struct Channel {
     pub participants: Vec<String>,
     /// Channel configuration.
     pub config: ChannelConfig,
+    /// Operational state of the channel.
+    #[serde(default)]
+    pub state: ChannelState,
 }
 
 /// A pub/sub subscription.
@@ -303,6 +547,9 @@ pub struct CommStore {
     next_message_id: u64,
     /// Next subscription id.
     next_subscription_id: u64,
+    /// Dead letter queue for undeliverable messages.
+    #[serde(default)]
+    pub dead_letters: Vec<DeadLetter>,
 }
 
 impl Default for CommStore {
@@ -321,6 +568,7 @@ impl CommStore {
             next_channel_id: 1,
             next_message_id: 1,
             next_subscription_id: 1,
+            dead_letters: Vec::new(),
         }
     }
 
@@ -376,11 +624,103 @@ impl CommStore {
         format!("{:x}", hasher.finalize())
     }
 
+    /// Check that a channel allows sending. Returns Ok(()) if allowed,
+    /// or an appropriate error if the channel is in a blocking state.
+    fn check_channel_allows_send(&self, channel_id: u64) -> CommResult<()> {
+        let channel = self
+            .channels
+            .get(&channel_id)
+            .ok_or(CommError::ChannelNotFound(channel_id))?;
+
+        match channel.state {
+            ChannelState::Active => Ok(()),
+            ChannelState::Paused => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "paused".to_string(),
+            )),
+            ChannelState::Draining => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "draining".to_string(),
+            )),
+            ChannelState::Closed => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "closed".to_string(),
+            )),
+        }
+    }
+
+    /// Check that a channel allows receiving. Returns Ok(()) if allowed.
+    fn check_channel_allows_receive(&self, channel_id: u64) -> CommResult<()> {
+        let channel = self
+            .channels
+            .get(&channel_id)
+            .ok_or(CommError::ChannelNotFound(channel_id))?;
+
+        match channel.state {
+            ChannelState::Active | ChannelState::Draining => Ok(()),
+            ChannelState::Paused => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "paused".to_string(),
+            )),
+            ChannelState::Closed => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "closed".to_string(),
+            )),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Channel state management
+    // -----------------------------------------------------------------------
+
+    /// Pause a channel. Blocks new sends and receives.
+    pub fn pause_channel(&mut self, channel_id: u64) -> CommResult<()> {
+        let channel = self
+            .channels
+            .get_mut(&channel_id)
+            .ok_or(CommError::ChannelNotFound(channel_id))?;
+        channel.state = ChannelState::Paused;
+        Ok(())
+    }
+
+    /// Resume a paused channel back to Active state.
+    pub fn resume_channel(&mut self, channel_id: u64) -> CommResult<()> {
+        let channel = self
+            .channels
+            .get_mut(&channel_id)
+            .ok_or(CommError::ChannelNotFound(channel_id))?;
+        channel.state = ChannelState::Active;
+        Ok(())
+    }
+
+    /// Set a channel to Draining state. Allows receive but blocks send.
+    pub fn drain_channel(&mut self, channel_id: u64) -> CommResult<()> {
+        let channel = self
+            .channels
+            .get_mut(&channel_id)
+            .ok_or(CommError::ChannelNotFound(channel_id))?;
+        channel.state = ChannelState::Draining;
+        Ok(())
+    }
+
+    /// Close a channel. Blocks all operations.
+    pub fn close_channel(&mut self, channel_id: u64) -> CommResult<()> {
+        let channel = self
+            .channels
+            .get_mut(&channel_id)
+            .ok_or(CommError::ChannelNotFound(channel_id))?;
+        channel.state = ChannelState::Closed;
+        Ok(())
+    }
+
     // -----------------------------------------------------------------------
     // Message engine
     // -----------------------------------------------------------------------
 
     /// Send a message to a channel.
+    ///
+    /// If the channel is Paused, Draining, or Closed, the message is
+    /// automatically dead-lettered and an error is returned.
     pub fn send_message(
         &mut self,
         channel_id: u64,
@@ -391,8 +731,73 @@ impl CommStore {
         Self::validate_sender(sender)?;
         Self::validate_content(content)?;
 
+        // Check channel existence
         if !self.channels.contains_key(&channel_id) {
+            // Dead-letter the message for channel not found
+            let id = self.next_message_id;
+            self.next_message_id += 1;
+            let msg = Message {
+                id,
+                channel_id,
+                sender: sender.to_string(),
+                recipient: None,
+                content: content.to_string(),
+                message_type: msg_type,
+                timestamp: Utc::now(),
+                metadata: HashMap::new(),
+                signature: Some(Self::compute_signature(content)),
+                acknowledged_by: Vec::new(),
+                status: MessageStatus::DeadLettered,
+                priority: MessagePriority::default(),
+                reply_to: None,
+                correlation_id: None,
+                thread_id: None,
+            };
+            self.dead_letters.push(DeadLetter {
+                original_message: msg,
+                reason: DeadLetterReason::ChannelNotFound,
+                dead_lettered_at: Utc::now(),
+                retry_count: 0,
+            });
             return Err(CommError::ChannelNotFound(channel_id));
+        }
+
+        // Check channel state — dead-letter on violation
+        if let Err(e) = self.check_channel_allows_send(channel_id) {
+            let id = self.next_message_id;
+            self.next_message_id += 1;
+            let channel_state = self.channels.get(&channel_id).unwrap().state;
+            let reason = match channel_state {
+                ChannelState::Closed => DeadLetterReason::ChannelClosed,
+                _ => DeadLetterReason::ValidationFailed(format!(
+                    "Channel is {}",
+                    channel_state
+                )),
+            };
+            let msg = Message {
+                id,
+                channel_id,
+                sender: sender.to_string(),
+                recipient: None,
+                content: content.to_string(),
+                message_type: msg_type,
+                timestamp: Utc::now(),
+                metadata: HashMap::new(),
+                signature: Some(Self::compute_signature(content)),
+                acknowledged_by: Vec::new(),
+                status: MessageStatus::DeadLettered,
+                priority: MessagePriority::default(),
+                reply_to: None,
+                correlation_id: None,
+                thread_id: None,
+            };
+            self.dead_letters.push(DeadLetter {
+                original_message: msg,
+                reason,
+                dead_lettered_at: Utc::now(),
+                retry_count: 0,
+            });
+            return Err(e);
         }
 
         let id = self.next_message_id;
@@ -409,10 +814,33 @@ impl CommStore {
             metadata: HashMap::new(),
             signature: Some(Self::compute_signature(content)),
             acknowledged_by: Vec::new(),
+            status: MessageStatus::Sent,
+            priority: MessagePriority::default(),
+            reply_to: None,
+            correlation_id: None,
+            thread_id: None,
         };
 
         self.messages.insert(id, message.clone());
         Ok(message)
+    }
+
+    /// Send a message with a specific priority.
+    pub fn send_message_with_priority(
+        &mut self,
+        channel_id: u64,
+        sender: &str,
+        content: &str,
+        msg_type: MessageType,
+        priority: MessagePriority,
+    ) -> CommResult<Message> {
+        let mut msg = self.send_message(channel_id, sender, content, msg_type)?;
+        // Update priority on the stored message
+        if let Some(stored) = self.messages.get_mut(&msg.id) {
+            stored.priority = priority;
+            msg.priority = priority;
+        }
+        Ok(msg)
     }
 
     /// Receive messages from a channel, optionally filtered by recipient and time.
@@ -425,6 +853,9 @@ impl CommStore {
         if !self.channels.contains_key(&channel_id) {
             return Err(CommError::ChannelNotFound(channel_id));
         }
+
+        // Draining channels allow receive; only Paused and Closed block it
+        self.check_channel_allows_receive(channel_id)?;
 
         let mut msgs: Vec<Message> = self
             .messages
@@ -467,6 +898,7 @@ impl CommStore {
         if !message.acknowledged_by.contains(&recipient.to_string()) {
             message.acknowledged_by.push(recipient.to_string());
         }
+        message.status = MessageStatus::Acknowledged;
         Ok(())
     }
 
@@ -507,6 +939,11 @@ impl CommStore {
                 metadata: HashMap::new(),
                 signature: Some(Self::compute_signature(content)),
                 acknowledged_by: Vec::new(),
+                status: MessageStatus::Sent,
+                priority: MessagePriority::default(),
+                reply_to: None,
+                correlation_id: None,
+                thread_id: None,
             };
 
             self.messages.insert(id, message.clone());
@@ -514,6 +951,95 @@ impl CommStore {
         }
 
         Ok(delivered)
+    }
+
+    // -----------------------------------------------------------------------
+    // Message threading
+    // -----------------------------------------------------------------------
+
+    /// Send a reply linked to a parent message.
+    pub fn send_reply(
+        &mut self,
+        channel_id: u64,
+        message_id: u64,
+        sender: &str,
+        content: &str,
+        msg_type: MessageType,
+    ) -> CommResult<Message> {
+        Self::validate_sender(sender)?;
+        Self::validate_content(content)?;
+
+        // Verify parent message exists
+        let parent = self
+            .messages
+            .get(&message_id)
+            .ok_or(CommError::MessageNotFound(message_id))?
+            .clone();
+
+        // Verify channel exists and allows sending
+        self.check_channel_allows_send(channel_id)?;
+
+        // Inherit thread_id from parent, or use parent's id as thread_id
+        let thread_id = parent
+            .thread_id
+            .clone()
+            .unwrap_or_else(|| format!("thread-{}", parent.id));
+
+        let id = self.next_message_id;
+        self.next_message_id += 1;
+
+        let message = Message {
+            id,
+            channel_id,
+            sender: sender.to_string(),
+            recipient: None,
+            content: content.to_string(),
+            message_type: msg_type,
+            timestamp: Utc::now(),
+            metadata: HashMap::new(),
+            signature: Some(Self::compute_signature(content)),
+            acknowledged_by: Vec::new(),
+            status: MessageStatus::Sent,
+            priority: MessagePriority::default(),
+            reply_to: Some(message_id),
+            correlation_id: None,
+            thread_id: Some(thread_id),
+        };
+
+        self.messages.insert(id, message.clone());
+
+        // Also set the parent's thread_id if it wasn't set yet
+        if let Some(parent_msg) = self.messages.get_mut(&message_id) {
+            if parent_msg.thread_id.is_none() {
+                parent_msg.thread_id = Some(format!("thread-{}", parent_msg.id));
+            }
+        }
+
+        Ok(message)
+    }
+
+    /// Get all messages in a thread, ordered by timestamp.
+    pub fn get_thread(&self, thread_id: &str) -> Vec<Message> {
+        let mut msgs: Vec<Message> = self
+            .messages
+            .values()
+            .filter(|m| m.thread_id.as_deref() == Some(thread_id))
+            .cloned()
+            .collect();
+        msgs.sort_by_key(|m| m.timestamp);
+        msgs
+    }
+
+    /// Get all direct replies to a specific message.
+    pub fn get_replies(&self, message_id: u64) -> Vec<Message> {
+        let mut replies: Vec<Message> = self
+            .messages
+            .values()
+            .filter(|m| m.reply_to == Some(message_id))
+            .cloned()
+            .collect();
+        replies.sort_by_key(|m| m.timestamp);
+        replies
     }
 
     // -----------------------------------------------------------------------
@@ -539,6 +1065,7 @@ impl CommStore {
             created_at: Utc::now(),
             participants: Vec::new(),
             config: config.unwrap_or_default(),
+            state: ChannelState::Active,
         };
 
         self.channels.insert(id, channel.clone());
@@ -695,6 +1222,11 @@ impl CommStore {
                 metadata: HashMap::new(),
                 signature: Some(Self::compute_signature(content)),
                 acknowledged_by: Vec::new(),
+                status: MessageStatus::Sent,
+                priority: MessagePriority::default(),
+                reply_to: None,
+                correlation_id: None,
+                thread_id: None,
             };
 
             self.messages.insert(id, message.clone());
@@ -702,6 +1234,173 @@ impl CommStore {
         }
 
         Ok(delivered)
+    }
+
+    // -----------------------------------------------------------------------
+    // Dead letter queue
+    // -----------------------------------------------------------------------
+
+    /// Return the number of dead letters in the queue.
+    pub fn dead_letter_count(&self) -> usize {
+        self.dead_letters.len()
+    }
+
+    /// List all dead letters, sorted by dead-lettered time (oldest first).
+    pub fn list_dead_letters(&self) -> Vec<DeadLetter> {
+        let mut dl = self.dead_letters.clone();
+        dl.sort_by_key(|d| d.dead_lettered_at);
+        dl
+    }
+
+    /// Attempt to replay (re-send) a dead letter by index.
+    ///
+    /// If the channel is now available and active, the message is re-sent
+    /// and removed from the dead letter queue. Otherwise, the retry count
+    /// is incremented and the dead letter remains.
+    pub fn replay_dead_letter(&mut self, index: usize) -> CommResult<Message> {
+        if index >= self.dead_letters.len() {
+            return Err(CommError::DeadLetterNotFound(index));
+        }
+
+        let dl = self.dead_letters[index].clone();
+        let orig = &dl.original_message;
+
+        // Try to re-send
+        match self.send_message(
+            orig.channel_id,
+            &orig.sender,
+            &orig.content,
+            orig.message_type,
+        ) {
+            Ok(msg) => {
+                // Remove from dead letter queue on success
+                self.dead_letters.remove(index);
+                Ok(msg)
+            }
+            Err(e) => {
+                // Increment retry count on the existing dead letter (the send_message
+                // already created a new dead letter entry, so remove that duplicate
+                // and just update the original)
+                let new_len = self.dead_letters.len();
+                // The failed send_message may have added a new dead letter at the end
+                if new_len > dl.retry_count as usize + self.dead_letters.len() {
+                    // Remove the duplicate that send_message just added
+                    self.dead_letters.pop();
+                }
+                // The original dead letter is still at `index` (or shifted if something
+                // was removed before it). Increment its retry count.
+                if index < self.dead_letters.len() {
+                    self.dead_letters[index].retry_count += 1;
+                }
+                Err(e)
+            }
+        }
+    }
+
+    /// Clear all dead letters from the queue.
+    pub fn clear_dead_letters(&mut self) {
+        self.dead_letters.clear();
+    }
+
+    // -----------------------------------------------------------------------
+    // TTL enforcement
+    // -----------------------------------------------------------------------
+
+    /// Expire messages that have exceeded their channel's TTL.
+    ///
+    /// Scans all messages. If the channel has `ttl_seconds > 0` and the
+    /// message is older than the TTL, the message is moved to the dead
+    /// letter queue with reason `Expired`.
+    ///
+    /// Returns the count of expired messages.
+    pub fn expire_messages(&mut self) -> usize {
+        let now = Utc::now();
+        let mut expired_ids: Vec<u64> = Vec::new();
+
+        for msg in self.messages.values() {
+            if let Some(channel) = self.channels.get(&msg.channel_id) {
+                if channel.config.ttl_seconds > 0 {
+                    let age = now
+                        .signed_duration_since(msg.timestamp)
+                        .num_seconds();
+                    if age > channel.config.ttl_seconds as i64 {
+                        expired_ids.push(msg.id);
+                    }
+                }
+            }
+        }
+
+        let count = expired_ids.len();
+
+        for id in expired_ids {
+            if let Some(mut msg) = self.messages.remove(&id) {
+                msg.status = MessageStatus::Expired;
+                self.dead_letters.push(DeadLetter {
+                    original_message: msg,
+                    reason: DeadLetterReason::Expired,
+                    dead_lettered_at: now,
+                    retry_count: 0,
+                });
+            }
+        }
+
+        count
+    }
+
+    // -----------------------------------------------------------------------
+    // Compact
+    // -----------------------------------------------------------------------
+
+    /// Compact the store by removing messages from closed channels and
+    /// enforcing retention policies.
+    ///
+    /// Returns the count of removed messages.
+    pub fn compact(&mut self) -> usize {
+        let mut removed = 0usize;
+
+        // 1. Remove messages from closed channels
+        let closed_channel_ids: Vec<u64> = self
+            .channels
+            .values()
+            .filter(|c| c.state == ChannelState::Closed)
+            .map(|c| c.id)
+            .collect();
+
+        let ids_to_remove: Vec<u64> = self
+            .messages
+            .values()
+            .filter(|m| closed_channel_ids.contains(&m.channel_id))
+            .map(|m| m.id)
+            .collect();
+
+        for id in ids_to_remove {
+            self.messages.remove(&id);
+            removed += 1;
+        }
+
+        // 2. Enforce RetentionPolicy::MessageCount per channel
+        for channel in self.channels.values() {
+            if let RetentionPolicy::MessageCount(max_count) = channel.config.retention_policy {
+                let mut channel_msgs: Vec<(u64, DateTime<Utc>)> = self
+                    .messages
+                    .values()
+                    .filter(|m| m.channel_id == channel.id)
+                    .map(|m| (m.id, m.timestamp))
+                    .collect();
+
+                if channel_msgs.len() > max_count as usize {
+                    // Sort by timestamp ascending (oldest first)
+                    channel_msgs.sort_by_key(|&(_, ts)| ts);
+                    let to_remove = channel_msgs.len() - max_count as usize;
+                    for (id, _) in channel_msgs.into_iter().take(to_remove) {
+                        self.messages.remove(&id);
+                        removed += 1;
+                    }
+                }
+            }
+        }
+
+        removed
     }
 
     // -----------------------------------------------------------------------
@@ -835,6 +1534,40 @@ impl CommStore {
 
     /// Get summary statistics for the store.
     pub fn stats(&self) -> CommStoreStats {
+        // Count messages by type
+        let mut messages_by_type: HashMap<String, usize> = HashMap::new();
+        let mut messages_by_priority: HashMap<String, usize> = HashMap::new();
+        let mut oldest_message: Option<DateTime<Utc>> = None;
+        let mut newest_message: Option<DateTime<Utc>> = None;
+
+        for msg in self.messages.values() {
+            *messages_by_type
+                .entry(msg.message_type.to_string())
+                .or_insert(0) += 1;
+            *messages_by_priority
+                .entry(msg.priority.to_string())
+                .or_insert(0) += 1;
+
+            match oldest_message {
+                None => oldest_message = Some(msg.timestamp),
+                Some(ref ts) if msg.timestamp < *ts => oldest_message = Some(msg.timestamp),
+                _ => {}
+            }
+            match newest_message {
+                None => newest_message = Some(msg.timestamp),
+                Some(ref ts) if msg.timestamp > *ts => newest_message = Some(msg.timestamp),
+                _ => {}
+            }
+        }
+
+        // Count channels by state
+        let mut channels_by_state: HashMap<String, usize> = HashMap::new();
+        for ch in self.channels.values() {
+            *channels_by_state
+                .entry(ch.state.to_string())
+                .or_insert(0) += 1;
+        }
+
         CommStoreStats {
             channel_count: self.channels.len(),
             message_count: self.messages.len(),
@@ -844,6 +1577,12 @@ impl CommStore {
                 .values()
                 .map(|c| c.participants.len())
                 .sum(),
+            dead_letter_count: self.dead_letters.len(),
+            messages_by_type,
+            messages_by_priority,
+            channels_by_state,
+            oldest_message,
+            newest_message,
         }
     }
 }
@@ -859,6 +1598,24 @@ pub struct CommStoreStats {
     pub subscription_count: usize,
     /// Total number of participants across all channels.
     pub total_participants: usize,
+    /// Number of messages in the dead letter queue.
+    #[serde(default)]
+    pub dead_letter_count: usize,
+    /// Count of messages grouped by message type.
+    #[serde(default)]
+    pub messages_by_type: HashMap<String, usize>,
+    /// Count of messages grouped by priority.
+    #[serde(default)]
+    pub messages_by_priority: HashMap<String, usize>,
+    /// Count of channels grouped by state.
+    #[serde(default)]
+    pub channels_by_state: HashMap<String, usize>,
+    /// Timestamp of the oldest message in the store.
+    #[serde(default)]
+    pub oldest_message: Option<DateTime<Utc>>,
+    /// Timestamp of the newest message in the store.
+    #[serde(default)]
+    pub newest_message: Option<DateTime<Utc>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1204,6 +1961,7 @@ mod tests {
             ttl_seconds: 3600,
             persistence: false,
             encryption_required: true,
+            ..Default::default()
         };
         store.set_channel_config(cid, config).unwrap();
         let ch = store.get_channel(cid).unwrap();
@@ -1247,5 +2005,498 @@ mod tests {
             let parsed: ChannelType = s.parse().unwrap();
             assert_eq!(parsed, ct);
         }
+    }
+
+    // ===================================================================
+    // NEW TESTS — Features 1-10
+    // ===================================================================
+
+    // -- test_message_priority_ordering --
+
+    #[test]
+    fn test_message_priority_ordering() {
+        // MessagePriority derives Ord, so we can sort by priority
+        let mut priorities = vec![
+            MessagePriority::Critical,
+            MessagePriority::Low,
+            MessagePriority::Urgent,
+            MessagePriority::Normal,
+            MessagePriority::High,
+        ];
+        priorities.sort();
+        assert_eq!(
+            priorities,
+            vec![
+                MessagePriority::Low,
+                MessagePriority::Normal,
+                MessagePriority::High,
+                MessagePriority::Urgent,
+                MessagePriority::Critical,
+            ]
+        );
+    }
+
+    // -- test_channel_state_pause_blocks_send --
+
+    #[test]
+    fn test_channel_state_pause_blocks_send() {
+        let (mut store, cid) = new_store_with_channel();
+        store.pause_channel(cid).unwrap();
+        let result = store.send_message(cid, "alice", "blocked", MessageType::Text);
+        assert!(result.is_err());
+        // Should have dead-lettered it
+        assert_eq!(store.dead_letter_count(), 1);
+    }
+
+    // -- test_channel_state_drain_allows_receive --
+
+    #[test]
+    fn test_channel_state_drain_allows_receive() {
+        let (mut store, cid) = new_store_with_channel();
+        // Send a message while active
+        store
+            .send_message(cid, "alice", "before drain", MessageType::Text)
+            .unwrap();
+        // Now drain the channel
+        store.drain_channel(cid).unwrap();
+        // Receive should still work
+        let msgs = store.receive_messages(cid, None, None).unwrap();
+        assert_eq!(msgs.len(), 1);
+        // But sending should fail
+        let result = store.send_message(cid, "bob", "blocked", MessageType::Text);
+        assert!(result.is_err());
+    }
+
+    // -- test_channel_state_close_blocks_all --
+
+    #[test]
+    fn test_channel_state_close_blocks_all() {
+        let (mut store, cid) = new_store_with_channel();
+        store
+            .send_message(cid, "alice", "before close", MessageType::Text)
+            .unwrap();
+        store.close_channel(cid).unwrap();
+        // Send should fail
+        let send_result = store.send_message(cid, "bob", "nope", MessageType::Text);
+        assert!(send_result.is_err());
+        // Receive should also fail
+        let recv_result = store.receive_messages(cid, None, None);
+        assert!(recv_result.is_err());
+    }
+
+    // -- test_channel_resume_after_pause --
+
+    #[test]
+    fn test_channel_resume_after_pause() {
+        let (mut store, cid) = new_store_with_channel();
+        store.pause_channel(cid).unwrap();
+        let ch = store.get_channel(cid).unwrap();
+        assert_eq!(ch.state, ChannelState::Paused);
+
+        store.resume_channel(cid).unwrap();
+        let ch = store.get_channel(cid).unwrap();
+        assert_eq!(ch.state, ChannelState::Active);
+
+        // Should be able to send again
+        let msg = store
+            .send_message(cid, "alice", "resumed", MessageType::Text)
+            .unwrap();
+        assert_eq!(msg.content, "resumed");
+    }
+
+    // -- test_send_reply --
+
+    #[test]
+    fn test_send_reply() {
+        let (mut store, cid) = new_store_with_channel();
+        let parent = store
+            .send_message(cid, "alice", "original question", MessageType::Query)
+            .unwrap();
+        let reply = store
+            .send_reply(cid, parent.id, "bob", "answer here", MessageType::Response)
+            .unwrap();
+        assert_eq!(reply.reply_to, Some(parent.id));
+        assert!(reply.thread_id.is_some());
+        // Parent should also have a thread_id now
+        let updated_parent = store.get_message(parent.id).unwrap();
+        assert!(updated_parent.thread_id.is_some());
+        assert_eq!(updated_parent.thread_id, reply.thread_id);
+    }
+
+    // -- test_get_thread --
+
+    #[test]
+    fn test_get_thread() {
+        let (mut store, cid) = new_store_with_channel();
+        let parent = store
+            .send_message(cid, "alice", "start thread", MessageType::Text)
+            .unwrap();
+        let r1 = store
+            .send_reply(cid, parent.id, "bob", "reply 1", MessageType::Response)
+            .unwrap();
+        let thread_id = r1.thread_id.clone().unwrap();
+        store
+            .send_reply(cid, parent.id, "carol", "reply 2", MessageType::Response)
+            .unwrap();
+
+        let thread = store.get_thread(&thread_id);
+        // Parent + 2 replies = 3 messages in the thread
+        assert_eq!(thread.len(), 3);
+        // Ordered by timestamp
+        assert!(thread[0].timestamp <= thread[1].timestamp);
+        assert!(thread[1].timestamp <= thread[2].timestamp);
+    }
+
+    // -- test_get_replies --
+
+    #[test]
+    fn test_get_replies() {
+        let (mut store, cid) = new_store_with_channel();
+        let parent = store
+            .send_message(cid, "alice", "parent msg", MessageType::Text)
+            .unwrap();
+        store
+            .send_reply(cid, parent.id, "bob", "reply A", MessageType::Response)
+            .unwrap();
+        store
+            .send_reply(cid, parent.id, "carol", "reply B", MessageType::Response)
+            .unwrap();
+        // Also send a non-reply message
+        store
+            .send_message(cid, "dave", "unrelated", MessageType::Text)
+            .unwrap();
+
+        let replies = store.get_replies(parent.id);
+        assert_eq!(replies.len(), 2);
+        assert!(replies.iter().all(|r| r.reply_to == Some(parent.id)));
+    }
+
+    // -- test_dead_letter_on_closed_channel --
+
+    #[test]
+    fn test_dead_letter_on_closed_channel() {
+        let (mut store, cid) = new_store_with_channel();
+        store.close_channel(cid).unwrap();
+
+        let result = store.send_message(cid, "alice", "dropped", MessageType::Text);
+        assert!(result.is_err());
+        assert_eq!(store.dead_letter_count(), 1);
+
+        let dls = store.list_dead_letters();
+        assert_eq!(dls.len(), 1);
+        assert_eq!(dls[0].original_message.content, "dropped");
+        assert_eq!(dls[0].reason, DeadLetterReason::ChannelClosed);
+    }
+
+    // -- test_dead_letter_replay --
+
+    #[test]
+    fn test_dead_letter_replay() {
+        let (mut store, cid) = new_store_with_channel();
+        store.close_channel(cid).unwrap();
+
+        // This will fail and dead-letter
+        let _ = store.send_message(cid, "alice", "retry me", MessageType::Text);
+        assert_eq!(store.dead_letter_count(), 1);
+
+        // Reopen the channel
+        store.resume_channel(cid).unwrap();
+
+        // Replay the dead letter
+        let msg = store.replay_dead_letter(0).unwrap();
+        assert_eq!(msg.content, "retry me");
+        assert_eq!(msg.status, MessageStatus::Sent);
+        // Dead letter should be removed after successful replay
+        assert_eq!(store.dead_letter_count(), 0);
+    }
+
+    // -- test_expire_messages --
+
+    #[test]
+    fn test_expire_messages() {
+        let mut store = CommStore::new();
+        let config = ChannelConfig {
+            ttl_seconds: 1, // 1 second TTL
+            ..Default::default()
+        };
+        let ch = store
+            .create_channel("ephemeral", ChannelType::Group, Some(config))
+            .unwrap();
+
+        // Insert a message with an old timestamp by directly manipulating
+        let id = 100;
+        let old_time = Utc::now() - chrono::Duration::seconds(10);
+        let msg = Message {
+            id,
+            channel_id: ch.id,
+            sender: "alice".to_string(),
+            recipient: None,
+            content: "old message".to_string(),
+            message_type: MessageType::Text,
+            timestamp: old_time,
+            metadata: HashMap::new(),
+            signature: None,
+            acknowledged_by: Vec::new(),
+            status: MessageStatus::Sent,
+            priority: MessagePriority::Normal,
+            reply_to: None,
+            correlation_id: None,
+            thread_id: None,
+        };
+        store.messages.insert(id, msg);
+
+        // Also add a fresh message
+        store
+            .send_message(ch.id, "bob", "fresh message", MessageType::Text)
+            .unwrap();
+
+        let expired_count = store.expire_messages();
+        assert_eq!(expired_count, 1);
+        // The old message should be gone from messages
+        assert!(store.get_message(100).is_none());
+        // But should be in dead letters
+        assert_eq!(store.dead_letter_count(), 1);
+        let dls = store.list_dead_letters();
+        assert_eq!(dls[0].reason, DeadLetterReason::Expired);
+        // The fresh message should still be there
+        assert_eq!(store.messages.len(), 1);
+    }
+
+    // -- test_compact_removes_closed_channel_messages --
+
+    #[test]
+    fn test_compact_removes_closed_channel_messages() {
+        let (mut store, cid) = new_store_with_channel();
+        store
+            .send_message(cid, "alice", "msg1", MessageType::Text)
+            .unwrap();
+        store
+            .send_message(cid, "alice", "msg2", MessageType::Text)
+            .unwrap();
+
+        // Create another active channel with a message
+        let ch2 = store
+            .create_channel("active-ch", ChannelType::Group, None)
+            .unwrap();
+        store
+            .send_message(ch2.id, "bob", "active msg", MessageType::Text)
+            .unwrap();
+
+        assert_eq!(store.messages.len(), 3);
+
+        // Close the first channel
+        store.close_channel(cid).unwrap();
+
+        let removed = store.compact();
+        assert_eq!(removed, 2); // 2 messages from closed channel
+        assert_eq!(store.messages.len(), 1); // only the active channel message remains
+    }
+
+    // -- test_delivery_mode_default --
+
+    #[test]
+    fn test_delivery_mode_default() {
+        let config = ChannelConfig::default();
+        assert_eq!(config.delivery_mode, DeliveryMode::AtLeastOnce);
+        assert_eq!(config.retention_policy, RetentionPolicy::Forever);
+    }
+
+    // -- test_enhanced_stats --
+
+    #[test]
+    fn test_enhanced_stats() {
+        let (mut store, cid) = new_store_with_channel();
+        store
+            .send_message(cid, "alice", "text msg", MessageType::Text)
+            .unwrap();
+        store
+            .send_message(cid, "bob", "command msg", MessageType::Command)
+            .unwrap();
+        store
+            .send_message_with_priority(
+                cid,
+                "carol",
+                "urgent msg",
+                MessageType::Text,
+                MessagePriority::Urgent,
+            )
+            .unwrap();
+
+        // Close a channel to get dead letters
+        let ch2 = store
+            .create_channel("closable", ChannelType::Group, None)
+            .unwrap();
+        store.close_channel(ch2.id).unwrap();
+        let _ = store.send_message(ch2.id, "dave", "dropped", MessageType::Text);
+
+        let stats = store.stats();
+        assert_eq!(stats.channel_count, 2);
+        assert_eq!(stats.message_count, 3);
+        assert_eq!(stats.dead_letter_count, 1);
+
+        // messages_by_type: 2 text, 1 command
+        assert_eq!(stats.messages_by_type.get("text"), Some(&2));
+        assert_eq!(stats.messages_by_type.get("command"), Some(&1));
+
+        // messages_by_priority: 2 normal, 1 urgent
+        assert_eq!(stats.messages_by_priority.get("normal"), Some(&2));
+        assert_eq!(stats.messages_by_priority.get("urgent"), Some(&1));
+
+        // channels_by_state: 1 active, 1 closed
+        assert_eq!(stats.channels_by_state.get("active"), Some(&1));
+        assert_eq!(stats.channels_by_state.get("closed"), Some(&1));
+
+        // oldest/newest should be set
+        assert!(stats.oldest_message.is_some());
+        assert!(stats.newest_message.is_some());
+    }
+
+    // -- test_message_status_transitions --
+
+    #[test]
+    fn test_message_status_transitions() {
+        let (mut store, cid) = new_store_with_channel();
+
+        // Message starts as Sent (set during send_message)
+        let msg = store
+            .send_message(cid, "alice", "track me", MessageType::Text)
+            .unwrap();
+        assert_eq!(msg.status, MessageStatus::Sent);
+
+        // After acknowledgment, status becomes Acknowledged
+        store.acknowledge_message(msg.id, "bob").unwrap();
+        let updated = store.get_message(msg.id).unwrap();
+        assert_eq!(updated.status, MessageStatus::Acknowledged);
+
+        // Default status is Created
+        assert_eq!(MessageStatus::default(), MessageStatus::Created);
+    }
+
+    // -- test_send_message_with_priority --
+
+    #[test]
+    fn test_send_message_with_priority() {
+        let (mut store, cid) = new_store_with_channel();
+        let msg = store
+            .send_message_with_priority(
+                cid,
+                "alice",
+                "critical alert",
+                MessageType::Notification,
+                MessagePriority::Critical,
+            )
+            .unwrap();
+        assert_eq!(msg.priority, MessagePriority::Critical);
+
+        // Verify stored message also has the priority
+        let stored = store.get_message(msg.id).unwrap();
+        assert_eq!(stored.priority, MessagePriority::Critical);
+    }
+
+    // -- test_dead_letter_clear --
+
+    #[test]
+    fn test_dead_letter_clear() {
+        let (mut store, cid) = new_store_with_channel();
+        store.close_channel(cid).unwrap();
+        let _ = store.send_message(cid, "alice", "dl1", MessageType::Text);
+        let _ = store.send_message(cid, "alice", "dl2", MessageType::Text);
+        assert_eq!(store.dead_letter_count(), 2);
+
+        store.clear_dead_letters();
+        assert_eq!(store.dead_letter_count(), 0);
+    }
+
+    // -- test_compact_enforces_retention_policy --
+
+    #[test]
+    fn test_compact_enforces_retention_policy() {
+        let mut store = CommStore::new();
+        let config = ChannelConfig {
+            retention_policy: RetentionPolicy::MessageCount(2),
+            ..Default::default()
+        };
+        let ch = store
+            .create_channel("limited", ChannelType::Group, Some(config))
+            .unwrap();
+
+        // Send 5 messages
+        for i in 0..5 {
+            store
+                .send_message(ch.id, "alice", &format!("msg-{i}"), MessageType::Text)
+                .unwrap();
+        }
+        assert_eq!(store.messages.len(), 5);
+
+        let removed = store.compact();
+        assert_eq!(removed, 3); // 5 - 2 = 3 removed
+        assert_eq!(store.messages.len(), 2);
+    }
+
+    // -- test_save_and_load_with_new_fields --
+
+    #[test]
+    fn test_save_and_load_with_new_fields() {
+        let (mut store, cid) = new_store_with_channel();
+        store.join_channel(cid, "alice").unwrap();
+
+        // Use new features
+        let msg = store
+            .send_message_with_priority(
+                cid,
+                "alice",
+                "priority msg",
+                MessageType::Text,
+                MessagePriority::High,
+            )
+            .unwrap();
+        store
+            .send_reply(cid, msg.id, "bob", "reply", MessageType::Response)
+            .unwrap();
+
+        // Close another channel to create dead letters
+        let ch2 = store
+            .create_channel("closing", ChannelType::Group, None)
+            .unwrap();
+        store.close_channel(ch2.id).unwrap();
+        let _ = store.send_message(ch2.id, "carol", "dead", MessageType::Text);
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test_new.acomm");
+        store.save(&path).unwrap();
+
+        let loaded = CommStore::load(&path).unwrap();
+        assert_eq!(loaded.channels.len(), 2);
+        assert_eq!(loaded.messages.len(), 2);
+        assert_eq!(loaded.dead_letters.len(), 1);
+
+        // Verify new fields survived round-trip
+        let loaded_msg = loaded.get_message(msg.id).unwrap();
+        assert_eq!(loaded_msg.priority, MessagePriority::High);
+
+        let ch2_loaded = loaded.get_channel(ch2.id).unwrap();
+        assert_eq!(ch2_loaded.state, ChannelState::Closed);
+    }
+
+    // -- test_channel_state_display --
+
+    #[test]
+    fn test_channel_state_display() {
+        assert_eq!(ChannelState::Active.to_string(), "active");
+        assert_eq!(ChannelState::Paused.to_string(), "paused");
+        assert_eq!(ChannelState::Draining.to_string(), "draining");
+        assert_eq!(ChannelState::Closed.to_string(), "closed");
+    }
+
+    // -- test_dead_letter_on_nonexistent_channel --
+
+    #[test]
+    fn test_dead_letter_on_nonexistent_channel() {
+        let mut store = CommStore::new();
+        let result = store.send_message(999, "alice", "nowhere", MessageType::Text);
+        assert!(result.is_err());
+        assert_eq!(store.dead_letter_count(), 1);
+        let dls = store.list_dead_letters();
+        assert_eq!(dls[0].reason, DeadLetterReason::ChannelNotFound);
     }
 }

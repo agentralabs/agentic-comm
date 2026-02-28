@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 
 use crate::session::manager::SessionManager;
 use crate::tools::communication_log::{CommunicationLogEntry, CommunicationLogInput};
+use crate::tools::validation;
 use crate::types::response::{ToolCallResult, ToolDefinition};
 use crate::types::McpError;
 
@@ -174,7 +175,7 @@ impl ToolRegistry {
                     "properties": {
                         "topic": {
                             "type": "string",
-                            "description": "Topic to subscribe to (alphanumeric, hyphens, underscores; 1-128 chars)"
+                            "description": "Topic to subscribe to (alphanumeric, hyphens, underscores, dots; 1-128 chars)"
                         },
                         "subscriber": {
                             "type": "string",
@@ -293,7 +294,7 @@ impl ToolRegistry {
                         },
                         "max_results": {
                             "type": "integer",
-                            "description": "Maximum results (default: 20, range: 1-1000)",
+                            "description": "Maximum results (default: 20, range: 1-10000)",
                             "default": 20
                         }
                     },
@@ -398,11 +399,43 @@ impl ToolRegistry {
     }
 
     /// Dispatch a tool call to the appropriate handler.
+    ///
+    /// Validation runs first — if it fails, the error is returned as a
+    /// `ToolCallResult` with `isError: true` (not a protocol-level error).
     pub fn dispatch(
         tool_name: &str,
         params: &Value,
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
+        // Run validation before dispatch. Validation errors become tool-level
+        // errors with isError: true, not protocol-level JSON-RPC errors.
+        let validation_result = match tool_name {
+            "send_message" => validation::validate_send_message(params),
+            "receive_messages" => validation::validate_receive_messages(params),
+            "create_channel" => validation::validate_create_channel(params),
+            "list_channels" => Ok(()), // No required params
+            "join_channel" => validation::validate_join_channel(params),
+            "leave_channel" => validation::validate_leave_channel(params),
+            "get_channel_info" => validation::validate_get_channel_info(params),
+            "subscribe" => validation::validate_subscribe(params),
+            "unsubscribe" => validation::validate_unsubscribe(params),
+            "publish" => validation::validate_publish(params),
+            "broadcast" => validation::validate_broadcast(params),
+            "query_history" => validation::validate_query_history(params),
+            "search_messages" => validation::validate_search_messages(params),
+            "get_message" => validation::validate_get_message(params),
+            "acknowledge_message" => validation::validate_acknowledge_message(params),
+            "set_channel_config" => validation::validate_set_channel_config(params),
+            "communication_log" => validation::validate_communication_log(params),
+            _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
+        };
+
+        // If validation failed, return the error result directly
+        if let Err(error_result) = validation_result {
+            return Ok(error_result);
+        }
+
+        // Dispatch to actual handler
         match tool_name {
             "send_message" => Self::handle_send_message(params, session),
             "receive_messages" => Self::handle_receive_messages(params, session),
@@ -519,6 +552,7 @@ impl ToolRegistry {
                 .get("encryption_required")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false),
+            ..Default::default()
         };
 
         match session.store.create_channel(name, ch_type, Some(config)) {
@@ -853,6 +887,7 @@ impl ToolRegistry {
                 .get("encryption_required")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(current.config.encryption_required),
+            ..current.config
         };
 
         match session.store.set_channel_config(channel_id, config) {

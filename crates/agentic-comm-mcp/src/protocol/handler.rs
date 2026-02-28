@@ -87,14 +87,15 @@ impl ProtocolHandler {
     }
 
     /// Cleanup on transport close (EOF). Auto-ends session if one was started.
+    /// Saves the store and cleans up resources gracefully.
     pub async fn cleanup(&self) {
         if !self.auto_session_started.load(Ordering::Relaxed) {
             return;
         }
 
         let mut session = self.session.lock().await;
-        if let Err(e) = session.save() {
-            eprintln!("Failed to save on EOF cleanup: {e}");
+        if let Err(e) = session.auto_save_on_stop() {
+            eprintln!("Failed to auto-save on EOF cleanup: {e}");
         }
         self.auto_session_started.store(false, Ordering::Relaxed);
     }
@@ -177,10 +178,10 @@ impl ProtocolHandler {
     async fn handle_shutdown(&self) -> McpResult<Value> {
         let mut session = self.session.lock().await;
 
-        // Save on shutdown.
+        // Auto-save on shutdown.
         if self.auto_session_started.swap(false, Ordering::Relaxed) {
-            if let Err(e) = session.save() {
-                eprintln!("Failed to save on shutdown: {e}");
+            if let Err(e) = session.auto_save_on_stop() {
+                eprintln!("Failed to auto-save on shutdown: {e}");
             }
         }
 
