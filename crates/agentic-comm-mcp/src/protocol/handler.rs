@@ -78,18 +78,29 @@ impl ProtocolHandler {
         }
     }
 
-    /// Cleanup on transport close (EOF). Auto-ends session if one was started.
-    /// Saves the store and cleans up resources gracefully.
-    pub async fn cleanup(&self) {
-        if !self.auto_session_started.load(Ordering::Relaxed) {
+    /// End the session gracefully and clean up resources.
+    ///
+    /// Called on EOF or read error from the stdio transport. Uses
+    /// `end_session_manual` for a proper session summary, matching the
+    /// behaviour of sister projects (agentic-memory, agentic-vision).
+    pub async fn end_session_and_cleanup(&self) {
+        if !self.auto_session_started.swap(false, Ordering::Relaxed) {
             return;
         }
 
         let mut session = self.session.lock().await;
-        if let Err(e) = session.auto_save_on_stop() {
-            eprintln!("Failed to auto-save on EOF cleanup: {e}");
-        }
-        self.auto_session_started.store(false, Ordering::Relaxed);
+        let summary = session.end_session_manual(Some("Auto-ended on transport close"));
+        eprintln!(
+            "Session ended: {:.0}s, {} tool calls, {} conversation entries",
+            summary.duration_secs,
+            summary.tool_calls,
+            summary.conversation_entries,
+        );
+    }
+
+    /// Legacy cleanup alias — delegates to `end_session_and_cleanup`.
+    pub async fn cleanup(&self) {
+        self.end_session_and_cleanup().await;
     }
 
     async fn handle_request(&self, request: JsonRpcRequest) -> Value {
@@ -140,11 +151,12 @@ impl ProtocolHandler {
 
     async fn handle_notification(&self, notification: JsonRpcNotification) {
         match notification.method.as_str() {
-            "initialized" => {
+            "notifications/initialized" | "initialized" => {
                 // Auto-start session when client confirms connection.
                 self.auto_session_started.store(true, Ordering::Relaxed);
                 let mut session = self.session.lock().await;
-                session.mark_session_started();
+                session.start_session_manual(None);
+                eprintln!("Auto-session started on MCP initialized notification");
             }
             "notifications/cancelled" | "$/cancelRequest" => {
                 // Cancellation — no-op for now.
@@ -183,11 +195,15 @@ impl ProtocolHandler {
     async fn handle_shutdown(&self) -> McpResult<Value> {
         let mut session = self.session.lock().await;
 
-        // Auto-save on shutdown.
+        // Auto-end session on shutdown.
         if self.auto_session_started.swap(false, Ordering::Relaxed) {
-            if let Err(e) = session.auto_save_on_stop() {
-                eprintln!("Failed to auto-save on shutdown: {e}");
-            }
+            let summary = session.end_session_manual(Some("Auto-ended on shutdown"));
+            eprintln!(
+                "Session ended on shutdown: {:.0}s, {} tool calls, {} conversation entries",
+                summary.duration_secs,
+                summary.tool_calls,
+                summary.conversation_entries,
+            );
         }
 
         self.shutdown_requested.store(true, Ordering::Relaxed);

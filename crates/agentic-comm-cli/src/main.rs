@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use agentic_comm::{
     AuditEntry, AuditEventType, ChannelConfig, ChannelType, CollectiveDecisionMode, CommStore,
-    CommTrustLevel, ConsentScope, DeliveryMode, FederatedZone, FederationPolicy, HiveRole,
-    MessageFilter, MessageType, TemporalTarget,
+    CommTrustLevel, CommWorkspace, ConsentScope, DeliveryMode, FederatedZone, FederationPolicy,
+    HiveRole, MessageFilter, MessageType, TemporalTarget, WorkspaceRole,
 };
 use clap::{Parser, Subcommand};
 
@@ -217,12 +217,28 @@ enum Commands {
         /// The claim to verify
         claim: String,
     },
+    /// Workspace management (create, add, list, query, compare, xref)
+    Workspace {
+        #[command(subcommand)]
+        action: WorkspaceAction,
+    },
     /// Dead letter management (list, replay, clear)
     DeadLetters {
         #[command(subcommand)]
         action: DeadLetterAction,
     },
+    /// Session lifecycle management (start, end, resume)
+    Session {
+        #[command(subcommand)]
+        action: SessionAction,
+    },
+    /// Log a conversation entry (user/response pair)
+    Conversation {
+        #[command(subcommand)]
+        action: ConversationAction,
+    },
 }
+
 
 // ---------------------------------------------------------------------------
 // Message subcommands
@@ -313,6 +329,16 @@ enum MessageAction {
         /// Thread ID
         thread_id: String,
     },
+    /// Query the echo (forwarding) chain for a message
+    EchoChain {
+        /// Message ID
+        message_id: u64,
+    },
+    /// Get the forwarding depth of a message
+    EchoDepth {
+        /// Message ID
+        message_id: u64,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -397,6 +423,11 @@ enum QueryAction {
         /// Maximum results
         #[arg(long, default_value = "50")]
         limit: u64,
+    },
+    /// Summarize conversation in a channel
+    Summary {
+        /// Channel ID
+        channel_id: u64,
     },
 }
 
@@ -759,6 +790,21 @@ enum AffectAction {
         #[arg(long)]
         level: f64,
     },
+    /// Process affect contagion on a channel
+    Contagion {
+        /// Channel ID
+        channel_id: u64,
+    },
+    /// Get affect history for an agent
+    History {
+        /// Agent ID
+        agent: String,
+    },
+    /// Apply affect decay with a given rate
+    Decay {
+        /// Decay rate (0.0 to 1.0)
+        rate: f64,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -910,6 +956,61 @@ fn parse_delivery_mode(s: &str) -> DeliveryMode {
 
 /// Helper: print a value as JSON or pretty-formatted.
 // ---------------------------------------------------------------------------
+// Workspace subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum WorkspaceAction {
+    /// Create a new workspace
+    Create {
+        /// Workspace name
+        name: String,
+    },
+    /// Add a context (store file) to a workspace
+    Add {
+        /// Workspace name (used to find or create)
+        workspace: String,
+        /// Path to the .acomm store file
+        path: String,
+        /// Human-readable label for this context
+        #[arg(long)]
+        label: Option<String>,
+        /// Role: primary, secondary, reference, archive
+        #[arg(long, default_value = "secondary")]
+        role: String,
+    },
+    /// List contexts in a workspace
+    List {
+        /// Workspace name
+        workspace: String,
+    },
+    /// Query across all contexts in a workspace
+    Query {
+        /// Workspace name
+        workspace: String,
+        /// Search query text
+        query: String,
+        /// Maximum matches per context
+        #[arg(long, default_value = "20")]
+        limit: usize,
+    },
+    /// Compare an item across workspace contexts
+    Compare {
+        /// Workspace name
+        workspace: String,
+        /// Item to compare
+        item: String,
+    },
+    /// Cross-reference an item across workspace contexts
+    Xref {
+        /// Workspace name
+        workspace: String,
+        /// Item to cross-reference
+        item: String,
+    },
+}
+
+// ---------------------------------------------------------------------------
 // Dead letter subcommands
 // ---------------------------------------------------------------------------
 
@@ -924,6 +1025,48 @@ enum DeadLetterAction {
     },
     /// Clear all dead letters
     Clear,
+}
+
+// ---------------------------------------------------------------------------
+// Session subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum SessionAction {
+    /// Start a new session
+    Start,
+    /// End the current session
+    End {
+        /// Optional session summary
+        #[arg(long)]
+        summary: Option<String>,
+    },
+    /// Resume and show recent session context
+    Resume {
+        /// Maximum number of recent items to show
+        #[arg(long, default_value = "20")]
+        limit: usize,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Conversation subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum ConversationAction {
+    /// Log a conversation entry (user message and agent response)
+    Log {
+        /// User message
+        #[arg(long)]
+        user: String,
+        /// Agent response
+        #[arg(long)]
+        response: String,
+        /// Optional topic tag
+        #[arg(long)]
+        topic: Option<String>,
+    },
 }
 
 fn output(value: &serde_json::Value, json_mode: bool) {
@@ -1203,6 +1346,22 @@ fn main() {
                 let messages = store.get_thread(&thread_id);
                 output(&serde_json::to_value(&messages).unwrap(), json_mode);
             }
+            MessageAction::EchoChain { message_id } => {
+                let store = load_or_create(&store_path);
+                let chain = store.query_echo_chain(message_id);
+                output(&serde_json::to_value(&chain).unwrap(), json_mode);
+            }
+            MessageAction::EchoDepth { message_id } => {
+                let store = load_or_create(&store_path);
+                let depth = store.get_echo_depth(message_id);
+                output(
+                    &serde_json::json!({
+                        "message_id": message_id,
+                        "echo_depth": depth,
+                    }),
+                    json_mode,
+                );
+            }
         },
 
         // -----------------------------------------------------------------
@@ -1307,6 +1466,18 @@ fn main() {
                 let results =
                     store.query_conversations(channel, participant.as_deref(), limit);
                 output(&serde_json::to_value(&results).unwrap(), json_mode);
+            }
+            QueryAction::Summary { channel_id } => {
+                let store = load_or_create(&store_path);
+                match store.summarize_conversation(channel_id) {
+                    Ok(summary) => {
+                        output(&serde_json::to_value(&summary).unwrap(), json_mode);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
             }
         },
 
@@ -2270,6 +2441,51 @@ fn main() {
                     eprintln!("Warning: failed to save store: {e}");
                 }
             }
+            AffectAction::Contagion { channel_id } => {
+                let mut store = load_or_create(&store_path);
+                let results = store.process_affect_contagion(channel_id);
+                let formatted: Vec<serde_json::Value> = results
+                    .into_iter()
+                    .map(|(agent, valence, arousal, dominance)| {
+                        serde_json::json!({
+                            "agent": agent,
+                            "valence": valence,
+                            "arousal": arousal,
+                            "dominance": dominance,
+                        })
+                    })
+                    .collect();
+                output(
+                    &serde_json::json!({
+                        "status": "processed",
+                        "channel_id": channel_id,
+                        "affected_agents": formatted,
+                    }),
+                    json_mode,
+                );
+                if let Err(e) = store.save(&store_path) {
+                    eprintln!("Warning: failed to save store: {e}");
+                }
+            }
+            AffectAction::History { agent } => {
+                let store = load_or_create(&store_path);
+                let history = store.get_affect_history(&agent);
+                output(&serde_json::to_value(&history).unwrap(), json_mode);
+            }
+            AffectAction::Decay { rate } => {
+                let mut store = load_or_create(&store_path);
+                store.apply_affect_decay(rate);
+                output(
+                    &serde_json::json!({
+                        "status": "applied",
+                        "decay_rate": rate,
+                    }),
+                    json_mode,
+                );
+                if let Err(e) = store.save(&store_path) {
+                    eprintln!("Warning: failed to save store: {e}");
+                }
+            }
         },
 
         // -----------------------------------------------------------------
@@ -2599,6 +2815,86 @@ fn main() {
         }
 
         // -----------------------------------------------------------------
+        // Workspace management
+        // -----------------------------------------------------------------
+        Commands::Workspace { action } => match action {
+            WorkspaceAction::Create { name } => {
+                let ws = CommWorkspace::new(&name);
+                output(
+                    &serde_json::json!({
+                        "status": "created",
+                        "workspace_id": ws.id,
+                        "name": ws.name,
+                    }),
+                    json_mode,
+                );
+            }
+            WorkspaceAction::Add {
+                workspace,
+                path,
+                label,
+                role,
+            } => {
+                let role: WorkspaceRole = role.parse().unwrap_or_else(|e: String| {
+                    eprintln!("Invalid workspace role: {e}");
+                    std::process::exit(1);
+                });
+                let mut ws = CommWorkspace::new(&workspace);
+                match ws.add_context(&path, label.as_deref(), role) {
+                    Ok(()) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "added",
+                                "workspace": workspace,
+                                "path": path,
+                                "contexts": ws.list_contexts().len(),
+                            }),
+                            json_mode,
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            WorkspaceAction::List { workspace } => {
+                let ws = CommWorkspace::new(&workspace);
+                let contexts = ws.list_contexts();
+                output(&serde_json::to_value(&contexts).unwrap(), json_mode);
+            }
+            WorkspaceAction::Query {
+                workspace,
+                query,
+                limit,
+            } => {
+                let ws = CommWorkspace::new(&workspace);
+                let results = ws.query(&query, limit);
+                output(&serde_json::to_value(&results).unwrap(), json_mode);
+            }
+            WorkspaceAction::Compare { workspace, item } => {
+                let ws = CommWorkspace::new(&workspace);
+                let comparison = ws.compare(&item, 50);
+                output(&serde_json::to_value(&comparison).unwrap(), json_mode);
+            }
+            WorkspaceAction::Xref { workspace, item } => {
+                let ws = CommWorkspace::new(&workspace);
+                let xrefs = ws.xref(&item);
+                let result: Vec<serde_json::Value> = xrefs
+                    .into_iter()
+                    .map(|(label, found, count)| {
+                        serde_json::json!({
+                            "context": label,
+                            "found": found,
+                            "count": count,
+                        })
+                    })
+                    .collect();
+                output(&serde_json::to_value(&result).unwrap(), json_mode);
+            }
+        },
+
+        // -----------------------------------------------------------------
         // Ground — claim verification
         // -----------------------------------------------------------------
         Commands::Ground { claim } => {
@@ -2606,5 +2902,91 @@ fn main() {
             let result = store.ground_claim(&claim);
             output(&serde_json::to_value(&result).unwrap(), json_mode);
         }
+
+        // -----------------------------------------------------------------
+        // Session lifecycle management
+        // -----------------------------------------------------------------
+        Commands::Session { action } => match action {
+            SessionAction::Start => {
+                let store = load_or_create(&store_path);
+                let session_id = format!("session-{}", std::process::id());
+                output(
+                    &serde_json::json!({
+                        "status": "started",
+                        "session_id": session_id,
+                        "store_path": store_path.display().to_string(),
+                        "channels": store.stats().channel_count,
+                        "messages": store.stats().message_count,
+                    }),
+                    json_mode,
+                );
+            }
+            SessionAction::End { summary } => {
+                let store = load_or_create(&store_path);
+                let stats = store.stats();
+                output(
+                    &serde_json::json!({
+                        "status": "ended",
+                        "summary": summary.unwrap_or_else(|| "Session ended".to_string()),
+                        "channels": stats.channel_count,
+                        "messages": stats.message_count,
+                    }),
+                    json_mode,
+                );
+            }
+            SessionAction::Resume { limit } => {
+                let store = load_or_create(&store_path);
+                let stats = store.stats();
+                let channels = store.list_channels();
+                let recent_channels: Vec<_> = channels.iter().take(limit).collect();
+                output(
+                    &serde_json::json!({
+                        "status": "resumed",
+                        "store_path": store_path.display().to_string(),
+                        "total_channels": stats.channel_count,
+                        "total_messages": stats.message_count,
+                        "recent_channels": recent_channels,
+                    }),
+                    json_mode,
+                );
+            }
+        },
+
+        // -----------------------------------------------------------------
+        // Conversation log
+        // -----------------------------------------------------------------
+        Commands::Conversation { action } => match action {
+            ConversationAction::Log {
+                user,
+                response,
+                topic,
+            } => {
+                let mut store = load_or_create(&store_path);
+                // Use the communication log to record the conversation entry
+                let role = "conversation";
+                let content = format!(
+                    "User: {}\nResponse: {}{}",
+                    user,
+                    response,
+                    topic
+                        .as_deref()
+                        .map(|t| format!("\nTopic: {t}"))
+                        .unwrap_or_default()
+                );
+                store.log_communication(&content, role, topic.clone(), None, None);
+                output(
+                    &serde_json::json!({
+                        "status": "logged",
+                        "user_message": user,
+                        "agent_response": response,
+                        "topic": topic,
+                    }),
+                    json_mode,
+                );
+                if let Err(e) = store.save(&store_path) {
+                    eprintln!("Warning: failed to save store: {e}");
+                }
+            }
+        },
     }
 }

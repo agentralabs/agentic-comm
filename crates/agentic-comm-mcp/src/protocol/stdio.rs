@@ -1,4 +1,10 @@
 //! Stdio transport — reads JSON-RPC from stdin, writes responses to stdout.
+//!
+//! Auto-session lifecycle:
+//!   1. Client sends `initialize` request → server responds with capabilities
+//!   2. Client sends `notifications/initialized` → server auto-starts session
+//!   3. On `shutdown` request → server auto-ends session, saves store
+//!   4. On stdin EOF or read error → server auto-ends session, saves store
 
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -8,6 +14,10 @@ use crate::protocol::handler::ProtocolHandler;
 use crate::types::JsonRpcMessage;
 
 /// Run the stdio transport loop.
+///
+/// Blocks until stdin is closed (EOF), a fatal read error occurs, or a
+/// `shutdown` request is received. In all three cases the handler is
+/// cleaned up and the session is auto-ended with a save.
 pub async fn run_stdio(handler: Arc<ProtocolHandler>) {
     let stdin = tokio::io::stdin();
     let stdout = Arc::new(Mutex::new(tokio::io::stdout()));
@@ -18,13 +28,14 @@ pub async fn run_stdio(handler: Arc<ProtocolHandler>) {
         let line = match lines.next_line().await {
             Ok(Some(line)) => line,
             Ok(None) => {
-                // EOF — clean up
-                handler.cleanup().await;
+                // EOF — auto-end session and clean up
+                eprintln!("Stdin EOF — ending session");
+                handler.end_session_and_cleanup().await;
                 break;
             }
             Err(e) => {
                 eprintln!("Stdin read error: {e}");
-                handler.cleanup().await;
+                handler.end_session_and_cleanup().await;
                 break;
             }
         };
@@ -65,7 +76,7 @@ pub async fn run_stdio(handler: Arc<ProtocolHandler>) {
         }
 
         if handler.shutdown_requested() {
-            handler.cleanup().await;
+            // shutdown handler already ended the session; just break
             break;
         }
     }
