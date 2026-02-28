@@ -16,7 +16,14 @@ use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub mod affect;
+pub mod bridges;
+pub mod semantic;
 pub mod types;
+
+pub use affect::*;
+pub use bridges::*;
+pub use semantic::*;
 pub use types::*;
 
 // ---------------------------------------------------------------------------
