@@ -38,6 +38,12 @@ acomm channel close
 acomm channel delete
 acomm subscribe
 acomm unsubscribe
+acomm daemon start
+acomm daemon stop
+acomm daemon status
+acomm daemon logs
+acomm daemon config
+acomm daemon health-check
 acomm export
 acomm import
 acomm completions
@@ -108,6 +114,7 @@ Semantic messaging, echo chambers, ghosts, and metamessages.
 | `ghosts_*` | Ghost conversation management |
 | `echo_*` | Echo chamber detection and breaking |
 | `metamessage_*` | Metamessage encoding and tracing |
+| `fork_*` | Conversation forks (create, explore, merge, list) |
 
 ### comm_affect
 
@@ -121,6 +128,7 @@ Manage emotional affect states, contagion, archaeology, and prophecy.
 | `archaeology_*` | Emotional archaeology |
 | `prophecy_*` | Affect prediction |
 | `unspeakable_*` | Unspeakable content handling |
+| `anticipate_*` | Anticipatory understanding (predict, prepare, calibrate, accuracy) |
 
 ### comm_hive
 
@@ -132,6 +140,9 @@ Form and manage hive minds and collective consciousness.
 | `status` / `think` | Hive operations |
 | `meld_*` | Mind-meld sessions |
 | `consciousness_*` | Collective consciousness |
+| `silence_*` | Silent communion (enter, presence, attend, leave) |
+| `mind_meld_*` | Mind meld (initiate, sync, status, separate) |
+| `dream_*` | Collective dreaming (start, contribute, insights, wake) |
 
 ### comm_consent
 
@@ -174,6 +185,7 @@ Configure federation, zones, gateways, and routing.
 | `route_*` | Message routing |
 | `zone_*` | Zone management |
 | `reality_*` | Consensus reality operations |
+| `destiny_*` | Destiny channels (create, align, probability, converge) |
 
 ### comm_temporal
 
@@ -185,6 +197,7 @@ Schedule messages, manage dead letters, legacy, and precognition.
 | `legacy_*` | Legacy message management |
 | `precognition_*` | Precognitive messaging |
 | `dead_letter_*` | Dead letter resurrection |
+| `consensus_*` | Temporal consensus (propose, vote, status, resolve) |
 
 ### comm_query
 
