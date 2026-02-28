@@ -1,0 +1,5 @@
+CPU: Apple M4 Pro
+RAM: 64 GB
+OS: Darwin 25.3.0 arm64
+Rust: rustc 1.90.0 (1159e78c4 2025-09-14)
+Date: 2026-02-28T22:31:29Z

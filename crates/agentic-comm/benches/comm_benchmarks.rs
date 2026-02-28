@@ -9,7 +9,7 @@ use agentic_comm::{
 
 /// Create a CommStore with rate limits disabled (for benchmark throughput).
 fn unlocked_store() -> CommStore {
-    let mut store = unlocked_store();
+    let mut store = CommStore::new();
     store.rate_limit_config.messages_per_minute = u32::MAX;
     store.rate_limit_config.semantic_per_minute = u32::MAX;
     store.rate_limit_config.affect_per_minute = u32::MAX;
