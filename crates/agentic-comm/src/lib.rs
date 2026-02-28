@@ -10,8 +10,6 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
-use flate2::write::GzEncoder;
-use flate2::Compression;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -922,6 +920,13 @@ pub struct CommStore {
     /// Not serialized — must be set at runtime via `set_bridge_config`.
     #[serde(skip)]
     pub bridge_config: BridgeConfig,
+
+    /// Embedding vectors for semantic search, keyed by message ID.
+    ///
+    /// Each entry maps a message ID to its embedding vector (e.g. from an
+    /// external model). Supports brute-force cosine similarity search.
+    #[serde(default)]
+    pub embeddings: HashMap<u64, Vec<f32>>,
 }
 
 fn default_one() -> u64 {
@@ -975,6 +980,7 @@ impl CommStore {
             key_pair: None,
             agents: HashMap::new(),
             bridge_config: BridgeConfig::default(),
+            embeddings: HashMap::new(),
         }
     }
 
@@ -2325,14 +2331,16 @@ impl CommStore {
     // Persistence (.acomm file format)
     // -----------------------------------------------------------------------
 
-    /// Save the store to a `.acomm` file (bincode + gzip + binary header).
+    /// Save the store to a `.acomm` file (bincode + zstd + binary header).
     ///
     /// Acquires an exclusive [`CommFileLock`] for the duration of the write so
     /// that concurrent readers/writers on the same path do not corrupt data.
     ///
-    /// The on-disk format is: `[ACOM header (20 bytes)] [gzip(bincode(store))]`.
-    /// The ACOM header includes a CRC32 checksum of the compressed payload so
-    /// that corruption can be detected on load.
+    /// The on-disk format is: `[ACOM header (48 bytes)] [zstd(bincode(store))]`.
+    /// The ACOM header includes a Blake3 hash of the compressed payload so
+    /// that corruption can be detected on load. The FLAG_ZSTD flag (bit 0) is
+    /// set to indicate Zstd compression; older files without this flag are
+    /// treated as gzip-compressed on read.
     pub fn save(&self, path: &Path) -> CommResult<()> {
         // Recover stale locks (older than 60 s) before attempting to acquire.
         CommFileLock::recover_stale(path, 60)?;
@@ -2342,16 +2350,13 @@ impl CommStore {
         let store_bytes =
             bincode::serialize(self).map_err(|e| CommError::Serialization(e.to_string()))?;
 
-        // Gzip-compress the bincode payload into an in-memory buffer.
-        let mut gz_buf = Vec::new();
-        {
-            let mut encoder = GzEncoder::new(&mut gz_buf, Compression::default());
-            encoder.write_all(&store_bytes)?;
-            encoder.finish()?;
-        }
+        // Zstd-compress the bincode payload (level 3 for fast compression).
+        let compressed = zstd::bulk::compress(&store_bytes, 3)
+            .map_err(|e| CommError::Serialization(format!("Zstd compression failed: {e}")))?;
 
-        // Wrap the compressed data with the binary format header (magic + Blake3).
-        let output = format::write_with_header(&gz_buf);
+        // Wrap the compressed data with the binary format header (magic + Blake3)
+        // and set FLAG_ZSTD so readers know to use Zstd decompression.
+        let output = format::write_with_header_flags(&compressed, format::FLAG_ZSTD);
 
         let mut file = std::fs::File::create(path)?;
         file.write_all(&output)?;
@@ -2365,9 +2370,10 @@ impl CommStore {
     /// Acquires a shared [`CommFileLock`] for the duration of the read so that
     /// concurrent writers are held off while the data is being read.
     ///
-    /// Supports both the new binary format (ACOM header + CRC32) and the
-    /// legacy format (raw gzip with embedded ACOMM001 header) for backward
-    /// compatibility.
+    /// Supports three on-disk variants:
+    /// - **v3 with FLAG_ZSTD** (current): ACOM header + Zstd-compressed payload.
+    /// - **v2/v3 without FLAG_ZSTD** (legacy): ACOM header + gzip-compressed payload.
+    /// - **v1** (oldest): raw gzip with embedded ACOMM001 header.
     pub fn load(path: &Path) -> CommResult<Self> {
         // Recover stale locks (older than 60 s) before attempting to acquire.
         CommFileLock::recover_stale(path, 60)?;
@@ -2382,12 +2388,22 @@ impl CommStore {
 
         if format::is_new_format(&raw) {
             // ---- New binary format (v2/v3) ----
-            let gz_data = format::read_with_header(&raw)
+            let (header, compressed_data) = format::read_with_header_and_meta(&raw)
                 .map_err(|e| CommError::InvalidFile(e))?;
 
-            let mut decoder = GzDecoder::new(&gz_data[..]);
-            let mut decompressed = Vec::new();
-            decoder.read_to_end(&mut decompressed)?;
+            let decompressed = if header.is_zstd() {
+                // Zstd-compressed payload (current format).
+                zstd::bulk::decompress(&compressed_data, 64 * 1024 * 1024)
+                    .map_err(|e| CommError::InvalidFile(
+                        format!("Zstd decompression failed: {e}"),
+                    ))?
+            } else {
+                // Gzip-compressed payload (legacy v2/v3 files).
+                let mut decoder = GzDecoder::new(&compressed_data[..]);
+                let mut buf = Vec::new();
+                decoder.read_to_end(&mut buf)?;
+                buf
+            };
 
             let store: CommStore = bincode::deserialize(&decompressed)
                 .map_err(|e| CommError::InvalidFile(format!("Bad store data: {e}")))?;
@@ -4457,6 +4473,67 @@ impl CommStore {
             None => Ok(None),
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Semantic vector search
+    // -----------------------------------------------------------------------
+
+    /// Store an embedding vector for a message.
+    ///
+    /// The embedding is typically produced by an external model (e.g. an LLM
+    /// embedding endpoint) and associated with the message's ID so that
+    /// [`semantic_search`](Self::semantic_search) can find semantically
+    /// similar messages later.
+    pub fn store_embedding(&mut self, message_id: u64, embedding: Vec<f32>) {
+        self.embeddings.insert(message_id, embedding);
+    }
+
+    /// Find the top-k most semantically similar messages to a query embedding.
+    ///
+    /// Performs brute-force cosine similarity over all stored embeddings and
+    /// returns up to `top_k` results sorted by descending similarity.  Each
+    /// result is a `(message_id, similarity)` pair where similarity is in
+    /// the range `[-1.0, 1.0]`.
+    pub fn semantic_search(
+        &self,
+        query_embedding: &[f32],
+        top_k: usize,
+    ) -> Vec<(u64, f32)> {
+        let mut scored: Vec<(u64, f32)> = self
+            .embeddings
+            .iter()
+            .map(|(&msg_id, emb)| (msg_id, Self::cosine_similarity(query_embedding, emb)))
+            .collect();
+
+        // Sort descending by similarity.
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored.truncate(top_k);
+        scored
+    }
+
+    /// Compute the cosine similarity between two vectors.
+    ///
+    /// Returns a value in `[-1.0, 1.0]`.  If either vector has zero
+    /// magnitude the function returns `0.0` to avoid division by zero.
+    pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+        let len = a.len().min(b.len());
+        let mut dot = 0.0_f32;
+        let mut norm_a = 0.0_f32;
+        let mut norm_b = 0.0_f32;
+
+        for i in 0..len {
+            dot += a[i] * b[i];
+            norm_a += a[i] * a[i];
+            norm_b += b[i] * b[i];
+        }
+
+        let denom = norm_a.sqrt() * norm_b.sqrt();
+        if denom == 0.0 {
+            0.0
+        } else {
+            dot / denom
+        }
+    }
 }
 
 /// Summary statistics for a CommStore.
@@ -4512,6 +4589,170 @@ pub struct CommStoreStats {
     /// Number of audit log entries.
     #[serde(default)]
     pub audit_log_count: usize,
+}
+
+// ---------------------------------------------------------------------------
+// MessageEngine — unified message processing pipeline
+// ---------------------------------------------------------------------------
+
+/// Unified message processing engine that wraps [`CommStore`] and provides
+/// a higher-level pipeline for sending and querying messages.
+///
+/// The engine adds validation, trust checking, and consent enforcement as
+/// a composable layer on top of the raw store operations.
+#[derive(Debug, Clone)]
+pub struct MessageEngine {
+    /// The underlying communication store.
+    pub store: CommStore,
+}
+
+impl Default for MessageEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MessageEngine {
+    /// Create a new engine backed by an empty [`CommStore`].
+    pub fn new() -> Self {
+        Self {
+            store: CommStore::new(),
+        }
+    }
+
+    /// Create an engine from an existing [`CommStore`].
+    pub fn from_store(store: CommStore) -> Self {
+        Self { store }
+    }
+
+    /// Process an inbound message through the full pipeline.
+    ///
+    /// Steps:
+    /// 1. Parse the message type from a string.
+    /// 2. Validate sender trust level (must be at least `Basic`).
+    /// 3. Check consent for the SendMessages scope.
+    /// 4. Send the message via the underlying store.
+    /// 5. Return the new message ID.
+    pub fn process_message(
+        &mut self,
+        channel_id: u64,
+        sender: &str,
+        content: &str,
+        message_type: &str,
+    ) -> Result<u64, String> {
+        // 1. Parse message type
+        let msg_type: MessageType = message_type
+            .parse()
+            .map_err(|e: String| format!("Invalid message type: {e}"))?;
+
+        // 2. Validate sender trust — require at least Basic
+        let trust = self.store.get_trust_level(sender);
+        if trust < CommTrustLevel::Basic {
+            return Err(format!(
+                "Sender '{}' has insufficient trust level: {} (need at least basic)",
+                sender, trust
+            ));
+        }
+
+        // 3. Check consent (SendMessages scope) — open-by-default when no
+        //    gates are configured for the scope.
+        if !self.store.check_consent_for_action(sender, "", ConsentScope::SendMessages) {
+            return Err(format!(
+                "Consent denied: sender '{}' lacks SendMessages consent",
+                sender
+            ));
+        }
+
+        // 4. Send via store
+        let message = self
+            .store
+            .send_message(channel_id, sender, content, msg_type)
+            .map_err(|e| e.to_string())?;
+
+        // 5. Return message ID
+        Ok(message.id)
+    }
+
+    /// Unified query dispatcher.
+    ///
+    /// Supported `query_type` values:
+    ///
+    /// - `"channel_messages"` — returns messages for a channel.
+    ///   Params: `{ "channel_id": <u64> }`
+    ///
+    /// - `"message"` — returns a single message by ID.
+    ///   Params: `{ "message_id": <u64> }`
+    ///
+    /// - `"stats"` — returns store-level statistics.
+    ///   Params: `{}` (none required)
+    ///
+    /// - `"semantic_search"` — returns semantically similar messages.
+    ///   Params: `{ "embedding": [f32, ...], "top_k": <usize> }`
+    pub fn query(
+        &self,
+        query_type: &str,
+        params: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        match query_type {
+            "channel_messages" => {
+                let channel_id = params
+                    .get("channel_id")
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| "Missing or invalid 'channel_id' parameter".to_string())?;
+
+                let msgs: Vec<&Message> = self
+                    .store
+                    .messages
+                    .values()
+                    .filter(|m| m.channel_id == channel_id)
+                    .collect();
+
+                serde_json::to_value(&msgs).map_err(|e| e.to_string())
+            }
+
+            "message" => {
+                let message_id = params
+                    .get("message_id")
+                    .and_then(|v| v.as_u64())
+                    .ok_or_else(|| "Missing or invalid 'message_id' parameter".to_string())?;
+
+                let msg = self
+                    .store
+                    .messages
+                    .get(&message_id)
+                    .ok_or_else(|| format!("Message {} not found", message_id))?;
+
+                serde_json::to_value(msg).map_err(|e| e.to_string())
+            }
+
+            "stats" => {
+                let stats = self.store.stats();
+                serde_json::to_value(&stats).map_err(|e| e.to_string())
+            }
+
+            "semantic_search" => {
+                let embedding_val = params
+                    .get("embedding")
+                    .and_then(|v| v.as_array())
+                    .ok_or_else(|| "Missing or invalid 'embedding' parameter".to_string())?;
+
+                let embedding: Vec<f32> = embedding_val
+                    .iter()
+                    .filter_map(|v| v.as_f64().map(|f| f as f32))
+                    .collect();
+
+                let top_k = params
+                    .get("top_k")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(10) as usize;
+
+                let results = self.store.semantic_search(&embedding, top_k);
+                serde_json::to_value(&results).map_err(|e| e.to_string())
+            }
+
+            other => Err(format!("Unknown query type: '{}'", other)),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

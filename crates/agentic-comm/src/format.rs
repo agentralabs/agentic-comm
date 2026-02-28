@@ -26,6 +26,11 @@ pub const FORMAT_VERSION: u16 = 3;
 /// Legacy format version (CRC32 integrity).
 pub const LEGACY_FORMAT_VERSION: u16 = 2;
 
+/// Flag bit indicating Zstd compression (bit 0 of `flags`).
+/// When clear (0), the payload is gzip-compressed (legacy default).
+/// When set (1), the payload is Zstd-compressed.
+pub const FLAG_ZSTD: u16 = 1 << 0;
+
 /// File header for .acomm format.
 ///
 /// Supports both v2 (CRC32, 20-byte header) and v3 (Blake3, 48-byte header).
@@ -51,11 +56,16 @@ impl FileHeader {
 
     /// Create a new v3 header (Blake3) for the given data.
     pub fn new(data: &[u8]) -> Self {
+        Self::new_with_flags(data, 0)
+    }
+
+    /// Create a new v3 header (Blake3) with explicit flags.
+    pub fn new_with_flags(data: &[u8], flags: u16) -> Self {
         let hash = blake3::hash(data);
         Self {
             magic: *MAGIC,
             version: FORMAT_VERSION,
-            flags: 0,
+            flags,
             data_length: data.len() as u64,
             crc32: 0,
             blake3_hash: *hash.as_bytes(),
@@ -184,11 +194,21 @@ impl FileHeader {
         let hash = blake3::hash(data);
         hash.as_bytes() == &self.blake3_hash
     }
+
+    /// Returns `true` if the payload is Zstd-compressed (FLAG_ZSTD set).
+    pub fn is_zstd(&self) -> bool {
+        self.flags & FLAG_ZSTD != 0
+    }
 }
 
 /// Write data with the binary format header (current version = v3 / Blake3).
 pub fn write_with_header(data: &[u8]) -> Vec<u8> {
-    let header = FileHeader::new(data);
+    write_with_header_flags(data, 0)
+}
+
+/// Write data with the binary format header and explicit flags.
+pub fn write_with_header_flags(data: &[u8], flags: u16) -> Vec<u8> {
+    let header = FileHeader::new_with_flags(data, flags);
     let mut output = header.to_bytes();
     output.extend_from_slice(data);
     output
@@ -206,6 +226,15 @@ pub fn write_with_header_legacy(data: &[u8]) -> Vec<u8> {
 ///
 /// Auto-detects v2 (CRC32) and v3 (Blake3) headers.
 pub fn read_with_header(input: &[u8]) -> Result<Vec<u8>, String> {
+    let (_header, data) = read_with_header_and_meta(input)?;
+    Ok(data)
+}
+
+/// Read and verify data from binary format, also returning the parsed header.
+///
+/// The caller can inspect `header.is_zstd()` to determine which decompressor
+/// to use on the returned data.
+pub fn read_with_header_and_meta(input: &[u8]) -> Result<(FileHeader, Vec<u8>), String> {
     let header = FileHeader::from_bytes(input)?;
     let hdr_size = header.header_size();
     let data_start = hdr_size;
@@ -229,7 +258,7 @@ pub fn read_with_header(input: &[u8]) -> Result<Vec<u8>, String> {
         }
     }
 
-    Ok(data.to_vec())
+    Ok((header, data.to_vec()))
 }
 
 /// Check if data starts with the ACOM magic bytes (new format).
