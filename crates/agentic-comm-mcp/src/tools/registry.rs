@@ -10,13 +10,20 @@ use crate::types::McpError;
 
 use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, MessagePriority, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode, FederationPolicy, FederatedZone, HiveRole, CommKeyPair, EncryptionKey, EncryptedPayload, KeyEntry, CommWorkspace, WorkspaceRole};
 
+use super::invention_collaboration;
+use super::invention_semantics;
+use super::invention_affect;
+use super::invention_federation;
+use super::invention_temporal;
+use super::invention_forensics;
+
 /// Tool registry — lists all available tools and dispatches calls.
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 102 tools.
+    /// Return definitions for all tools (core + 6 invention modules).
     pub fn list_tools() -> Vec<ToolDefinition> {
-        vec![
+        let mut tools = vec![
             ToolDefinition {
                 name: "comm_send_message".to_string(),
                 description: Some("Send a message to a channel or specific recipient".to_string()),
@@ -2130,7 +2137,17 @@ impl ToolRegistry {
                     "required": ["comm_id"]
                 }),
             },
-        ]
+        ];
+
+        // Extend with invention module definitions (6 modules, ~96 tools)
+        tools.extend(invention_collaboration::all_definitions());  // 16 tools
+        tools.extend(invention_semantics::all_definitions());      // 16 tools
+        tools.extend(invention_affect::all_definitions());         // 16 tools
+        tools.extend(invention_federation::all_definitions());     // 16 tools
+        tools.extend(invention_temporal::all_definitions());       // 16 tools
+        tools.extend(invention_forensics::all_definitions());      // 16 tools
+
+        tools
     }
 
     /// Dispatch a tool call to the appropriate handler.
@@ -2290,7 +2307,8 @@ impl ToolRegistry {
             "comm_get_rich_content" => validation::validate_get_rich_content(params),
             "comm_assign_comm_ids" => Ok(()), // No required params
             "comm_get_by_comm_id" => validation::validate_get_by_comm_id(params),
-            _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
+            // Invention modules handle their own validation
+            _ => Ok(()),
         };
 
         // If validation failed, return the error result directly
@@ -2423,7 +2441,29 @@ impl ToolRegistry {
             "comm_get_rich_content" => Self::handle_get_rich_content(params, session),
             "comm_assign_comm_ids" => Self::handle_assign_comm_ids(session),
             "comm_get_by_comm_id" => Self::handle_get_by_comm_id(params, session),
-            _ => Err(McpError::ToolNotFound(tool_name.to_string())),
+            // Invention modules — delegate to modular try_execute
+            _ => {
+                // Try each invention module in order
+                if let Some(result) = invention_collaboration::try_execute(tool_name, params.clone(), session) {
+                    return result.map_err(|e| McpError::InternalError(e));
+                }
+                if let Some(result) = invention_semantics::try_execute(tool_name, params.clone(), session) {
+                    return result.map_err(|e| McpError::InternalError(e));
+                }
+                if let Some(result) = invention_affect::try_execute(tool_name, params.clone(), session) {
+                    return result.map_err(|e| McpError::InternalError(e));
+                }
+                if let Some(result) = invention_federation::try_execute(tool_name, params.clone(), session) {
+                    return result.map_err(|e| McpError::InternalError(e));
+                }
+                if let Some(result) = invention_temporal::try_execute(tool_name, params.clone(), session) {
+                    return result.map_err(|e| McpError::InternalError(e));
+                }
+                if let Some(result) = invention_forensics::try_execute(tool_name, params.clone(), session) {
+                    return result.map_err(|e| McpError::InternalError(e));
+                }
+                Err(McpError::ToolNotFound(tool_name.to_string()))
+            }
         }
     }
 
