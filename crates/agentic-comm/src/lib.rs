@@ -18,6 +18,10 @@ use sha2::{Digest, Sha256};
 
 pub mod affect;
 pub mod bridges;
+pub mod channel;
+pub mod crypto;
+pub mod encryption;
+pub mod format;
 pub mod query;
 pub mod semantic;
 pub mod temporal;
@@ -25,6 +29,10 @@ pub mod types;
 
 pub use affect::*;
 pub use bridges::*;
+pub use channel::*;
+pub use crypto::*;
+pub use encryption::*;
+pub use format::*;
 pub use query::*;
 pub use semantic::*;
 pub use temporal::*;
@@ -844,6 +852,11 @@ pub struct CommStore {
     /// Per-sender rate tracking (not persisted — rebuilt at runtime).
     #[serde(skip)]
     pub rate_trackers: HashMap<String, RateTracker>,
+
+    /// Optional Ed25519 key pair for cryptographic message signing.
+    /// Not serialized — must be set at runtime via `set_signing_key`.
+    #[serde(skip)]
+    pub key_pair: Option<CommKeyPair>,
 }
 
 fn default_one() -> u64 {
@@ -894,6 +907,7 @@ impl CommStore {
             next_key_id: 1,
             lamport_counter: 0,
             rate_trackers: HashMap::new(),
+            key_pair: None,
         }
     }
 
@@ -943,13 +957,42 @@ impl CommStore {
         Ok(())
     }
 
-    fn compute_signature(content: &str) -> String {
+    /// Compute a SHA-256 hash signature (legacy, used as fallback).
+    fn compute_sha256_signature(content: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
         format!("{:x}", hasher.finalize())
     }
 
-    /// Verify that a message's signature matches recomputed SHA-256.
+    /// Compute a message signature.
+    ///
+    /// When an Ed25519 key pair is set, produces a real cryptographic
+    /// signature (128 hex chars / 64 bytes). Otherwise falls back to a
+    /// SHA-256 content hash (64 hex chars / 32 bytes).
+    fn compute_signature(&self, content: &str) -> String {
+        match &self.key_pair {
+            Some(kp) => kp.sign(content),
+            None => Self::compute_sha256_signature(content),
+        }
+    }
+
+    /// Set the Ed25519 key pair used for signing outgoing messages.
+    pub fn set_signing_key(&mut self, key_pair: CommKeyPair) {
+        self.key_pair = Some(key_pair);
+    }
+
+    /// Get the hex-encoded Ed25519 public key, if a key pair is set.
+    pub fn get_public_key(&self) -> Option<String> {
+        self.key_pair.as_ref().map(|kp| kp.public_key_hex())
+    }
+
+    /// Verify that a message's signature is valid.
+    ///
+    /// Ed25519 signatures are 64 bytes (128 hex chars). If the stored
+    /// signature is that length and a key pair is set, Ed25519 verification
+    /// is attempted first. Falls back to SHA-256 hash comparison for
+    /// legacy signatures (64 hex chars / 32 bytes).
+    ///
     /// Returns true if valid (or no signature stored), false if mismatch.
     pub fn verify_message_signature(&mut self, message_id: u64) -> bool {
         let (content, stored_sig, sender) = match self.messages.get(&message_id) {
@@ -962,21 +1005,34 @@ impl CommStore {
         };
         match stored_sig {
             Some(ref sig) => {
-                let expected = Self::compute_signature(&content);
-                if *sig != expected {
+                // Ed25519 signatures are 128 hex chars (64 bytes).
+                // SHA-256 hashes are 64 hex chars (32 bytes).
+                let valid = if sig.len() == 128 {
+                    // Try Ed25519 verification if we have a public key
+                    if let Some(ref kp) = self.key_pair {
+                        crypto::verify_signature(&kp.public_key_hex(), &content, sig)
+                    } else {
+                        // No key pair set — cannot verify Ed25519 sig
+                        false
+                    }
+                } else {
+                    // Legacy SHA-256 hash comparison
+                    let expected = Self::compute_sha256_signature(&content);
+                    *sig == expected
+                };
+
+                if !valid {
                     self.log_audit(
                         AuditEventType::SignatureWarning,
                         &sender,
                         &format!(
-                            "Signature mismatch for message {}: expected={}, stored={}",
-                            message_id, expected, sig
+                            "Signature mismatch for message {}: stored={}",
+                            message_id, sig
                         ),
                         Some(message_id.to_string()),
                     );
-                    false
-                } else {
-                    true
                 }
+                valid
             }
             None => true,
         }
@@ -1221,7 +1277,7 @@ impl CommStore {
                 message_type: msg_type,
                 timestamp: Utc::now(),
                 metadata: HashMap::new(),
-                signature: Some(Self::compute_signature(content)),
+                signature: Some(self.compute_signature(content)),
                 acknowledged_by: Vec::new(),
                 status: MessageStatus::DeadLettered,
                 priority: MessagePriority::default(),
@@ -1260,7 +1316,7 @@ impl CommStore {
                 message_type: msg_type,
                 timestamp: Utc::now(),
                 metadata: HashMap::new(),
-                signature: Some(Self::compute_signature(content)),
+                signature: Some(self.compute_signature(content)),
                 acknowledged_by: Vec::new(),
                 status: MessageStatus::DeadLettered,
                 priority: MessagePriority::default(),
@@ -1295,7 +1351,7 @@ impl CommStore {
             message_type: msg_type,
             timestamp: Utc::now(),
             metadata: HashMap::new(),
-            signature: Some(Self::compute_signature(content)),
+            signature: Some(self.compute_signature(content)),
             acknowledged_by: Vec::new(),
             status: MessageStatus::Sent,
             priority: MessagePriority::default(),
@@ -1445,7 +1501,7 @@ impl CommStore {
                 message_type: MessageType::Broadcast,
                 timestamp: Utc::now(),
                 metadata: HashMap::new(),
-                signature: Some(Self::compute_signature(content)),
+                signature: Some(self.compute_signature(content)),
                 acknowledged_by: Vec::new(),
                 status: MessageStatus::Sent,
                 priority: MessagePriority::default(),
@@ -1511,7 +1567,7 @@ impl CommStore {
             message_type: msg_type,
             timestamp: Utc::now(),
             metadata: HashMap::new(),
-            signature: Some(Self::compute_signature(content)),
+            signature: Some(self.compute_signature(content)),
             acknowledged_by: Vec::new(),
             status: MessageStatus::Sent,
             priority: MessagePriority::default(),
@@ -1749,7 +1805,7 @@ impl CommStore {
                 message_type: MessageType::Notification,
                 timestamp: Utc::now(),
                 metadata: HashMap::new(),
-                signature: Some(Self::compute_signature(content)),
+                signature: Some(self.compute_signature(content)),
                 acknowledged_by: Vec::new(),
                 status: MessageStatus::Sent,
                 priority: MessagePriority::default(),
@@ -2004,34 +2060,36 @@ impl CommStore {
     // Persistence (.acomm file format)
     // -----------------------------------------------------------------------
 
-    /// Save the store to a `.acomm` file (bincode + gzip).
+    /// Save the store to a `.acomm` file (bincode + gzip + binary header).
     ///
     /// Acquires an exclusive [`CommFileLock`] for the duration of the write so
     /// that concurrent readers/writers on the same path do not corrupt data.
+    ///
+    /// The on-disk format is: `[ACOM header (20 bytes)] [gzip(bincode(store))]`.
+    /// The ACOM header includes a CRC32 checksum of the compressed payload so
+    /// that corruption can be detected on load.
     pub fn save(&self, path: &Path) -> CommResult<()> {
         // Recover stale locks (older than 60 s) before attempting to acquire.
         CommFileLock::recover_stale(path, 60)?;
 
         let _lock = CommFileLock::acquire(path)?;
 
-        let header = AcommHeader {
-            magic: *ACOMM_MAGIC,
-            version: ACOMM_VERSION,
-            channel_count: self.channels.len() as u32,
-            message_count: self.messages.len() as u64,
-        };
-
-        let header_bytes =
-            bincode::serialize(&header).map_err(|e| CommError::Serialization(e.to_string()))?;
-
         let store_bytes =
             bincode::serialize(self).map_err(|e| CommError::Serialization(e.to_string()))?;
 
-        let file = std::fs::File::create(path)?;
-        let mut encoder = GzEncoder::new(file, Compression::default());
-        encoder.write_all(&header_bytes)?;
-        encoder.write_all(&store_bytes)?;
-        encoder.finish()?;
+        // Gzip-compress the bincode payload into an in-memory buffer.
+        let mut gz_buf = Vec::new();
+        {
+            let mut encoder = GzEncoder::new(&mut gz_buf, Compression::default());
+            encoder.write_all(&store_bytes)?;
+            encoder.finish()?;
+        }
+
+        // Wrap the compressed data with the binary format header (magic + CRC32).
+        let output = format::write_with_header(&gz_buf);
+
+        let mut file = std::fs::File::create(path)?;
+        file.write_all(&output)?;
 
         // Lock released via Drop of `_lock`.
         Ok(())
@@ -2041,43 +2099,67 @@ impl CommStore {
     ///
     /// Acquires a shared [`CommFileLock`] for the duration of the read so that
     /// concurrent writers are held off while the data is being read.
+    ///
+    /// Supports both the new binary format (ACOM header + CRC32) and the
+    /// legacy format (raw gzip with embedded ACOMM001 header) for backward
+    /// compatibility.
     pub fn load(path: &Path) -> CommResult<Self> {
         // Recover stale locks (older than 60 s) before attempting to acquire.
         CommFileLock::recover_stale(path, 60)?;
 
         let _lock = CommFileLock::acquire_shared(path)?;
 
-        let file = std::fs::File::open(path)?;
-        let mut decoder = GzDecoder::new(file);
-        let mut data = Vec::new();
-        decoder.read_to_end(&mut data)?;
-
-        // Deserialize header first
-        let header: AcommHeader = bincode::deserialize(&data)
-            .map_err(|e| CommError::InvalidFile(format!("Bad header: {e}")))?;
-
-        if header.magic != *ACOMM_MAGIC {
-            return Err(CommError::InvalidFile(
-                "Invalid magic bytes — not an .acomm file".to_string(),
-            ));
+        let mut raw = Vec::new();
+        {
+            let mut file = std::fs::File::open(path)?;
+            file.read_to_end(&mut raw)?;
         }
 
-        if header.version != ACOMM_VERSION {
-            return Err(CommError::InvalidFile(format!(
-                "Unsupported version: {} (expected {})",
-                header.version, ACOMM_VERSION
-            )));
+        if format::is_new_format(&raw) {
+            // ---- New binary format (v2) ----
+            let gz_data = format::read_with_header(&raw)
+                .map_err(|e| CommError::InvalidFile(e))?;
+
+            let mut decoder = GzDecoder::new(&gz_data[..]);
+            let mut decompressed = Vec::new();
+            decoder.read_to_end(&mut decompressed)?;
+
+            let store: CommStore = bincode::deserialize(&decompressed)
+                .map_err(|e| CommError::InvalidFile(format!("Bad store data: {e}")))?;
+            Ok(store)
+        } else {
+            // ---- Legacy format (v1): raw gzip with ACOMM001 header ----
+            let mut decoder = GzDecoder::new(&raw[..]);
+            let mut data = Vec::new();
+            decoder.read_to_end(&mut data)?;
+
+            // Deserialize legacy header first
+            let header: AcommHeader = bincode::deserialize(&data)
+                .map_err(|e| CommError::InvalidFile(format!("Bad header: {e}")))?;
+
+            if header.magic != *ACOMM_MAGIC {
+                return Err(CommError::InvalidFile(
+                    "Invalid magic bytes — not an .acomm file".to_string(),
+                ));
+            }
+
+            if header.version != ACOMM_VERSION {
+                return Err(CommError::InvalidFile(format!(
+                    "Unsupported version: {} (expected {})",
+                    header.version, ACOMM_VERSION
+                )));
+            }
+
+            // Skip the header bytes to get to the store payload
+            let header_size = bincode::serialized_size(&header)
+                .map_err(|e| CommError::Serialization(e.to_string()))? as usize;
+
+            let store: CommStore = bincode::deserialize(&data[header_size..])
+                .map_err(|e| CommError::InvalidFile(format!("Bad store data: {e}")))?;
+
+            // Lock released via Drop of `_lock`.
+            Ok(store)
         }
-
-        // Skip the header bytes to get to the store payload
-        let header_size = bincode::serialized_size(&header)
-            .map_err(|e| CommError::Serialization(e.to_string()))? as usize;
-
-        let store: CommStore = bincode::deserialize(&data[header_size..])
-            .map_err(|e| CommError::InvalidFile(format!("Bad store data: {e}")))?;
-
-        // Lock released via Drop of `_lock`.
-        Ok(store)
     }
 
     /// Get summary statistics for the store.
