@@ -26,6 +26,7 @@ pub mod query;
 pub mod semantic;
 pub mod temporal;
 pub mod types;
+pub mod workspace;
 
 pub use affect::*;
 pub use bridges::*;
@@ -37,6 +38,7 @@ pub use query::*;
 pub use semantic::*;
 pub use temporal::*;
 pub use types::*;
+pub use workspace::*;
 
 // ---------------------------------------------------------------------------
 // Errors

@@ -1,9 +1,10 @@
 //! Session manager — owns the CommStore and tracks operations.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;
 
-use agentic_comm::CommStore;
+use agentic_comm::{CommStore, CommWorkspace};
 use chrono::Utc;
 use serde::Serialize;
 
@@ -39,6 +40,8 @@ pub struct SessionManager {
     pub last_message_id: Option<u64>,
     /// Whether the session has been marked as started by the client.
     session_active: bool,
+    /// Ephemeral workspace storage (per-session, not persisted).
+    pub workspaces: HashMap<String, CommWorkspace>,
 }
 
 impl SessionManager {
@@ -73,6 +76,7 @@ impl SessionManager {
             session_start_time: Instant::now(),
             last_message_id: None,
             session_active: false,
+            workspaces: HashMap::new(),
         }
     }
 

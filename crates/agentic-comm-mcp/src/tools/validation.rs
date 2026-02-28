@@ -1149,6 +1149,72 @@ pub fn validate_set_zone_policy(params: &Value) -> ValidationResult {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Workspace tool validation
+// ---------------------------------------------------------------------------
+
+/// Validate comm_workspace_create parameters.
+pub fn validate_workspace_create(params: &Value) -> ValidationResult {
+    let name = require_string(params, "name")?;
+    if name.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: workspace name must not be empty".to_string(),
+        ));
+    }
+    if name.len() > MAX_NAME_LEN {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: workspace name exceeds maximum length of {MAX_NAME_LEN} characters (got {})",
+            name.len()
+        )));
+    }
+    Ok(())
+}
+
+/// Validate comm_workspace_add parameters.
+pub fn validate_workspace_add(params: &Value) -> ValidationResult {
+    let _ws_id = require_string(params, "workspace_id")?;
+    let path = require_string(params, "path")?;
+    if path.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: path must not be empty".to_string(),
+        ));
+    }
+    // label and role are optional
+    Ok(())
+}
+
+/// Validate parameters that require only workspace_id.
+pub fn validate_workspace_id(params: &Value) -> ValidationResult {
+    let _ws_id = require_string(params, "workspace_id")?;
+    Ok(())
+}
+
+/// Validate comm_workspace_query parameters.
+pub fn validate_workspace_query(params: &Value) -> ValidationResult {
+    let _ws_id = require_string(params, "workspace_id")?;
+    let query = require_string(params, "query")?;
+    validate_query(query)?;
+    // max_per_context is optional
+    Ok(())
+}
+
+/// Validate comm_workspace_compare parameters.
+pub fn validate_workspace_compare(params: &Value) -> ValidationResult {
+    let _ws_id = require_string(params, "workspace_id")?;
+    let item = require_string(params, "item")?;
+    validate_query(item)?;
+    // max_per_context is optional
+    Ok(())
+}
+
+/// Validate comm_workspace_xref parameters.
+pub fn validate_workspace_xref(params: &Value) -> ValidationResult {
+    let _ws_id = require_string(params, "workspace_id")?;
+    let item = require_string(params, "item")?;
+    validate_query(item)?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

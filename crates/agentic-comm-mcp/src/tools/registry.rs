@@ -8,13 +8,13 @@ use crate::tools::validation;
 use crate::types::response::{ToolCallResult, ToolDefinition};
 use crate::types::McpError;
 
-use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, MessagePriority, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode, FederationPolicy, FederatedZone, HiveRole, CommKeyPair, EncryptionKey, EncryptedPayload, KeyEntry};
+use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, MessagePriority, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode, FederationPolicy, FederatedZone, HiveRole, CommKeyPair, EncryptionKey, EncryptedPayload, KeyEntry, CommWorkspace, WorkspaceRole};
 
 /// Tool registry — lists all available tools and dispatches calls.
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 85 tools.
+    /// Return definitions for all 91 tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
@@ -1752,6 +1752,126 @@ impl ToolRegistry {
                     "required": ["zone"]
                 }),
             },
+            // Workspace tools (multi-store comparison)
+            ToolDefinition {
+                name: "comm_workspace_create".to_string(),
+                description: Some("Create a new workspace for multi-store comparison".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Human-readable workspace name"
+                        }
+                    },
+                    "required": ["name"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_workspace_add".to_string(),
+                description: Some("Add an .acomm store context to an existing workspace".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {
+                            "type": "string",
+                            "description": "Workspace identifier returned by comm_workspace_create"
+                        },
+                        "path": {
+                            "type": "string",
+                            "description": "Path to the .acomm file to add"
+                        },
+                        "label": {
+                            "type": "string",
+                            "description": "Optional human-readable label for this context"
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Context role: primary, secondary, reference, archive. Default: secondary",
+                            "default": "secondary"
+                        }
+                    },
+                    "required": ["workspace_id", "path"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_workspace_list".to_string(),
+                description: Some("List all contexts loaded in a workspace".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {
+                            "type": "string",
+                            "description": "Workspace identifier"
+                        }
+                    },
+                    "required": ["workspace_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_workspace_query".to_string(),
+                description: Some("Search across all workspace contexts for matching messages, channels, and agents".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {
+                            "type": "string",
+                            "description": "Workspace identifier"
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "Search text to match against messages, channels, and agents"
+                        },
+                        "max_per_context": {
+                            "type": "integer",
+                            "description": "Maximum matches per context (default: 20)",
+                            "default": 20
+                        }
+                    },
+                    "required": ["workspace_id", "query"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_workspace_compare".to_string(),
+                description: Some("Compare presence of an item across all workspace contexts".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {
+                            "type": "string",
+                            "description": "Workspace identifier"
+                        },
+                        "item": {
+                            "type": "string",
+                            "description": "Item to compare (agent name, channel name, or content keyword)"
+                        },
+                        "max_per_context": {
+                            "type": "integer",
+                            "description": "Maximum matches per context (default: 50)",
+                            "default": 50
+                        }
+                    },
+                    "required": ["workspace_id", "item"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_workspace_xref".to_string(),
+                description: Some("Cross-reference an item across all workspace contexts".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "workspace_id": {
+                            "type": "string",
+                            "description": "Workspace identifier"
+                        },
+                        "item": {
+                            "type": "string",
+                            "description": "Item to cross-reference across all contexts"
+                        }
+                    },
+                    "required": ["workspace_id", "item"]
+                }),
+            },
         ]
     }
 
@@ -1877,6 +1997,13 @@ impl ToolRegistry {
             "comm_get_key" => validation::validate_key_id(params),
             // Federation zone policy
             "comm_set_zone_policy" => validation::validate_set_zone_policy(params),
+            // Workspace tools
+            "comm_workspace_create" => validation::validate_workspace_create(params),
+            "comm_workspace_add" => validation::validate_workspace_add(params),
+            "comm_workspace_list" => validation::validate_workspace_id(params),
+            "comm_workspace_query" => validation::validate_workspace_query(params),
+            "comm_workspace_compare" => validation::validate_workspace_compare(params),
+            "comm_workspace_xref" => validation::validate_workspace_xref(params),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -1985,6 +2112,13 @@ impl ToolRegistry {
             "comm_get_key" => Self::handle_get_key(params, session),
             // Federation zone policy
             "comm_set_zone_policy" => Self::handle_set_zone_policy(params, session),
+            // Workspace tools
+            "comm_workspace_create" => Self::handle_workspace_create(params, session),
+            "comm_workspace_add" => Self::handle_workspace_add(params, session),
+            "comm_workspace_list" => Self::handle_workspace_list(params, session),
+            "comm_workspace_query" => Self::handle_workspace_query(params, session),
+            "comm_workspace_compare" => Self::handle_workspace_compare(params, session),
+            "comm_workspace_xref" => Self::handle_workspace_xref(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -4129,5 +4263,178 @@ impl ToolRegistry {
         );
         session.record_operation("comm_set_zone_policy", None);
         Ok(ToolCallResult::json(&config))
+    }
+
+    // -----------------------------------------------------------------------
+    // Workspace handlers (multi-store comparison)
+    // -----------------------------------------------------------------------
+
+    fn handle_workspace_create(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let name = params
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("name is required".to_string()))?;
+
+        let ws = CommWorkspace::new(name);
+        let id = ws.id.clone();
+        let ws_name = ws.name.clone();
+        session.workspaces.insert(id.clone(), ws);
+        session.record_operation("comm_workspace_create", None);
+
+        Ok(ToolCallResult::json(&json!({
+            "workspace_id": id,
+            "name": ws_name,
+            "status": "created"
+        })))
+    }
+
+    fn handle_workspace_add(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let workspace_id = params
+            .get("workspace_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("workspace_id is required".to_string()))?;
+        let path = params
+            .get("path")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("path is required".to_string()))?;
+        let label = params.get("label").and_then(|v| v.as_str());
+        let role_str = params
+            .get("role")
+            .and_then(|v| v.as_str())
+            .unwrap_or("secondary");
+
+        let role: WorkspaceRole = role_str.parse().map_err(|e: String| {
+            McpError::InvalidParams(e)
+        })?;
+
+        let ws = session.workspaces.get_mut(workspace_id).ok_or_else(|| {
+            McpError::InvalidParams(format!("Workspace not found: {workspace_id}"))
+        })?;
+
+        ws.add_context(path, label, role).map_err(|e| {
+            McpError::AgenticComm(e)
+        })?;
+
+        let ctx_count = ws.contexts.len();
+        session.record_operation("comm_workspace_add", None);
+
+        Ok(ToolCallResult::json(&json!({
+            "status": "added",
+            "workspace_id": workspace_id,
+            "path": path,
+            "context_count": ctx_count
+        })))
+    }
+
+    fn handle_workspace_list(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let workspace_id = params
+            .get("workspace_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("workspace_id is required".to_string()))?;
+
+        let ws = session.workspaces.get(workspace_id).ok_or_else(|| {
+            McpError::InvalidParams(format!("Workspace not found: {workspace_id}"))
+        })?;
+
+        let result = ToolCallResult::json(&ws.list_contexts());
+        session.record_operation("comm_workspace_list", None);
+        Ok(result)
+    }
+
+    fn handle_workspace_query(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let workspace_id = params
+            .get("workspace_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("workspace_id is required".to_string()))?;
+        let query = params
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("query is required".to_string()))?;
+        let max_per_context = params
+            .get("max_per_context")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(20) as usize;
+
+        let ws = session.workspaces.get(workspace_id).ok_or_else(|| {
+            McpError::InvalidParams(format!("Workspace not found: {workspace_id}"))
+        })?;
+
+        let results = ws.query(query, max_per_context);
+        let result = ToolCallResult::json(&results);
+        session.record_operation("comm_workspace_query", None);
+        Ok(result)
+    }
+
+    fn handle_workspace_compare(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let workspace_id = params
+            .get("workspace_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("workspace_id is required".to_string()))?;
+        let item = params
+            .get("item")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("item is required".to_string()))?;
+        let max_per_context = params
+            .get("max_per_context")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(50) as usize;
+
+        let ws = session.workspaces.get(workspace_id).ok_or_else(|| {
+            McpError::InvalidParams(format!("Workspace not found: {workspace_id}"))
+        })?;
+
+        let comparison = ws.compare(item, max_per_context);
+        let result = ToolCallResult::json(&comparison);
+        session.record_operation("comm_workspace_compare", None);
+        Ok(result)
+    }
+
+    fn handle_workspace_xref(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let workspace_id = params
+            .get("workspace_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("workspace_id is required".to_string()))?;
+        let item = params
+            .get("item")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("item is required".to_string()))?;
+
+        let ws = session.workspaces.get(workspace_id).ok_or_else(|| {
+            McpError::InvalidParams(format!("Workspace not found: {workspace_id}"))
+        })?;
+
+        let xrefs = ws.xref(item);
+        let result: Vec<_> = xrefs
+            .into_iter()
+            .map(|(label, found, count)| {
+                json!({
+                    "context": label,
+                    "found": found,
+                    "count": count
+                })
+            })
+            .collect();
+
+        let tool_result = ToolCallResult::json(&result);
+        session.record_operation("comm_workspace_xref", None);
+        Ok(tool_result)
     }
 }
