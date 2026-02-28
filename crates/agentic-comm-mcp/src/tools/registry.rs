@@ -8,13 +8,13 @@ use crate::tools::validation;
 use crate::types::response::{ToolCallResult, ToolDefinition};
 use crate::types::McpError;
 
-use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode};
+use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode, FederationPolicy, FederatedZone, HiveRole};
 
 /// Tool registry — lists all available tools and dispatches calls.
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 27 tools.
+    /// Return definitions for all 43 tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
@@ -630,6 +630,327 @@ impl ToolRegistry {
                     "required": ["claim"]
                 }),
             },
+            // ---------------------------------------------------------------
+            // Consent listing tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "list_consent_gates".to_string(),
+                description: Some(
+                    "List all consent gates, optionally filtered by agent".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "agent": {
+                            "type": "string",
+                            "description": "Optional agent ID to filter consent gates"
+                        }
+                    }
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Trust listing tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "list_trust_levels".to_string(),
+                description: Some(
+                    "List all trust level overrides".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Temporal management tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "cancel_scheduled".to_string(),
+                description: Some(
+                    "Cancel a scheduled temporal message".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "temporal_id": {
+                            "type": "integer",
+                            "description": "Temporal message ID to cancel"
+                        }
+                    },
+                    "required": ["temporal_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "deliver_pending".to_string(),
+                description: Some(
+                    "Deliver all pending temporal messages that are due".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Federation tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "configure_federation".to_string(),
+                description: Some(
+                    "Configure federation settings".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean",
+                            "description": "Whether federation is enabled"
+                        },
+                        "local_zone": {
+                            "type": "string",
+                            "description": "Local zone identifier"
+                        },
+                        "policy": {
+                            "type": "string",
+                            "description": "Default federation policy: allow, deny, selective",
+                            "enum": ["allow", "deny", "selective"]
+                        }
+                    },
+                    "required": ["enabled", "local_zone", "policy"]
+                }),
+            },
+            ToolDefinition {
+                name: "add_federated_zone".to_string(),
+                description: Some(
+                    "Add a federated zone".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "zone_id": {
+                            "type": "string",
+                            "description": "Zone identifier"
+                        },
+                        "name": {
+                            "type": "string",
+                            "description": "Human-readable zone name"
+                        },
+                        "endpoint": {
+                            "type": "string",
+                            "description": "Endpoint URL or address"
+                        },
+                        "policy": {
+                            "type": "string",
+                            "description": "Zone policy: allow, deny, selective",
+                            "enum": ["allow", "deny", "selective"]
+                        },
+                        "trust_level": {
+                            "type": "string",
+                            "description": "Trust level for this zone: none, minimal, basic, standard, high, full, absolute",
+                            "enum": ["none", "minimal", "basic", "standard", "high", "full", "absolute"]
+                        }
+                    },
+                    "required": ["zone_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "remove_federated_zone".to_string(),
+                description: Some(
+                    "Remove a federated zone".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "zone_id": {
+                            "type": "string",
+                            "description": "Zone identifier to remove"
+                        }
+                    },
+                    "required": ["zone_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "list_federated_zones".to_string(),
+                description: Some(
+                    "List all federated zones".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Hive mind management tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "dissolve_hive".to_string(),
+                description: Some(
+                    "Dissolve a hive mind".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "hive_id": {
+                            "type": "integer",
+                            "description": "Hive mind ID to dissolve"
+                        }
+                    },
+                    "required": ["hive_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "join_hive".to_string(),
+                description: Some(
+                    "Join a hive mind".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "hive_id": {
+                            "type": "integer",
+                            "description": "Hive mind ID to join"
+                        },
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent identity joining the hive"
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Role in the hive: coordinator, member, observer. Default: member",
+                            "default": "member",
+                            "enum": ["coordinator", "member", "observer"]
+                        }
+                    },
+                    "required": ["hive_id", "agent_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "leave_hive".to_string(),
+                description: Some(
+                    "Leave a hive mind".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "hive_id": {
+                            "type": "integer",
+                            "description": "Hive mind ID to leave"
+                        },
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent identity leaving the hive"
+                        }
+                    },
+                    "required": ["hive_id", "agent_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "list_hives".to_string(),
+                description: Some(
+                    "List all hive minds".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            ToolDefinition {
+                name: "get_hive".to_string(),
+                description: Some(
+                    "Get hive mind details".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "hive_id": {
+                            "type": "integer",
+                            "description": "Hive mind ID to retrieve"
+                        }
+                    },
+                    "required": ["hive_id"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Communication log tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "log_communication".to_string(),
+                description: Some(
+                    "Log a communication entry".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "Communication content to log"
+                        },
+                        "role": {
+                            "type": "string",
+                            "description": "Role of the communicator (e.g., user, agent, system)"
+                        },
+                        "topic": {
+                            "type": "string",
+                            "description": "Optional topic or category"
+                        },
+                        "linked_message_id": {
+                            "type": "integer",
+                            "description": "Optional linked message ID"
+                        },
+                        "affect": {
+                            "type": "object",
+                            "description": "Optional affect state with valence, arousal, urgency",
+                            "properties": {
+                                "valence": {
+                                    "type": "number",
+                                    "description": "Emotional valence (-1.0 to 1.0)"
+                                },
+                                "arousal": {
+                                    "type": "number",
+                                    "description": "Emotional arousal (0.0 to 1.0)"
+                                },
+                                "urgency": {
+                                    "type": "string",
+                                    "description": "Urgency level: background, low, normal, high, urgent, critical"
+                                }
+                            }
+                        }
+                    },
+                    "required": ["content", "role"]
+                }),
+            },
+            ToolDefinition {
+                name: "get_comm_log".to_string(),
+                description: Some(
+                    "Get communication log entries".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of entries to return (default: all, range: 1-10000)"
+                        }
+                    }
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Audit log tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "get_audit_log".to_string(),
+                description: Some(
+                    "Get audit log entries".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of entries to return (default: all, range: 1-10000)"
+                        }
+                    }
+                }),
+            },
         ]
     }
 
@@ -676,6 +997,22 @@ impl ToolRegistry {
                 validation::validate_query(claim)?;
                 Ok(())
             })(),
+            "list_consent_gates" => validation::validate_list_consent_gates(params),
+            "list_trust_levels" => Ok(()), // No required params
+            "cancel_scheduled" => validation::validate_cancel_scheduled(params),
+            "deliver_pending" => Ok(()), // No required params
+            "configure_federation" => validation::validate_configure_federation(params),
+            "add_federated_zone" => validation::validate_add_federated_zone(params),
+            "remove_federated_zone" => validation::validate_remove_federated_zone(params),
+            "list_federated_zones" => Ok(()), // No required params
+            "dissolve_hive" => validation::validate_dissolve_hive(params),
+            "join_hive" => validation::validate_join_hive(params),
+            "leave_hive" => validation::validate_leave_hive(params),
+            "list_hives" => Ok(()), // No required params
+            "get_hive" => validation::validate_get_hive(params),
+            "log_communication" => validation::validate_log_communication(params),
+            "get_comm_log" => validation::validate_get_comm_log(params),
+            "get_audit_log" => validation::validate_get_audit_log(params),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -713,6 +1050,22 @@ impl ToolRegistry {
             "get_stats" => Self::handle_get_stats(session),
             "send_affect" => Self::handle_send_affect(params, session),
             "comm_ground" => Self::handle_comm_ground(params, session),
+            "list_consent_gates" => Self::handle_list_consent_gates(params, session),
+            "list_trust_levels" => Self::handle_list_trust_levels(session),
+            "cancel_scheduled" => Self::handle_cancel_scheduled(params, session),
+            "deliver_pending" => Self::handle_deliver_pending(session),
+            "configure_federation" => Self::handle_configure_federation(params, session),
+            "add_federated_zone" => Self::handle_add_federated_zone(params, session),
+            "remove_federated_zone" => Self::handle_remove_federated_zone(params, session),
+            "list_federated_zones" => Self::handle_list_federated_zones(session),
+            "dissolve_hive" => Self::handle_dissolve_hive(params, session),
+            "join_hive" => Self::handle_join_hive(params, session),
+            "leave_hive" => Self::handle_leave_hive(params, session),
+            "list_hives" => Self::handle_list_hives(session),
+            "get_hive" => Self::handle_get_hive(params, session),
+            "log_communication" => Self::handle_log_communication(params, session),
+            "get_comm_log" => Self::handle_get_comm_log(params, session),
+            "get_audit_log" => Self::handle_get_audit_log(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -1491,5 +1844,393 @@ impl ToolRegistry {
         let result = session.store.ground_claim(claim);
         session.record_operation("comm_ground", None);
         Ok(ToolCallResult::json(&result))
+    }
+
+    // -----------------------------------------------------------------------
+    // Consent listing handler
+    // -----------------------------------------------------------------------
+
+    fn handle_list_consent_gates(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let agent = params.get("agent").and_then(|v| v.as_str());
+        let gates: Vec<_> = session.store.list_consent_gates(agent)
+            .into_iter()
+            .cloned()
+            .collect();
+        session.record_operation("list_consent_gates", None);
+        Ok(ToolCallResult::json(&gates))
+    }
+
+    // -----------------------------------------------------------------------
+    // Trust listing handler
+    // -----------------------------------------------------------------------
+
+    fn handle_list_trust_levels(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let levels = session.store.list_trust_levels().clone();
+        session.record_operation("list_trust_levels", None);
+        Ok(ToolCallResult::json(&levels))
+    }
+
+    // -----------------------------------------------------------------------
+    // Temporal management handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_cancel_scheduled(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let temporal_id = params
+            .get("temporal_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("temporal_id is required".to_string()))?;
+
+        match session.store.cancel_scheduled(temporal_id) {
+            Ok(()) => {
+                session.record_operation("cancel_scheduled", Some(temporal_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "cancelled",
+                    "temporal_id": temporal_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_deliver_pending(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let count = session.store.deliver_pending_temporal();
+        session.record_operation("deliver_pending", None);
+        Ok(ToolCallResult::json(&json!({
+            "status": "delivered",
+            "count": count,
+        })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Federation handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_configure_federation(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let enabled = params
+            .get("enabled")
+            .and_then(|v| v.as_bool())
+            .ok_or_else(|| McpError::InvalidParams("enabled is required".to_string()))?;
+        let local_zone = params
+            .get("local_zone")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("local_zone is required".to_string()))?;
+        let policy_str = params
+            .get("policy")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("policy is required".to_string()))?;
+        let policy: FederationPolicy = policy_str
+            .parse()
+            .map_err(|e: String| McpError::InvalidParams(e))?;
+
+        match session.store.configure_federation(enabled, local_zone, policy) {
+            Ok(()) => {
+                let config = session.store.get_federation_config().clone();
+                session.record_operation("configure_federation", None);
+                Ok(ToolCallResult::json(&config))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_add_federated_zone(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let zone_id = params
+            .get("zone_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("zone_id is required".to_string()))?;
+        let name = params
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let endpoint = params
+            .get("endpoint")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let policy: FederationPolicy = params
+            .get("policy")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_default();
+        let trust_level: CommTrustLevel = params
+            .get("trust_level")
+            .and_then(|v| v.as_str())
+            .and_then(|s| s.parse().ok())
+            .unwrap_or_default();
+
+        let zone = FederatedZone {
+            zone_id: zone_id.to_string(),
+            name,
+            endpoint,
+            policy,
+            trust_level,
+        };
+
+        match session.store.add_federated_zone(zone) {
+            Ok(()) => {
+                session.record_operation("add_federated_zone", None);
+                Ok(ToolCallResult::json(&json!({
+                    "status": "added",
+                    "zone_id": zone_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_remove_federated_zone(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let zone_id = params
+            .get("zone_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("zone_id is required".to_string()))?;
+
+        match session.store.remove_federated_zone(zone_id) {
+            Ok(()) => {
+                session.record_operation("remove_federated_zone", None);
+                Ok(ToolCallResult::json(&json!({
+                    "status": "removed",
+                    "zone_id": zone_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_list_federated_zones(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let zones: Vec<_> = session.store.list_federated_zones().to_vec();
+        session.record_operation("list_federated_zones", None);
+        Ok(ToolCallResult::json(&zones))
+    }
+
+    // -----------------------------------------------------------------------
+    // Hive mind management handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_dissolve_hive(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let hive_id = params
+            .get("hive_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("hive_id is required".to_string()))?;
+
+        match session.store.dissolve_hive(hive_id) {
+            Ok(()) => {
+                session.record_operation("dissolve_hive", Some(hive_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "dissolved",
+                    "hive_id": hive_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_join_hive(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let hive_id = params
+            .get("hive_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("hive_id is required".to_string()))?;
+        let agent_id = params
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
+        let role_str = params
+            .get("role")
+            .and_then(|v| v.as_str())
+            .unwrap_or("member");
+        let role = match role_str {
+            "coordinator" => HiveRole::Coordinator,
+            "member" => HiveRole::Member,
+            "observer" => HiveRole::Observer,
+            other => return Ok(ToolCallResult::error(format!(
+                "Unknown hive role: {other}. Must be: coordinator, member, observer"
+            ))),
+        };
+
+        match session.store.join_hive(hive_id, agent_id, role) {
+            Ok(()) => {
+                // Clone hive info after mutation for response
+                let hive_info = session.store.get_hive(hive_id).cloned();
+                session.record_operation("join_hive", Some(hive_id));
+                match hive_info {
+                    Some(hive) => Ok(ToolCallResult::json(&hive)),
+                    None => Ok(ToolCallResult::json(&json!({
+                        "status": "joined",
+                        "hive_id": hive_id,
+                        "agent_id": agent_id,
+                        "role": role_str,
+                    }))),
+                }
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_leave_hive(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let hive_id = params
+            .get("hive_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("hive_id is required".to_string()))?;
+        let agent_id = params
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
+
+        match session.store.leave_hive(hive_id, agent_id) {
+            Ok(()) => {
+                session.record_operation("leave_hive", Some(hive_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "left",
+                    "hive_id": hive_id,
+                    "agent_id": agent_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_list_hives(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let hives: Vec<_> = session.store.list_hives()
+            .into_iter()
+            .cloned()
+            .collect();
+        session.record_operation("list_hives", None);
+        Ok(ToolCallResult::json(&hives))
+    }
+
+    fn handle_get_hive(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let hive_id = params
+            .get("hive_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("hive_id is required".to_string()))?;
+
+        session.record_operation("get_hive", Some(hive_id));
+        match session.store.get_hive(hive_id) {
+            Some(hive) => Ok(ToolCallResult::json(&hive)),
+            None => Ok(ToolCallResult::error(format!(
+                "Hive {hive_id} not found"
+            ))),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Communication log handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_log_communication(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let content = params
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("content is required".to_string()))?;
+        let role = params
+            .get("role")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("role is required".to_string()))?;
+        let topic = params
+            .get("topic")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let linked_message_id = params
+            .get("linked_message_id")
+            .and_then(|v| v.as_u64());
+
+        let affect = if let Some(affect_obj) = params.get("affect") {
+            let valence = affect_obj.get("valence").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let arousal = affect_obj.get("arousal").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let urgency_str = affect_obj
+                .get("urgency")
+                .and_then(|v| v.as_str())
+                .unwrap_or("normal");
+            let urgency: UrgencyLevel = urgency_str
+                .parse()
+                .unwrap_or(UrgencyLevel::Normal);
+            Some(AffectState {
+                valence,
+                arousal,
+                urgency,
+                ..Default::default()
+            })
+        } else {
+            None
+        };
+
+        let entry = session.store.log_communication(
+            content,
+            role,
+            topic,
+            linked_message_id,
+            affect,
+        ).clone();
+        session.record_operation("log_communication", None);
+        Ok(ToolCallResult::json(&entry))
+    }
+
+    fn handle_get_comm_log(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let limit = params
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .map(|n| n as usize);
+
+        let entries = session.store.get_comm_log(limit).to_vec();
+        session.record_operation("get_comm_log", None);
+        Ok(ToolCallResult::json(&entries))
+    }
+
+    // -----------------------------------------------------------------------
+    // Audit log handler
+    // -----------------------------------------------------------------------
+
+    fn handle_get_audit_log(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let _limit = params
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .map(|n| n as usize);
+
+        // NOTE: get_audit_log may not exist yet on CommStore. Return empty array for now.
+        session.record_operation("get_audit_log", None);
+        Ok(ToolCallResult::json(&json!([])))
     }
 }

@@ -4,7 +4,9 @@
 //! for agent-to-agent and agent-to-human communication.
 
 mod config;
+mod prompts;
 mod protocol;
+mod resources;
 mod session;
 mod tools;
 mod types;

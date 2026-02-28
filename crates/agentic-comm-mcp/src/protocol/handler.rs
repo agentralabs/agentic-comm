@@ -7,6 +7,8 @@ use tokio::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::prompts::PromptRegistry;
+use crate::resources::ResourceRegistry;
 use crate::session::manager::SessionManager;
 use crate::tools::registry::ToolRegistry;
 use crate::types::*;
@@ -36,16 +38,6 @@ pub struct InitializeResult {
     /// Server info.
     #[serde(rename = "serverInfo")]
     pub server_info: Value,
-}
-
-/// Parameters for a tools/call invocation.
-#[derive(Debug, Clone, Deserialize)]
-pub struct ToolCallParams {
-    /// Tool name.
-    pub name: String,
-    /// Tool arguments.
-    #[serde(default)]
-    pub arguments: Value,
 }
 
 /// The main protocol handler that dispatches incoming JSON-RPC messages.
@@ -128,6 +120,17 @@ impl ProtocolHandler {
             "tools/list" => self.handle_tools_list().await,
             "tools/call" => self.handle_tools_call(request.params.clone()).await,
 
+            // Resources
+            "resources/list" => self.handle_resources_list().await,
+            "resources/templates/list" => self.handle_resource_templates_list().await,
+            "resources/read" => self.handle_resources_read(request.params.clone()).await,
+            "resources/subscribe" => Ok(Value::Object(serde_json::Map::new())),
+            "resources/unsubscribe" => Ok(Value::Object(serde_json::Map::new())),
+
+            // Prompts
+            "prompts/list" => self.handle_prompts_list().await,
+            "prompts/get" => self.handle_prompts_get(request.params.clone()).await,
+
             // Ping
             "ping" => Ok(Value::Object(serde_json::Map::new())),
 
@@ -165,6 +168,8 @@ impl ProtocolHandler {
             protocol_version: "2024-11-05".to_string(),
             capabilities: serde_json::json!({
                 "tools": { "listChanged": false },
+                "resources": { "subscribe": false, "listChanged": false },
+                "prompts": { "listChanged": false },
             }),
             server_info: serde_json::json!({
                 "name": "agentic-comm-mcp",
@@ -221,5 +226,56 @@ impl ProtocolHandler {
                     .map_err(|e| McpError::InternalError(e.to_string()))
             }
         }
+    }
+
+    // ── Resources ────────────────────────────────────────────────────
+
+    async fn handle_resources_list(&self) -> McpResult<Value> {
+        let result = ResourceListResult {
+            resources: ResourceRegistry::list_resources(),
+            next_cursor: None,
+        };
+        serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
+    }
+
+    async fn handle_resource_templates_list(&self) -> McpResult<Value> {
+        let result = ResourceRegistry::list_templates_result();
+        serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
+    }
+
+    async fn handle_resources_read(&self, params: Option<Value>) -> McpResult<Value> {
+        let read_params: ResourceReadParams = params
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| McpError::InvalidParams(e.to_string()))?
+            .ok_or_else(|| {
+                McpError::InvalidParams("Resource read params required".to_string())
+            })?;
+
+        let result = ResourceRegistry::read(&read_params.uri, &self.session).await?;
+        serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
+    }
+
+    // ── Prompts ──────────────────────────────────────────────────────
+
+    async fn handle_prompts_list(&self) -> McpResult<Value> {
+        let result = PromptListResult {
+            prompts: PromptRegistry::list_prompts(),
+            next_cursor: None,
+        };
+        serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
+    }
+
+    async fn handle_prompts_get(&self, params: Option<Value>) -> McpResult<Value> {
+        let get_params: PromptGetParams = params
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| McpError::InvalidParams(e.to_string()))?
+            .ok_or_else(|| {
+                McpError::InvalidParams("Prompt get params required".to_string())
+            })?;
+
+        let result = PromptRegistry::get(&get_params.name, get_params.arguments)?;
+        serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
     }
 }

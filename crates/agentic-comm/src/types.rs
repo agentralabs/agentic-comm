@@ -361,6 +361,10 @@ pub enum TemporalTarget {
     Conditional { condition: String },
     /// Message persists indefinitely (never expires).
     Eternal,
+    /// Deliver to memory as a historical event at the given timestamp.
+    Retroactive { memory_timestamp: String },
+    /// Deliver at the computed optimal time based on context.
+    Optimal { context: String },
 }
 
 impl Default for TemporalTarget {
@@ -1065,6 +1069,186 @@ pub enum RichMessageContent {
     Temporal(Box<TemporalMessage>),
     /// Arbitrary metadata as key-value JSON.
     Meta(HashMap<String, serde_json::Value>),
+    /// Messages about the future (precognitive).
+    Precognitive { prediction: String, confidence: f64, horizon: String },
+    /// Death-activated messages delivered to a beneficiary.
+    Legacy { beneficiary: String, condition: String, content: String },
+    /// Beyond-language communication attempts.
+    Unspeakable { attempt: String, method: String },
+}
+
+
+// ---------------------------------------------------------------------------
+// CommTimestamp — logical causal ordering
+// ---------------------------------------------------------------------------
+
+/// Logical timestamp for causal ordering of communication events.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommTimestamp {
+    /// Wall clock time (ISO 8601).
+    pub wall_clock: String,
+    /// Lamport clock value for causal ordering.
+    #[serde(default)]
+    pub lamport: u64,
+    /// Vector clock: agent_id -> logical clock value.
+    #[serde(default)]
+    pub vector_clock: HashMap<String, u64>,
+}
+
+impl CommTimestamp {
+    /// Create a new CommTimestamp with the current wall clock time and lamport=0.
+    pub fn now(agent_id: &str) -> Self {
+        let wall_clock = chrono::Utc::now().to_rfc3339();
+        let mut vector_clock = HashMap::new();
+        vector_clock.insert(agent_id.to_string(), 0);
+        Self {
+            wall_clock,
+            lamport: 0,
+            vector_clock,
+        }
+    }
+
+    /// Increment the Lamport clock and the vector clock entry for the given agent.
+    pub fn increment(&mut self, agent_id: &str) {
+        self.lamport += 1;
+        let entry = self.vector_clock.entry(agent_id.to_string()).or_insert(0);
+        *entry += 1;
+    }
+
+    /// Merge another timestamp into this one.
+    ///
+    /// Takes the element-wise maximum of the vector clocks and sets
+    /// lamport = max(self.lamport, other.lamport) + 1.
+    pub fn merge(&mut self, other: &CommTimestamp, agent_id: &str) {
+        // Merge vector clocks: take max of each entry
+        for (key, &value) in &other.vector_clock {
+            let entry = self.vector_clock.entry(key.clone()).or_insert(0);
+            if value > *entry {
+                *entry = value;
+            }
+        }
+        // Set lamport to max + 1
+        self.lamport = std::cmp::max(self.lamport, other.lamport) + 1;
+        // Increment own vector clock entry
+        let entry = self.vector_clock.entry(agent_id.to_string()).or_insert(0);
+        *entry += 1;
+    }
+
+    /// Return true if self happens-before other (vector clock is strictly <= other).
+    ///
+    /// Self happens-before other when every entry in self's vector clock is
+    /// less-than-or-equal to the corresponding entry in other's, and at least
+    /// one entry is strictly less.
+    pub fn happens_before(&self, other: &CommTimestamp) -> bool {
+        let mut dominated = true;
+        let mut strictly_less = false;
+
+        for (key, &value) in &self.vector_clock {
+            let other_value = other.vector_clock.get(key).copied().unwrap_or(0);
+            if value > other_value {
+                dominated = false;
+                break;
+            }
+            if value < other_value {
+                strictly_less = true;
+            }
+        }
+
+        if !dominated {
+            return false;
+        }
+
+        // Also check keys that exist in other but not in self (treated as 0 in self).
+        for (key, &other_value) in &other.vector_clock {
+            if !self.vector_clock.contains_key(key) && other_value > 0 {
+                strictly_less = true;
+            }
+        }
+
+        dominated && strictly_less
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Rate Limiting
+// ---------------------------------------------------------------------------
+
+fn default_rate_60() -> u32 { 60 }
+fn default_rate_10() -> u32 { 10 }
+fn default_rate_30() -> u32 { 30 }
+fn default_rate_5() -> u32 { 5 }
+fn default_rate_20() -> u32 { 20 }
+
+/// Rate limiting configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RateLimitConfig {
+    /// Maximum messages per minute.
+    #[serde(default = "default_rate_60")]
+    pub messages_per_minute: u32,
+    /// Maximum semantic operations per minute.
+    #[serde(default = "default_rate_10")]
+    pub semantic_per_minute: u32,
+    /// Maximum affect transmissions per minute.
+    #[serde(default = "default_rate_30")]
+    pub affect_per_minute: u32,
+    /// Maximum hive operations per hour.
+    #[serde(default = "default_rate_5")]
+    pub hive_per_hour: u32,
+    /// Maximum federation messages per minute.
+    #[serde(default = "default_rate_20")]
+    pub federation_per_minute: u32,
+}
+
+impl Default for RateLimitConfig {
+    fn default() -> Self {
+        Self {
+            messages_per_minute: default_rate_60(),
+            semantic_per_minute: default_rate_10(),
+            affect_per_minute: default_rate_30(),
+            hive_per_hour: default_rate_5(),
+            federation_per_minute: default_rate_20(),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+/// Audit event types for security logging.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuditEventType {
+    MessageSent,
+    MessageReceived,
+    ChannelCreated,
+    ChannelClosed,
+    ConsentGranted,
+    ConsentRevoked,
+    ConsentDenied,
+    TrustChanged,
+    HiveFormed,
+    HiveDissolved,
+    FederationMessage,
+    KeyRotated,
+    AuthFailure,
+    RateLimitExceeded,
+}
+
+/// An audit log entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditEntry {
+    /// Event type.
+    pub event_type: AuditEventType,
+    /// Timestamp (ISO 8601).
+    pub timestamp: String,
+    /// Agent that triggered the event.
+    pub agent_id: String,
+    /// Human-readable description.
+    pub description: String,
+    /// Optional related entity ID.
+    #[serde(default)]
+    pub related_id: Option<String>,
 }
 
 #[cfg(test)]
@@ -1309,4 +1493,179 @@ mod tests {
         assert_eq!(parsed.nodes.len(), 1);
         assert_eq!(parsed.edges.len(), 1);
     }
+
+    #[test]
+    fn temporal_target_new_variants_serde() {
+        let retroactive = TemporalTarget::Retroactive {
+            memory_timestamp: "2025-06-01T12:00:00Z".to_string(),
+        };
+        let json = serde_json::to_string(&retroactive).unwrap();
+        let parsed: TemporalTarget = serde_json::from_str(&json).unwrap();
+        let json2 = serde_json::to_string(&parsed).unwrap();
+        assert_eq!(json, json2);
+
+        let optimal = TemporalTarget::Optimal {
+            context: "high-activity-window".to_string(),
+        };
+        let json = serde_json::to_string(&optimal).unwrap();
+        let parsed: TemporalTarget = serde_json::from_str(&json).unwrap();
+        let json2 = serde_json::to_string(&parsed).unwrap();
+        assert_eq!(json, json2);
+    }
+
+    #[test]
+    fn rich_message_content_new_variants_serde() {
+        let precog = RichMessageContent::Precognitive {
+            prediction: "system load spike".to_string(),
+            confidence: 0.87,
+            horizon: "1h".to_string(),
+        };
+        let json = serde_json::to_string(&precog).unwrap();
+        let parsed: RichMessageContent = serde_json::from_str(&json).unwrap();
+        match parsed {
+            RichMessageContent::Precognitive { prediction, confidence, horizon } => {
+                assert_eq!(prediction, "system load spike");
+                assert!((confidence - 0.87).abs() < f64::EPSILON);
+                assert_eq!(horizon, "1h");
+            }
+            _ => panic!("Expected Precognitive variant"),
+        }
+
+        let legacy = RichMessageContent::Legacy {
+            beneficiary: "agent-b".to_string(),
+            condition: "agent-a offline > 30d".to_string(),
+            content: "take over project alpha".to_string(),
+        };
+        let json = serde_json::to_string(&legacy).unwrap();
+        let parsed: RichMessageContent = serde_json::from_str(&json).unwrap();
+        match parsed {
+            RichMessageContent::Legacy { beneficiary, condition, content } => {
+                assert_eq!(beneficiary, "agent-b");
+                assert_eq!(condition, "agent-a offline > 30d");
+                assert_eq!(content, "take over project alpha");
+            }
+            _ => panic!("Expected Legacy variant"),
+        }
+
+        let unspeakable = RichMessageContent::Unspeakable {
+            attempt: "ineffable-state-42".to_string(),
+            method: "semantic-embedding".to_string(),
+        };
+        let json = serde_json::to_string(&unspeakable).unwrap();
+        let parsed: RichMessageContent = serde_json::from_str(&json).unwrap();
+        match parsed {
+            RichMessageContent::Unspeakable { attempt, method } => {
+                assert_eq!(attempt, "ineffable-state-42");
+                assert_eq!(method, "semantic-embedding");
+            }
+            _ => panic!("Expected Unspeakable variant"),
+        }
+    }
+
+    #[test]
+    fn comm_timestamp_serde_roundtrip() {
+        let ts = CommTimestamp::now("agent-1");
+        let json = serde_json::to_string(&ts).unwrap();
+        let parsed: CommTimestamp = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.lamport, 0);
+        assert!(parsed.vector_clock.contains_key("agent-1"));
+        assert_eq!(parsed.vector_clock["agent-1"], 0);
+    }
+
+    #[test]
+    fn comm_timestamp_increment() {
+        let mut ts = CommTimestamp::now("agent-1");
+        assert_eq!(ts.lamport, 0);
+        ts.increment("agent-1");
+        assert_eq!(ts.lamport, 1);
+        assert_eq!(ts.vector_clock["agent-1"], 1);
+        ts.increment("agent-1");
+        assert_eq!(ts.lamport, 2);
+        assert_eq!(ts.vector_clock["agent-1"], 2);
+    }
+
+    #[test]
+    fn comm_timestamp_merge() {
+        let mut ts_a = CommTimestamp::now("agent-a");
+        ts_a.increment("agent-a"); // lamport=1, vc={a:1}
+        ts_a.increment("agent-a"); // lamport=2, vc={a:2}
+
+        let mut ts_b = CommTimestamp::now("agent-b");
+        ts_b.increment("agent-b"); // lamport=1, vc={b:1}
+        ts_b.increment("agent-b"); // lamport=2, vc={b:2}
+        ts_b.increment("agent-b"); // lamport=3, vc={b:3}
+
+        // Merge b into a from perspective of agent-a
+        ts_a.merge(&ts_b, "agent-a");
+        // lamport should be max(2,3)+1 = 4
+        assert_eq!(ts_a.lamport, 4);
+        // vc[a] should be 2 + 1 (merge increments own) = 3
+        assert_eq!(ts_a.vector_clock["agent-a"], 3);
+        // vc[b] should be max(0,3) = 3
+        assert_eq!(ts_a.vector_clock["agent-b"], 3);
+    }
+
+    #[test]
+    fn comm_timestamp_happens_before() {
+        let mut ts_a = CommTimestamp::now("agent-a");
+        ts_a.increment("agent-a"); // vc={a:1}
+
+        let mut ts_b = ts_a.clone();
+        ts_b.increment("agent-a"); // vc={a:2}
+
+        assert!(ts_a.happens_before(&ts_b));
+        assert!(!ts_b.happens_before(&ts_a));
+
+        // Concurrent: different agents, neither dominates
+        let mut ts_c = CommTimestamp::now("agent-c");
+        ts_c.increment("agent-c"); // vc={c:1}
+        assert!(!ts_a.happens_before(&ts_c));
+        assert!(!ts_c.happens_before(&ts_a));
+    }
+
+    #[test]
+    fn rate_limit_config_defaults() {
+        let config = RateLimitConfig::default();
+        assert_eq!(config.messages_per_minute, 60);
+        assert_eq!(config.semantic_per_minute, 10);
+        assert_eq!(config.affect_per_minute, 30);
+        assert_eq!(config.hive_per_hour, 5);
+        assert_eq!(config.federation_per_minute, 20);
+    }
+
+    #[test]
+    fn rate_limit_config_serde_with_defaults() {
+        // Deserialize an empty JSON object — defaults should kick in
+        let config: RateLimitConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(config.messages_per_minute, 60);
+        assert_eq!(config.federation_per_minute, 20);
+    }
+
+    #[test]
+    fn audit_event_type_serde() {
+        let event = AuditEventType::MessageSent;
+        let json = serde_json::to_string(&event).unwrap();
+        assert_eq!(json, r#""message_sent""#);
+        let parsed: AuditEventType = serde_json::from_str(&json).unwrap();
+        match parsed {
+            AuditEventType::MessageSent => {}
+            _ => panic!("Expected MessageSent"),
+        }
+    }
+
+    #[test]
+    fn audit_entry_serde_roundtrip() {
+        let entry = AuditEntry {
+            event_type: AuditEventType::ChannelCreated,
+            timestamp: "2026-01-15T10:30:00Z".to_string(),
+            agent_id: "agent-x".to_string(),
+            description: "Created channel general".to_string(),
+            related_id: Some("42".to_string()),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let parsed: AuditEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.agent_id, "agent-x");
+        assert_eq!(parsed.related_id, Some("42".to_string()));
+    }
+
 }

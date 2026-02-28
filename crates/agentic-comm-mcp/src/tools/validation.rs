@@ -440,6 +440,89 @@ pub fn validate_communication_log(params: &Value) -> Result<(), ToolCallResult> 
     Ok(())
 }
 
+/// Valid federation policies.
+const VALID_FEDERATION_POLICIES: &[&str] = &["allow", "deny", "selective"];
+
+/// Validate a federation policy string.
+pub fn validate_federation_policy(policy: &str) -> ValidationResult {
+    if !VALID_FEDERATION_POLICIES.contains(&policy) {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: invalid federation policy '{}'. Must be one of: {}",
+            policy,
+            VALID_FEDERATION_POLICIES.join(", ")
+        )));
+    }
+    Ok(())
+}
+
+/// Valid hive roles.
+const VALID_HIVE_ROLES: &[&str] = &["coordinator", "member", "observer"];
+
+/// Validate a hive role string.
+pub fn validate_hive_role(role: &str) -> ValidationResult {
+    if !VALID_HIVE_ROLES.contains(&role) {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: invalid hive role '{}'. Must be one of: {}",
+            role,
+            VALID_HIVE_ROLES.join(", ")
+        )));
+    }
+    Ok(())
+}
+
+/// Validate a temporal_id: must be a positive integer.
+pub fn validate_temporal_id(params: &Value) -> Result<u64, ToolCallResult> {
+    let id = params
+        .get("temporal_id")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: temporal_id is required and must be a positive integer"
+                    .to_string(),
+            )
+        })?;
+    if id == 0 {
+        return Err(ToolCallResult::error(
+            "Validation error: temporal_id must be a positive integer (got 0)".to_string(),
+        ));
+    }
+    Ok(id)
+}
+
+/// Validate a hive_id: must be a positive integer.
+pub fn validate_hive_id(params: &Value) -> Result<u64, ToolCallResult> {
+    let id = params
+        .get("hive_id")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: hive_id is required and must be a positive integer"
+                    .to_string(),
+            )
+        })?;
+    if id == 0 {
+        return Err(ToolCallResult::error(
+            "Validation error: hive_id must be a positive integer (got 0)".to_string(),
+        ));
+    }
+    Ok(id)
+}
+
+/// Validate a required boolean field from params, returning the value.
+pub fn require_bool(
+    params: &Value,
+    field: &str,
+) -> Result<bool, ToolCallResult> {
+    params
+        .get(field)
+        .and_then(|v| v.as_bool())
+        .ok_or_else(|| {
+            ToolCallResult::error(format!(
+                "Validation error: {field} is required and must be a boolean"
+            ))
+        })
+}
+
 // ---------------------------------------------------------------------------
 // New tool validators (Tools 18-26)
 // ---------------------------------------------------------------------------
@@ -566,7 +649,129 @@ pub fn validate_send_affect(params: &Value) -> Result<(), ToolCallResult> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// New tool validators (Tools 28-43)
+// ---------------------------------------------------------------------------
 
+/// Validate list_consent_gates parameters.
+pub fn validate_list_consent_gates(params: &Value) -> Result<(), ToolCallResult> {
+    // agent is optional — if present, validate it's non-empty
+    if let Some(agent) = params.get("agent").and_then(|v| v.as_str()) {
+        validate_agent_id(agent)?;
+    }
+    Ok(())
+}
+
+/// Validate cancel_scheduled parameters.
+pub fn validate_cancel_scheduled(params: &Value) -> Result<(), ToolCallResult> {
+    validate_temporal_id(params)?;
+    Ok(())
+}
+
+/// Validate configure_federation parameters.
+pub fn validate_configure_federation(params: &Value) -> Result<(), ToolCallResult> {
+    require_bool(params, "enabled")?;
+    let local_zone = require_string(params, "local_zone")?;
+    if local_zone.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: local_zone must not be empty".to_string(),
+        ));
+    }
+    let policy = require_string(params, "policy")?;
+    validate_federation_policy(policy)?;
+    Ok(())
+}
+
+/// Validate add_federated_zone parameters.
+pub fn validate_add_federated_zone(params: &Value) -> Result<(), ToolCallResult> {
+    let zone_id = require_string(params, "zone_id")?;
+    if zone_id.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: zone_id must not be empty".to_string(),
+        ));
+    }
+    // Validate optional policy if present
+    if let Some(policy) = params.get("policy").and_then(|v| v.as_str()) {
+        validate_federation_policy(policy)?;
+    }
+    // Validate optional trust_level if present
+    if let Some(level) = params.get("trust_level").and_then(|v| v.as_str()) {
+        validate_trust_level(level)?;
+    }
+    Ok(())
+}
+
+/// Validate remove_federated_zone parameters.
+pub fn validate_remove_federated_zone(params: &Value) -> Result<(), ToolCallResult> {
+    let zone_id = require_string(params, "zone_id")?;
+    if zone_id.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: zone_id must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validate dissolve_hive parameters.
+pub fn validate_dissolve_hive(params: &Value) -> Result<(), ToolCallResult> {
+    validate_hive_id(params)?;
+    Ok(())
+}
+
+/// Validate join_hive parameters.
+pub fn validate_join_hive(params: &Value) -> Result<(), ToolCallResult> {
+    validate_hive_id(params)?;
+    let agent_id = require_string(params, "agent_id")?;
+    validate_agent_id(agent_id)?;
+    // Validate optional role if present
+    if let Some(role) = params.get("role").and_then(|v| v.as_str()) {
+        validate_hive_role(role)?;
+    }
+    Ok(())
+}
+
+/// Validate leave_hive parameters.
+pub fn validate_leave_hive(params: &Value) -> Result<(), ToolCallResult> {
+    validate_hive_id(params)?;
+    let agent_id = require_string(params, "agent_id")?;
+    validate_agent_id(agent_id)?;
+    Ok(())
+}
+
+/// Validate get_hive parameters.
+pub fn validate_get_hive(params: &Value) -> Result<(), ToolCallResult> {
+    validate_hive_id(params)?;
+    Ok(())
+}
+
+/// Validate log_communication parameters.
+pub fn validate_log_communication(params: &Value) -> Result<(), ToolCallResult> {
+    let content = require_string(params, "content")?;
+    validate_content(content)?;
+    let role = require_string(params, "role")?;
+    if role.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: role must not be empty".to_string(),
+        ));
+    }
+    // Validate optional topic if present
+    if let Some(topic) = params.get("topic").and_then(|v| v.as_str()) {
+        validate_topic(topic)?;
+    }
+    Ok(())
+}
+
+/// Validate get_comm_log parameters.
+pub fn validate_get_comm_log(params: &Value) -> Result<(), ToolCallResult> {
+    validate_limit(params, "limit")?;
+    Ok(())
+}
+
+/// Validate get_audit_log parameters.
+pub fn validate_get_audit_log(params: &Value) -> Result<(), ToolCallResult> {
+    validate_limit(params, "limit")?;
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {

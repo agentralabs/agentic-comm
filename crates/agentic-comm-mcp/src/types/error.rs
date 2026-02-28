@@ -26,6 +26,8 @@ pub mod mcp_error_codes {
     pub const RESOURCE_NOT_FOUND: i32 = -32802;
     /// Tool not found.
     pub const TOOL_NOT_FOUND: i32 = -32803;
+    /// Prompt not found.
+    pub const PROMPT_NOT_FOUND: i32 = -32804;
 
     /// AgenticComm specific: Channel not found.
     pub const CHANNEL_NOT_FOUND: i32 = -32850;
@@ -82,6 +84,10 @@ pub enum McpError {
     #[error("Tool not found: {0}")]
     ToolNotFound(String),
 
+    /// MCP prompt not found.
+    #[error("Prompt not found: {0}")]
+    PromptNotFound(String),
+
     /// AgenticComm channel not found.
     #[error("Channel not found: {0}")]
     ChannelNotFound(u64),
@@ -129,6 +135,7 @@ impl McpError {
                 | McpError::RequestCancelled
                 | McpError::ContentTooLarge { .. }
                 | McpError::ResourceNotFound(_)
+                | McpError::PromptNotFound(_)
                 | McpError::Unauthorized
         )
     }
@@ -147,6 +154,7 @@ impl McpError {
             McpError::ContentTooLarge { .. } => CONTENT_TOO_LARGE,
             McpError::ResourceNotFound(_) => RESOURCE_NOT_FOUND,
             McpError::ToolNotFound(_) => TOOL_NOT_FOUND,
+            McpError::PromptNotFound(_) => PROMPT_NOT_FOUND,
             McpError::ChannelNotFound(_) => CHANNEL_NOT_FOUND,
             McpError::MessageNotFound(_) => MESSAGE_NOT_FOUND,
             McpError::SubscriptionNotFound(_) => SUBSCRIPTION_NOT_FOUND,

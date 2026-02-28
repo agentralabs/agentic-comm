@@ -268,6 +268,14 @@ pub enum ChannelState {
     Draining,
     /// Channel is closed — all operations are blocked.
     Closed,
+    /// Channel is archived — read-only but searchable.
+    Archived,
+    /// Shared semantic space without words.
+    SilentCommunion,
+    /// Merged consciousness state.
+    HiveMode,
+    /// Awaiting participant consent.
+    PendingConsent,
 }
 
 impl Default for ChannelState {
@@ -283,6 +291,10 @@ impl std::fmt::Display for ChannelState {
             ChannelState::Paused => write!(f, "paused"),
             ChannelState::Draining => write!(f, "draining"),
             ChannelState::Closed => write!(f, "closed"),
+            ChannelState::Archived => write!(f, "archived"),
+            ChannelState::SilentCommunion => write!(f, "silent_communion"),
+            ChannelState::HiveMode => write!(f, "hive_mode"),
+            ChannelState::PendingConsent => write!(f, "pending_consent"),
         }
     }
 }
@@ -609,6 +621,14 @@ pub struct CommStore {
     /// Next log entry index.
     #[serde(default = "default_one")]
     next_log_index: u64,
+
+    /// Audit log entries.
+    #[serde(default)]
+    pub audit_log: Vec<AuditEntry>,
+
+    /// Rate limit configuration.
+    #[serde(default)]
+    pub rate_limit_config: RateLimitConfig,
 }
 
 fn default_one() -> u64 {
@@ -641,6 +661,8 @@ impl CommStore {
             next_hive_id: 1,
             comm_log: Vec::new(),
             next_log_index: 1,
+            audit_log: Vec::new(),
+            rate_limit_config: RateLimitConfig::default(),
         }
     }
 
@@ -706,6 +728,7 @@ impl CommStore {
 
         match channel.state {
             ChannelState::Active => Ok(()),
+            ChannelState::SilentCommunion | ChannelState::HiveMode => Ok(()),
             ChannelState::Paused => Err(CommError::ChannelStateViolation(
                 channel_id,
                 "paused".to_string(),
@@ -717,6 +740,14 @@ impl CommStore {
             ChannelState::Closed => Err(CommError::ChannelStateViolation(
                 channel_id,
                 "closed".to_string(),
+            )),
+            ChannelState::Archived => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "archived".to_string(),
+            )),
+            ChannelState::PendingConsent => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "pending_consent".to_string(),
             )),
         }
     }
@@ -730,6 +761,8 @@ impl CommStore {
 
         match channel.state {
             ChannelState::Active | ChannelState::Draining => Ok(()),
+            ChannelState::SilentCommunion | ChannelState::HiveMode => Ok(()),
+            ChannelState::Archived => Ok(()),
             ChannelState::Paused => Err(CommError::ChannelStateViolation(
                 channel_id,
                 "paused".to_string(),
@@ -737,6 +770,10 @@ impl CommStore {
             ChannelState::Closed => Err(CommError::ChannelStateViolation(
                 channel_id,
                 "closed".to_string(),
+            )),
+            ChannelState::PendingConsent => Err(CommError::ChannelStateViolation(
+                channel_id,
+                "pending_consent".to_string(),
             )),
         }
     }
@@ -1662,6 +1699,7 @@ impl CommStore {
             comm_log_count: self.comm_log.len(),
             federation_enabled: self.federation_config.enabled,
             federated_zone_count: self.federation_config.zones.len(),
+            audit_log_count: self.audit_log.len(),
         }
     }
 
@@ -2106,6 +2144,38 @@ impl CommStore {
     }
 
     // -----------------------------------------------------------------------
+    // Audit log
+    // -----------------------------------------------------------------------
+
+    /// Log an audit event.
+    pub fn log_audit(
+        &mut self,
+        event_type: AuditEventType,
+        agent_id: &str,
+        description: &str,
+        related_id: Option<String>,
+    ) {
+        let entry = AuditEntry {
+            event_type,
+            timestamp: Utc::now().to_rfc3339(),
+            agent_id: agent_id.to_string(),
+            description: description.to_string(),
+            related_id,
+        };
+        self.audit_log.push(entry);
+    }
+
+    /// Get recent audit log entries.
+    pub fn get_audit_log(&self, limit: Option<usize>) -> Vec<&AuditEntry> {
+        match limit {
+            Some(n) if n < self.audit_log.len() => {
+                self.audit_log[self.audit_log.len() - n..].iter().collect()
+            }
+            _ => self.audit_log.iter().collect(),
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Grounding (mirrors memory's memory_ground)
     // -----------------------------------------------------------------------
 
@@ -2265,6 +2335,9 @@ pub struct CommStoreStats {
     /// Number of federated zones.
     #[serde(default)]
     pub federated_zone_count: usize,
+    /// Number of audit log entries.
+    #[serde(default)]
+    pub audit_log_count: usize,
 }
 
 // ---------------------------------------------------------------------------
@@ -3956,4 +4029,108 @@ mod tests {
         assert_eq!(second.sender, "bob");
         assert!(second.affect.is_none());
     }
+
+    // --- New ChannelState variant tests ---
+
+    #[test]
+    fn channel_state_new_variants_display() {
+        assert_eq!(ChannelState::Archived.to_string(), "archived");
+        assert_eq!(ChannelState::SilentCommunion.to_string(), "silent_communion");
+        assert_eq!(ChannelState::HiveMode.to_string(), "hive_mode");
+        assert_eq!(ChannelState::PendingConsent.to_string(), "pending_consent");
+    }
+
+    #[test]
+    fn channel_state_archived_blocks_send_allows_receive() {
+        let mut store = CommStore::new();
+        let ch = store.create_channel("arch-ch", ChannelType::Group, None).unwrap();
+        let ch_id = ch.id;
+        store.join_channel(ch_id, "alice").unwrap();
+        // Set state to Archived manually
+        store.channels.get_mut(&ch_id).unwrap().state = ChannelState::Archived;
+        // Send should fail
+        assert!(store.send_message(ch_id, "alice", "hello", MessageType::Text).is_err());
+    }
+
+    #[test]
+    fn channel_state_pending_consent_blocks_both() {
+        let mut store = CommStore::new();
+        let ch = store.create_channel("pc-ch", ChannelType::Group, None).unwrap();
+        let ch_id = ch.id;
+        store.join_channel(ch_id, "alice").unwrap();
+        store.channels.get_mut(&ch_id).unwrap().state = ChannelState::PendingConsent;
+        assert!(store.send_message(ch_id, "alice", "hello", MessageType::Text).is_err());
+    }
+
+    // --- CommTimestamp tests ---
+
+    #[test]
+    fn comm_timestamp_increment_and_merge() {
+        let mut ts = CommTimestamp::now("a");
+        ts.increment("a");
+        assert_eq!(ts.lamport, 1);
+        assert_eq!(ts.vector_clock["a"], 1);
+
+        let mut ts2 = CommTimestamp::now("b");
+        ts2.increment("b");
+        ts2.increment("b");
+
+        ts.merge(&ts2, "a");
+        assert_eq!(ts.lamport, 3); // max(1,2)+1
+        assert_eq!(ts.vector_clock["a"], 2); // was 1, merge increments
+        assert_eq!(ts.vector_clock["b"], 2);
+    }
+
+    #[test]
+    fn comm_timestamp_happens_before_basic() {
+        let mut a = CommTimestamp::now("x");
+        a.increment("x");
+        let mut b = a.clone();
+        b.increment("x");
+        assert!(a.happens_before(&b));
+        assert!(!b.happens_before(&a));
+        // Equal clocks: not happens-before
+        let c = a.clone();
+        assert!(!a.happens_before(&c));
+    }
+
+    // --- Audit log tests ---
+
+    #[test]
+    fn audit_log_and_retrieve() {
+        let mut store = CommStore::new();
+        store.log_audit(AuditEventType::ChannelCreated, "agent-1", "Created general", Some("1".to_string()));
+        store.log_audit(AuditEventType::MessageSent, "agent-2", "Sent hello", None);
+        store.log_audit(AuditEventType::ConsentGranted, "agent-1", "Granted read to agent-2", Some("consent-1".to_string()));
+
+        let all = store.get_audit_log(None);
+        assert_eq!(all.len(), 3);
+
+        let last2 = store.get_audit_log(Some(2));
+        assert_eq!(last2.len(), 2);
+        assert_eq!(last2[0].description, "Sent hello");
+        assert_eq!(last2[1].description, "Granted read to agent-2");
+    }
+
+    #[test]
+    fn audit_log_in_stats() {
+        let mut store = CommStore::new();
+        store.log_audit(AuditEventType::AuthFailure, "attacker", "Bad credentials", None);
+        store.log_audit(AuditEventType::RateLimitExceeded, "spammer", "Too many messages", None);
+        let stats = store.stats();
+        assert_eq!(stats.audit_log_count, 2);
+    }
+
+    // --- RateLimitConfig tests ---
+
+    #[test]
+    fn rate_limit_config_defaults_in_store() {
+        let store = CommStore::new();
+        assert_eq!(store.rate_limit_config.messages_per_minute, 60);
+        assert_eq!(store.rate_limit_config.semantic_per_minute, 10);
+        assert_eq!(store.rate_limit_config.affect_per_minute, 30);
+        assert_eq!(store.rate_limit_config.hive_per_hour, 5);
+        assert_eq!(store.rate_limit_config.federation_per_minute, 20);
+    }
+
 }

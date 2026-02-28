@@ -106,3 +106,129 @@ pub struct ResourceContent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blob: Option<String>,
 }
+
+/// Resource definition for resources/list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceDefinition {
+    /// Resource URI.
+    pub uri: String,
+    /// Human-readable name.
+    pub name: String,
+    /// Description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// MIME type.
+    #[serde(default, rename = "mimeType", skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+}
+
+/// Resource template definition for resources/templates/list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceTemplateDefinition {
+    /// URI template (RFC 6570).
+    #[serde(rename = "uriTemplate")]
+    pub uri_template: String,
+    /// Human-readable name.
+    pub name: String,
+    /// Description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// MIME type.
+    #[serde(default, rename = "mimeType", skip_serializing_if = "Option::is_none")]
+    pub mime_type: Option<String>,
+}
+
+/// Result from resources/list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceListResult {
+    /// Available resources.
+    pub resources: Vec<ResourceDefinition>,
+    /// Cursor for next page.
+    #[serde(
+        default,
+        rename = "nextCursor",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+}
+
+/// Result from resources/templates/list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceTemplateListResult {
+    /// Available resource templates.
+    #[serde(rename = "resourceTemplates")]
+    pub resource_templates: Vec<ResourceTemplateDefinition>,
+    /// Cursor for next page.
+    #[serde(
+        default,
+        rename = "nextCursor",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+}
+
+/// Result from resources/read.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReadResourceResult {
+    /// Resource contents.
+    pub contents: Vec<ResourceContent>,
+}
+
+/// Prompt argument definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptArgument {
+    /// Argument name.
+    pub name: String,
+    /// Description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Whether this argument is required.
+    #[serde(default)]
+    pub required: bool,
+}
+
+/// Prompt definition for prompts/list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptDefinition {
+    /// Prompt name (unique).
+    pub name: String,
+    /// Human-readable description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Arguments the prompt accepts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<Vec<PromptArgument>>,
+}
+
+/// Result from prompts/list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptListResult {
+    /// Available prompts.
+    pub prompts: Vec<PromptDefinition>,
+    /// Cursor for next page.
+    #[serde(
+        default,
+        rename = "nextCursor",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub next_cursor: Option<String>,
+}
+
+/// A message in a prompt's expanded output.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptMessage {
+    /// Role: "user" or "assistant".
+    pub role: String,
+    /// Content of the message.
+    pub content: ToolContent,
+}
+
+/// Result from prompts/get.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptGetResult {
+    /// Optional description for this prompt expansion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// The expanded prompt messages.
+    pub messages: Vec<PromptMessage>,
+}
