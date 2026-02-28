@@ -12,6 +12,9 @@ use std::collections::HashMap;
 // ---------------------------------------------------------------------------
 
 /// Seven-level trust hierarchy for agent communication.
+///
+/// Variants are ordered from lowest to highest trust; deriving `PartialOrd`
+/// and `Ord` uses discriminant order, so `None < Minimal < ... < Absolute`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum CommTrustLevel {

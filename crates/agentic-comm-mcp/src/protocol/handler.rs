@@ -179,9 +179,9 @@ impl ProtocolHandler {
         let result = InitializeResult {
             protocol_version: "2024-11-05".to_string(),
             capabilities: serde_json::json!({
-                "tools": { "listChanged": false },
-                "resources": { "subscribe": false, "listChanged": false },
-                "prompts": { "listChanged": false },
+                "tools": {},
+                "resources": { "subscribe": true, "listChanged": true },
+                "prompts": { "listChanged": true },
             }),
             server_info: serde_json::json!({
                 "name": "agentic-comm-mcp",

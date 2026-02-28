@@ -19,6 +19,15 @@ impl ResourceRegistry {
     pub fn list_resources() -> Vec<ResourceDefinition> {
         vec![
             ResourceDefinition {
+                uri: "comm://store/stats".to_string(),
+                name: "Store Statistics".to_string(),
+                description: Some(
+                    "Communication store statistics (channel count, message count, etc.)"
+                        .to_string(),
+                ),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceDefinition {
                 uri: "comm://channels".to_string(),
                 name: "Communication Channels".to_string(),
                 description: Some("List all communication channels".to_string()),
@@ -58,6 +67,12 @@ impl ResourceRegistry {
                 uri: "comm://affect".to_string(),
                 name: "Affect State".to_string(),
                 description: Some("Get current affect state for all agents".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceDefinition {
+                uri: "comm://dead-letters".to_string(),
+                name: "Dead Letter Queue".to_string(),
+                description: Some("Dead letter queue contents".to_string()),
                 mime_type: Some("application/json".to_string()),
             },
         ]
@@ -101,6 +116,9 @@ impl ResourceRegistry {
         session: &Arc<Mutex<SessionManager>>,
     ) -> McpResult<ReadResourceResult> {
         // Match static resources first
+        if uri == "comm://store/stats" {
+            return Self::read_store_stats(session).await;
+        }
         if uri == "comm://channels" {
             return Self::read_channels(session).await;
         }
@@ -121,6 +139,9 @@ impl ResourceRegistry {
         }
         if uri == "comm://affect" {
             return Self::read_affect(session).await;
+        }
+        if uri == "comm://dead-letters" {
+            return Self::read_dead_letters(session).await;
         }
 
         // Match templated resources: comm://channels/{id}/messages
@@ -353,6 +374,42 @@ impl ResourceRegistry {
         Ok(ReadResourceResult {
             contents: vec![ResourceContent {
                 uri: "comm://affect".to_string(),
+                mime_type: Some("application/json".to_string()),
+                text: Some(text),
+                blob: None,
+            }],
+        })
+    }
+
+    async fn read_store_stats(
+        session: &Arc<Mutex<SessionManager>>,
+    ) -> McpResult<ReadResourceResult> {
+        let session = session.lock().await;
+        let stats = session.store.stats();
+        let text = serde_json::to_string_pretty(&stats)
+            .map_err(|e| McpError::InternalError(e.to_string()))?;
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContent {
+                uri: "comm://store/stats".to_string(),
+                mime_type: Some("application/json".to_string()),
+                text: Some(text),
+                blob: None,
+            }],
+        })
+    }
+
+    async fn read_dead_letters(
+        session: &Arc<Mutex<SessionManager>>,
+    ) -> McpResult<ReadResourceResult> {
+        let session = session.lock().await;
+        let dead_letters = session.store.list_dead_letters();
+        let text = serde_json::to_string_pretty(&dead_letters)
+            .map_err(|e| McpError::InternalError(e.to_string()))?;
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContent {
+                uri: "comm://dead-letters".to_string(),
                 mime_type: Some("application/json".to_string()),
                 text: Some(text),
                 blob: None,

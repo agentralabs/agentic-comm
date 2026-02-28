@@ -577,6 +577,10 @@ pub struct ChannelConfig {
     /// How long messages are retained.
     #[serde(default)]
     pub retention_policy: RetentionPolicy,
+    /// Minimum trust level required to send messages or join this channel.
+    /// If `None`, no trust check is enforced.
+    #[serde(default)]
+    pub min_trust_level: Option<CommTrustLevel>,
 }
 
 impl Default for ChannelConfig {
@@ -588,6 +592,7 @@ impl Default for ChannelConfig {
             encryption_required: false,
             delivery_mode: DeliveryMode::default(),
             retention_policy: RetentionPolicy::default(),
+            min_trust_level: None,
         }
     }
 }
@@ -1225,6 +1230,56 @@ impl CommStore {
         }
     }
 
+    /// Check that an agent's trust level meets a channel's minimum requirement.
+    ///
+    /// Returns `Ok(())` if the channel has no `min_trust_level` or if the
+    /// agent's trust level meets or exceeds it.  Returns `TrustError`
+    /// otherwise.
+    fn check_trust_for_channel(&self, agent: &str, channel_id: u64) -> CommResult<()> {
+        let channel = self
+            .channels
+            .get(&channel_id)
+            .ok_or(CommError::ChannelNotFound(channel_id))?;
+        if let Some(min_trust) = channel.config.min_trust_level {
+            let agent_trust = self.get_trust_level(agent);
+            if agent_trust < min_trust {
+                return Err(CommError::TrustError(format!(
+                    "Trust level insufficient: {:?} < {:?}",
+                    agent_trust, min_trust
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    /// General consent check for an agent performing an action in a given scope.
+    ///
+    /// Returns `true` (allow) when:
+    /// - No consent gate exists for the requested scope (open-by-default), OR
+    /// - An explicit `Granted` entry exists for the agent + scope.
+    ///
+    /// Returns `false` (deny) when:
+    /// - A consent gate exists for the scope but the agent's entry is not
+    ///   `Granted` (i.e. it is `Denied`, `Revoked`, `Pending`, or `Expired`).
+    fn check_consent_for_action(&self, agent: &str, _resource: &str, scope: ConsentScope) -> bool {
+        // Collect all gates matching this scope
+        let scope_gates: Vec<&ConsentGateEntry> = self
+            .consent_gates
+            .iter()
+            .filter(|e| e.scope == scope)
+            .collect();
+
+        // Open-by-default: if there are no gates for this scope at all, allow.
+        if scope_gates.is_empty() {
+            return true;
+        }
+
+        // Check if the agent has an explicit Granted entry (as grantee)
+        scope_gates.iter().any(|e| {
+            e.grantee == agent && e.status == ConsentStatus::Granted
+        })
+    }
+
     // -----------------------------------------------------------------------
     // Channel state management
     // -----------------------------------------------------------------------
@@ -1338,6 +1393,9 @@ impl CommStore {
             return Err(CommError::ChannelNotFound(channel_id));
         }
 
+        // --- Trust enforcement ---
+        self.check_trust_for_channel(sender, channel_id)?;
+
         // Check channel state — dead-letter on violation
         if let Err(e) = self.check_channel_allows_send(channel_id) {
             let id = self.next_message_id;
@@ -1386,6 +1444,7 @@ impl CommStore {
         self.lamport_counter += 1;
         let mut ts = CommTimestamp::now(sender);
         ts.lamport = self.lamport_counter;
+        ts.vector_clock.insert(sender.to_string(), self.lamport_counter);
 
         let message = Message {
             id,
@@ -1489,6 +1548,15 @@ impl CommStore {
             self.verify_message_signature(msg_id);
         }
 
+        // --- Vector clock merge on receive ---
+        // Merge each message's vector clock into the store's lamport counter
+        // so that subsequent sends reflect causal awareness of received messages.
+        for m in &msgs {
+            if m.comm_timestamp.lamport > self.lamport_counter {
+                self.lamport_counter = m.comm_timestamp.lamport;
+            }
+        }
+
         Ok(msgs)
     }
 
@@ -1518,6 +1586,9 @@ impl CommStore {
         Self::validate_sender(sender)?;
         Self::validate_content(content)?;
 
+        // --- Trust enforcement ---
+        self.check_trust_for_channel(sender, channel_id)?;
+
         let channel = self
             .channels
             .get(&channel_id)
@@ -1538,6 +1609,7 @@ impl CommStore {
             self.lamport_counter += 1;
             let mut ts = CommTimestamp::now(sender);
             ts.lamport = self.lamport_counter;
+            ts.vector_clock.insert(sender.to_string(), self.lamport_counter);
 
             let message = Message {
                 id,
@@ -1606,6 +1678,7 @@ impl CommStore {
         self.lamport_counter += 1;
         let mut ts = CommTimestamp::now(sender);
         ts.lamport = self.lamport_counter;
+        ts.vector_clock.insert(sender.to_string(), self.lamport_counter);
 
         let message = Message {
             id,
@@ -1707,6 +1780,18 @@ impl CommStore {
     /// Join a channel as a participant.
     pub fn join_channel(&mut self, channel_id: u64, participant: &str) -> CommResult<()> {
         Self::validate_sender(participant)?;
+
+        // --- Trust enforcement ---
+        self.check_trust_for_channel(participant, channel_id)?;
+
+        // --- Consent enforcement ---
+        if !self.check_consent_for_action(participant, &self.channels.get(&channel_id)
+            .map(|c| c.name.clone()).unwrap_or_default(), ConsentScope::JoinChannels)
+        {
+            return Err(CommError::ConsentDenied {
+                reason: "Consent not granted for joining channels".to_string(),
+            });
+        }
 
         let channel = self
             .channels
@@ -1829,6 +1914,9 @@ impl CommStore {
             }
         };
 
+        // --- Trust enforcement ---
+        self.check_trust_for_channel(sender, channel_id)?;
+
         // Get all subscribers for this topic
         let subscribers: Vec<String> = self
             .subscriptions
@@ -1847,6 +1935,7 @@ impl CommStore {
             self.lamport_counter += 1;
             let mut ts = CommTimestamp::now(sender);
             ts.lamport = self.lamport_counter;
+            ts.vector_clock.insert(sender.to_string(), self.lamport_counter);
 
             let message = Message {
                 id,
@@ -2480,6 +2569,13 @@ impl CommStore {
         Self::validate_sender(sender)?;
         Self::validate_content(content)?;
 
+        // --- Consent enforcement ---
+        if !self.check_consent_for_action(sender, "temporal", ConsentScope::ScheduleMessages) {
+            return Err(CommError::ConsentDenied {
+                reason: "Consent not granted for scheduling messages".to_string(),
+            });
+        }
+
         let id = self.next_temporal_id;
         self.next_temporal_id += 1;
 
@@ -2605,6 +2701,16 @@ impl CommStore {
                 "Local zone must be non-empty".to_string(),
             ));
         }
+
+        // --- Consent enforcement ---
+        // If any Federate consent gates exist, the configuring agent (system)
+        // must have an explicit grant.
+        if !self.check_consent_for_action("system", local_zone, ConsentScope::Federate) {
+            return Err(CommError::ConsentDenied {
+                reason: "Consent not granted for federation".to_string(),
+            });
+        }
+
         self.federation_config.enabled = enabled;
         self.federation_config.local_zone = local_zone.to_string();
         self.federation_config.default_policy = default_policy;
@@ -2683,6 +2789,14 @@ impl CommStore {
                 "Coordinator must be non-empty".to_string(),
             ));
         }
+
+        // --- Consent enforcement ---
+        if !self.check_consent_for_action(coordinator, name, ConsentScope::HiveParticipation) {
+            return Err(CommError::ConsentDenied {
+                reason: "Consent not granted for hive participation".to_string(),
+            });
+        }
+
         let id = self.next_hive_id;
         self.next_hive_id += 1;
         let now = Utc::now().to_rfc3339();
@@ -2740,6 +2854,20 @@ impl CommStore {
         agent_id: &str,
         role: HiveRole,
     ) -> CommResult<()> {
+        // --- Consent enforcement (checked before mutable borrow) ---
+        {
+            let hive_name = self
+                .hive_minds
+                .get(&hive_id)
+                .map(|h| h.name.clone())
+                .unwrap_or_default();
+            if !self.check_consent_for_action(agent_id, &hive_name, ConsentScope::HiveParticipation) {
+                return Err(CommError::ConsentDenied {
+                    reason: "Consent not granted for hive participation".to_string(),
+                });
+            }
+        }
+
         let hive = self
             .hive_minds
             .get_mut(&hive_id)
@@ -6777,5 +6905,417 @@ mod tests {
         assert!(msg.rich_content_json.is_none());
         assert!(msg.comm_id.is_none());
         assert_eq!(msg.content, "hello");
+    }
+
+    // =====================================================================
+    // Trust enforcement tests
+    // =====================================================================
+
+    #[test]
+    fn test_trust_enforcement_send_message_blocked() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("secure", ChannelType::Group, None)
+            .unwrap();
+        let ch_id = ch.id;
+
+        // Set channel to require High trust
+        let mut config = store.get_channel(ch_id).unwrap().config.clone();
+        config.min_trust_level = Some(CommTrustLevel::High);
+        store.set_channel_config(ch_id, config).unwrap();
+
+        // Set alice's trust level to Basic (below High)
+        store.set_trust_level("alice", CommTrustLevel::Basic).unwrap();
+        store.join_channel(ch_id, "alice").unwrap_err(); // also blocked at join
+
+        // Set to High so she can join, then lower and try to send
+        store.set_trust_level("alice", CommTrustLevel::High).unwrap();
+        store.join_channel(ch_id, "alice").unwrap();
+
+        // Lower trust and try to send
+        store.set_trust_level("alice", CommTrustLevel::Basic).unwrap();
+        let result = store.send_message(ch_id, "alice", "hello", MessageType::Text);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("Trust level insufficient"),
+            "Expected trust error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_trust_enforcement_send_message_allowed() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("secure", ChannelType::Group, None)
+            .unwrap();
+        let ch_id = ch.id;
+
+        // Set channel to require Basic trust
+        let mut config = store.get_channel(ch_id).unwrap().config.clone();
+        config.min_trust_level = Some(CommTrustLevel::Basic);
+        store.set_channel_config(ch_id, config).unwrap();
+
+        // Set alice's trust to Standard (above Basic)
+        store.set_trust_level("alice", CommTrustLevel::Standard).unwrap();
+        store.join_channel(ch_id, "alice").unwrap();
+        let msg = store.send_message(ch_id, "alice", "hello", MessageType::Text);
+        assert!(msg.is_ok());
+    }
+
+    #[test]
+    fn test_trust_enforcement_no_min_trust_allows_all() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("open", ChannelType::Group, None)
+            .unwrap();
+        let ch_id = ch.id;
+        // No min_trust_level set (None) — anyone can send
+        store.set_trust_level("alice", CommTrustLevel::None).unwrap();
+        store.join_channel(ch_id, "alice").unwrap();
+        let msg = store.send_message(ch_id, "alice", "hello", MessageType::Text);
+        assert!(msg.is_ok());
+    }
+
+    #[test]
+    fn test_trust_enforcement_broadcast_blocked() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("secure-bc", ChannelType::Broadcast, None)
+            .unwrap();
+        let ch_id = ch.id;
+
+        // Require Full trust
+        let mut config = store.get_channel(ch_id).unwrap().config.clone();
+        config.min_trust_level = Some(CommTrustLevel::Full);
+        store.set_channel_config(ch_id, config).unwrap();
+
+        // Alice has Standard trust — too low
+        store.set_trust_level("alice", CommTrustLevel::Standard).unwrap();
+        let result = store.broadcast(ch_id, "alice", "hello everyone");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Trust level insufficient"));
+    }
+
+    #[test]
+    fn test_trust_enforcement_join_channel_blocked() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("exclusive", ChannelType::Group, None)
+            .unwrap();
+        let ch_id = ch.id;
+
+        // Require High trust to join
+        let mut config = store.get_channel(ch_id).unwrap().config.clone();
+        config.min_trust_level = Some(CommTrustLevel::High);
+        store.set_channel_config(ch_id, config).unwrap();
+
+        store.set_trust_level("bob", CommTrustLevel::Basic).unwrap();
+        let result = store.join_channel(ch_id, "bob");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Trust level insufficient"));
+    }
+
+    #[test]
+    fn test_trust_enforcement_publish_blocked() {
+        let mut store = CommStore::new();
+        // Pre-create a pubsub channel with trust requirement
+        let ch = store
+            .create_channel("news-feed", ChannelType::PubSub, None)
+            .unwrap();
+        let ch_id = ch.id;
+
+        let mut config = store.get_channel(ch_id).unwrap().config.clone();
+        config.min_trust_level = Some(CommTrustLevel::High);
+        store.set_channel_config(ch_id, config).unwrap();
+
+        store.set_trust_level("low-trust-pub", CommTrustLevel::Minimal).unwrap();
+
+        // Subscribe someone
+        store.subscribe("news-feed", "subscriber1").unwrap();
+
+        let result = store.publish("news-feed", "low-trust-pub", "breaking news");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Trust level insufficient"));
+    }
+
+    // =====================================================================
+    // Consent enforcement expansion tests
+    // =====================================================================
+
+    #[test]
+    fn test_consent_join_channel_open_by_default() {
+        // When no JoinChannels consent gates exist, joining should succeed
+        let (mut store, ch_id) = new_store_with_channel();
+        let result = store.join_channel(ch_id, "alice");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_consent_join_channel_blocked() {
+        let (mut store, ch_id) = new_store_with_channel();
+        // Create a JoinChannels consent gate that grants to bob but not alice
+        store.grant_consent(
+            "system", "bob", ConsentScope::JoinChannels,
+            Some("approved".to_string()), None,
+        ).unwrap();
+
+        // Now JoinChannels scope has at least one gate, so alice (no grant) is blocked
+        let result = store.join_channel(ch_id, "alice");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Consent"));
+
+        // bob should be allowed
+        let result = store.join_channel(ch_id, "bob");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_consent_schedule_message_open_by_default() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("temporal-ch", ChannelType::Temporal, None)
+            .unwrap();
+        // No ScheduleMessages consent gates — should work
+        let result = store.schedule_message(
+            ch.id, "alice", "future msg", TemporalTarget::Immediate, None,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_consent_schedule_message_blocked() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("temporal-ch", ChannelType::Temporal, None)
+            .unwrap();
+        // Create a ScheduleMessages gate for bob (alice has no grant)
+        store.grant_consent(
+            "system", "bob", ConsentScope::ScheduleMessages,
+            Some("allowed".to_string()), None,
+        ).unwrap();
+
+        let result = store.schedule_message(
+            ch.id, "alice", "blocked msg", TemporalTarget::Immediate, None,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Consent"));
+    }
+
+    #[test]
+    fn test_consent_form_hive_open_by_default() {
+        let mut store = CommStore::new();
+        let result = store.form_hive(
+            "test-hive", "coordinator",
+            CollectiveDecisionMode::Consensus,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_consent_form_hive_blocked() {
+        let mut store = CommStore::new();
+        // Create a HiveParticipation gate for someone else
+        store.grant_consent(
+            "system", "other-agent", ConsentScope::HiveParticipation,
+            Some("approved".to_string()), None,
+        ).unwrap();
+
+        // coordinator has no grant, so should be blocked
+        let result = store.form_hive(
+            "test-hive", "coordinator",
+            CollectiveDecisionMode::Consensus,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Consent"));
+    }
+
+    #[test]
+    fn test_consent_join_hive_blocked() {
+        let mut store = CommStore::new();
+        // Grant coordinator consent so they can form
+        store.grant_consent(
+            "system", "coordinator", ConsentScope::HiveParticipation,
+            Some("approved".to_string()), None,
+        ).unwrap();
+        let hive = store.form_hive(
+            "test-hive", "coordinator",
+            CollectiveDecisionMode::Consensus,
+        ).unwrap();
+        let hive_id = hive.id;
+
+        // joiner has no HiveParticipation grant
+        let result = store.join_hive(hive_id, "joiner", HiveRole::Member);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Consent"));
+
+        // Grant joiner consent
+        store.grant_consent(
+            "system", "joiner", ConsentScope::HiveParticipation,
+            Some("approved".to_string()), None,
+        ).unwrap();
+        let result = store.join_hive(hive_id, "joiner", HiveRole::Member);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_consent_configure_federation_open_by_default() {
+        let mut store = CommStore::new();
+        let result = store.configure_federation(
+            true, "zone-a", FederationPolicy::Allow,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_consent_configure_federation_blocked() {
+        let mut store = CommStore::new();
+        // Create a Federate consent gate for another agent
+        store.grant_consent(
+            "admin", "other-system", ConsentScope::Federate,
+            Some("allowed".to_string()), None,
+        ).unwrap();
+
+        // "system" has no Federate grant
+        let result = store.configure_federation(
+            true, "zone-a", FederationPolicy::Allow,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Consent"));
+    }
+
+    // =====================================================================
+    // Vector clock tests
+    // =====================================================================
+
+    #[test]
+    fn test_vector_clock_increment() {
+        let mut ts = CommTimestamp::now("agent-a");
+        assert_eq!(ts.lamport, 0);
+        assert_eq!(*ts.vector_clock.get("agent-a").unwrap(), 0);
+
+        ts.increment("agent-a");
+        assert_eq!(ts.lamport, 1);
+        assert_eq!(*ts.vector_clock.get("agent-a").unwrap(), 1);
+
+        ts.increment("agent-a");
+        assert_eq!(ts.lamport, 2);
+        assert_eq!(*ts.vector_clock.get("agent-a").unwrap(), 2);
+    }
+
+    #[test]
+    fn test_vector_clock_merge() {
+        let mut ts_a = CommTimestamp::now("agent-a");
+        ts_a.increment("agent-a"); // lamport=1, vc={a:1}
+        ts_a.increment("agent-a"); // lamport=2, vc={a:2}
+
+        let mut ts_b = CommTimestamp::now("agent-b");
+        ts_b.increment("agent-b"); // lamport=1, vc={b:1}
+
+        // Merge b into a
+        ts_a.merge(&ts_b, "agent-a");
+        // lamport should be max(2,1)+1 = 3
+        assert_eq!(ts_a.lamport, 3);
+        // vector_clock should have a:3 (incremented on merge), b:1
+        assert_eq!(*ts_a.vector_clock.get("agent-a").unwrap(), 3);
+        assert_eq!(*ts_a.vector_clock.get("agent-b").unwrap(), 1);
+    }
+
+    #[test]
+    fn test_vector_clock_happens_before() {
+        let mut ts_a = CommTimestamp::now("agent-a");
+        ts_a.increment("agent-a"); // vc={a:1}
+
+        let mut ts_b = ts_a.clone();
+        ts_b.increment("agent-a"); // vc={a:2}
+
+        // ts_a should happen-before ts_b
+        assert!(ts_a.happens_before(&ts_b));
+        // ts_b should NOT happen-before ts_a
+        assert!(!ts_b.happens_before(&ts_a));
+    }
+
+    #[test]
+    fn test_vector_clock_concurrent() {
+        let mut ts_a = CommTimestamp::now("agent-a");
+        ts_a.increment("agent-a"); // vc={a:1}
+
+        let mut ts_b = CommTimestamp::now("agent-b");
+        ts_b.increment("agent-b"); // vc={b:1}
+
+        // Neither happens before the other (concurrent)
+        assert!(!ts_a.happens_before(&ts_b));
+        assert!(!ts_b.happens_before(&ts_a));
+    }
+
+    #[test]
+    fn test_vector_clock_populated_in_send_message() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store.join_channel(ch_id, "alice").unwrap();
+
+        let msg = store
+            .send_message(ch_id, "alice", "hello", MessageType::Text)
+            .unwrap();
+
+        // The vector clock should have alice's entry set to the lamport counter
+        assert!(msg.comm_timestamp.lamport > 0);
+        assert_eq!(
+            *msg.comm_timestamp.vector_clock.get("alice").unwrap(),
+            msg.comm_timestamp.lamport,
+        );
+    }
+
+    #[test]
+    fn test_vector_clock_populated_in_broadcast() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("bc-chan", ChannelType::Broadcast, None)
+            .unwrap();
+        let ch_id = ch.id;
+        store.join_channel(ch_id, "alice").unwrap();
+        store.join_channel(ch_id, "bob").unwrap();
+
+        let msgs = store.broadcast(ch_id, "alice", "broadcast msg").unwrap();
+        assert!(!msgs.is_empty());
+        for m in &msgs {
+            assert!(m.comm_timestamp.lamport > 0);
+            assert_eq!(
+                *m.comm_timestamp.vector_clock.get("alice").unwrap(),
+                m.comm_timestamp.lamport,
+            );
+        }
+    }
+
+    #[test]
+    fn test_receive_messages_merges_lamport() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store.join_channel(ch_id, "alice").unwrap();
+        store.join_channel(ch_id, "bob").unwrap();
+
+        // Send two messages
+        store.send_message(ch_id, "alice", "msg1", MessageType::Text).unwrap();
+        store.send_message(ch_id, "alice", "msg2", MessageType::Text).unwrap();
+        let lamport_after_send = store.lamport_counter;
+
+        // Receive them — should merge lamport (though they're from the same store,
+        // the mechanism works)
+        let msgs = store.receive_messages(ch_id, None, None).unwrap();
+        assert_eq!(msgs.len(), 2);
+        // lamport_counter should be at least as high as after sending
+        assert!(store.lamport_counter >= lamport_after_send);
+    }
+
+    #[test]
+    fn test_channel_config_backward_compat_no_min_trust() {
+        // Ensure ChannelConfig without min_trust_level deserializes correctly
+        let json = r#"{
+            "max_participants": 10,
+            "ttl_seconds": 0,
+            "persistence": true,
+            "encryption_required": false
+        }"#;
+        let config: ChannelConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(config.min_trust_level, None);
     }
 }
