@@ -214,6 +214,97 @@ pub fn require_string<'a>(
         })
 }
 
+
+/// Validate an agent_id: must be non-empty.
+pub fn validate_agent_id(agent_id: &str) -> ValidationResult {
+    if agent_id.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: agent_id must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Valid consent scopes (must match ConsentScope enum in types.rs).
+const VALID_CONSENT_SCOPES: &[&str] = &[
+    "read_messages",
+    "send_messages",
+    "join_channels",
+    "view_presence",
+    "share_content",
+    "schedule_messages",
+    "federate",
+    "hive_participation",
+];
+
+/// Validate a consent scope string.
+pub fn validate_consent_scope(scope: &str) -> ValidationResult {
+    if !VALID_CONSENT_SCOPES.contains(&scope) {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: invalid consent scope '{}'. Must be one of: {}",
+            scope,
+            VALID_CONSENT_SCOPES.join(", ")
+        )));
+    }
+    Ok(())
+}
+
+/// Valid trust levels.
+const VALID_TRUST_LEVELS: &[&str] = &[
+    "none", "minimal", "basic", "standard", "high", "full", "absolute",
+];
+
+/// Validate a trust level string.
+pub fn validate_trust_level(level: &str) -> ValidationResult {
+    if !VALID_TRUST_LEVELS.contains(&level) {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: invalid trust level '{}'. Must be one of: {}",
+            level,
+            VALID_TRUST_LEVELS.join(", ")
+        )));
+    }
+    Ok(())
+}
+
+/// Validate a valence value: must be -1.0 to 1.0.
+pub fn validate_valence(params: &Value) -> Result<Option<f64>, ToolCallResult> {
+    match params.get("valence").and_then(|v| v.as_f64()) {
+        Some(v) if !(-1.0..=1.0).contains(&v) => Err(ToolCallResult::error(format!(
+            "Validation error: valence must be between -1.0 and 1.0 (got {v})"
+        ))),
+        Some(v) => Ok(Some(v)),
+        None => Ok(None),
+    }
+}
+
+/// Validate an arousal value: must be 0.0 to 1.0.
+pub fn validate_arousal(params: &Value) -> Result<Option<f64>, ToolCallResult> {
+    match params.get("arousal").and_then(|v| v.as_f64()) {
+        Some(v) if !(0.0..=1.0).contains(&v) => Err(ToolCallResult::error(format!(
+            "Validation error: arousal must be between 0.0 and 1.0 (got {v})"
+        ))),
+        Some(v) => Ok(Some(v)),
+        None => Ok(None),
+    }
+}
+
+/// Valid urgency levels (must match UrgencyLevel enum in types.rs).
+const VALID_URGENCY_LEVELS: &[&str] = &["background", "low", "normal", "high", "urgent", "critical"];
+
+/// Validate an urgency string if present.
+pub fn validate_urgency(params: &Value) -> ValidationResult {
+    if let Some(urgency) = params.get("urgency").and_then(|v| v.as_str()) {
+        if !VALID_URGENCY_LEVELS.contains(&urgency) {
+            return Err(ToolCallResult::error(format!(
+                "Validation error: invalid urgency '{}'. Must be one of: {}",
+                urgency,
+                VALID_URGENCY_LEVELS.join(", ")
+            )));
+        }
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Composite validators for each tool
 // ---------------------------------------------------------------------------
@@ -349,6 +440,134 @@ pub fn validate_communication_log(params: &Value) -> Result<(), ToolCallResult> 
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// New tool validators (Tools 18-26)
+// ---------------------------------------------------------------------------
+
+/// Validate manage_consent parameters.
+pub fn validate_manage_consent(params: &Value) -> Result<(), ToolCallResult> {
+    let action = require_string(params, "action")?;
+    if action != "grant" && action != "revoke" {
+        return Err(ToolCallResult::error(
+            "Validation error: action must be 'grant' or 'revoke'".to_string(),
+        ));
+    }
+    let grantor = require_string(params, "grantor")?;
+    validate_agent_id(grantor)?;
+    let grantee = require_string(params, "grantee")?;
+    validate_agent_id(grantee)?;
+    let scope = require_string(params, "scope")?;
+    validate_consent_scope(scope)?;
+    Ok(())
+}
+
+/// Validate check_consent parameters.
+pub fn validate_check_consent(params: &Value) -> Result<(), ToolCallResult> {
+    let grantor = require_string(params, "grantor")?;
+    validate_agent_id(grantor)?;
+    let grantee = require_string(params, "grantee")?;
+    validate_agent_id(grantee)?;
+    let scope = require_string(params, "scope")?;
+    validate_consent_scope(scope)?;
+    Ok(())
+}
+
+/// Validate set_trust_level parameters.
+pub fn validate_set_trust_level(params: &Value) -> Result<(), ToolCallResult> {
+    let agent_id = require_string(params, "agent_id")?;
+    validate_agent_id(agent_id)?;
+    let level = require_string(params, "level")?;
+    validate_trust_level(level)?;
+    Ok(())
+}
+
+/// Validate get_trust_level parameters.
+pub fn validate_get_trust_level(params: &Value) -> Result<(), ToolCallResult> {
+    let agent_id = require_string(params, "agent_id")?;
+    validate_agent_id(agent_id)?;
+    Ok(())
+}
+
+/// Validate schedule_message parameters.
+pub fn validate_schedule_message(params: &Value) -> Result<(), ToolCallResult> {
+    validate_channel_id(params)?;
+    let sender = require_string(params, "sender")?;
+    validate_sender(sender)?;
+    let content = require_string(params, "content")?;
+    validate_content(content)?;
+    Ok(())
+}
+
+/// Validate list_scheduled parameters (no validation needed).
+pub fn validate_list_scheduled(_params: &Value) -> Result<(), ToolCallResult> {
+    Ok(())
+}
+
+/// Validate form_hive parameters.
+pub fn validate_form_hive(params: &Value) -> Result<(), ToolCallResult> {
+    let name = require_string(params, "name")?;
+    if name.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: hive name must not be empty".to_string(),
+        ));
+    }
+    let initiator = require_string(params, "coordinator")?;
+    if initiator.is_empty() {
+        return Err(ToolCallResult::error(
+          "Validation error: coordinator must not be empty".to_string(),
+        ));
+    }
+    let members = params
+        .get("members")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+              "Validation error: members is required and must be an array".to_string(),
+            )
+        })?;
+    if members.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: members array must not be empty".to_string(),
+        ));
+    }
+    for (i, member) in members.iter().enumerate() {
+        match member.as_str() {
+            Some(s) if s.is_empty() => {
+                return Err(ToolCallResult::error(format!(
+                    "Validation error: member at index {i} must not be empty"
+                )));
+            }
+            Some(_) => {}
+            None => {
+                return Err(ToolCallResult::error(format!(
+                    "Validation error: member at index {i} must be a string"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Validate get_stats parameters (no validation needed).
+pub fn validate_get_stats(_params: &Value) -> Result<(), ToolCallResult> {
+    Ok(())
+}
+
+/// Validate send_affect parameters.
+pub fn validate_send_affect(params: &Value) -> Result<(), ToolCallResult> {
+    validate_channel_id(params)?;
+    let sender = require_string(params, "sender")?;
+    validate_sender(sender)?;
+    let content = require_string(params, "content")?;
+    validate_content(content)?;
+    validate_valence(params)?;
+    validate_arousal(params)?;
+    validate_urgency(params)?;
+    Ok(())
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -458,4 +677,59 @@ mod tests {
         let empty_content = json!({"channel_id": 1, "sender": "alice", "content": ""});
         assert!(validate_send_message(&empty_content).is_err());
     }
+
+    #[test]
+    fn test_validate_manage_consent_valid() {
+        let valid = json!({
+            "action": "grant",
+            "grantor": "agent-001",
+            "grantee": "agent-002",
+            "scope": "read_messages"
+        });
+        assert!(validate_manage_consent(&valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_set_trust_level_valid() {
+        let valid = json!({"agent_id": "agent-001", "level": "basic"});
+        assert!(validate_set_trust_level(&valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_schedule_message_valid() {
+        let valid = json!({"channel_id": 1, "sender": "alice", "content": "hello"});
+        assert!(validate_schedule_message(&valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_form_hive_valid() {
+        let valid = json!({
+            "name": "hive-alpha",
+            "coordinator": "agent-001",
+            "members": ["agent-001", "agent-002"]
+        });
+        assert!(validate_form_hive(&valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_send_affect_valid() {
+        let valid = json!({
+            "channel_id": 1, "sender": "alice",
+            "content": "hello", "valence": 0.5,
+            "arousal": 0.3, "urgency": "low"
+        });
+        assert!(validate_send_affect(&valid).is_ok());
+    }
+
+    #[test]
+    fn test_validate_get_stats() {
+        assert!(validate_get_stats(&json!({})).is_ok());
+    }
+
+    #[test]
+    fn test_validate_list_scheduled() {
+        assert!(validate_list_scheduled(&json!({})).is_ok());
+    }
+
+
 }

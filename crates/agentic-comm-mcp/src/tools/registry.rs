@@ -8,13 +8,13 @@ use crate::tools::validation;
 use crate::types::response::{ToolCallResult, ToolDefinition};
 use crate::types::McpError;
 
-use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType};
+use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode};
 
 /// Tool registry — lists all available tools and dispatches calls.
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 17 tools.
+    /// Return definitions for all 27 tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
@@ -395,6 +395,241 @@ impl ToolRegistry {
                     "required": ["intent"]
                 }),
             },
+            // ---------------------------------------------------------------
+            // Consent tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "manage_consent".to_string(),
+                description: Some(
+                    "Manage consent between agents (grant or revoke)".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "description": "Consent action: grant or revoke",
+                            "enum": ["grant", "revoke"]
+                        },
+                        "grantor": {
+                            "type": "string",
+                            "description": "Agent granting or revoking consent"
+                        },
+                        "grantee": {
+                            "type": "string",
+                            "description": "Agent receiving or losing consent"
+                        },
+                        "scope": {
+                            "type": "string",
+                            "description": "Consent scope (e.g., receive-messages, join-channel, receive-semantic, receive-affect, telepathic-access, hive-formation, mind-meld, federation)"
+                        }
+                    },
+                    "required": ["action", "grantor", "grantee", "scope"]
+                }),
+            },
+            ToolDefinition {
+                name: "check_consent".to_string(),
+                description: Some(
+                    "Check if consent is granted between agents for a scope".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "grantor": {
+                            "type": "string",
+                            "description": "Agent who may have granted consent"
+                        },
+                        "grantee": {
+                            "type": "string",
+                            "description": "Agent who may have received consent"
+                        },
+                        "scope": {
+                            "type": "string",
+                            "description": "Consent scope to check"
+                        }
+                    },
+                    "required": ["grantor", "grantee", "scope"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Trust tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "set_trust_level".to_string(),
+                description: Some("Set trust level for an agent".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent identity to set trust for"
+                        },
+                        "level": {
+                            "type": "string",
+                            "description": "Trust level: none, minimal, basic, standard, high, full, absolute",
+                            "enum": ["none", "minimal", "basic", "standard", "high", "full", "absolute"]
+                        }
+                    },
+                    "required": ["agent_id", "level"]
+                }),
+            },
+            ToolDefinition {
+                name: "get_trust_level".to_string(),
+                description: Some("Get trust level for an agent".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent identity to query trust for"
+                        }
+                    },
+                    "required": ["agent_id"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Temporal messaging tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "schedule_message".to_string(),
+                description: Some(
+                    "Schedule a message for future delivery".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Target channel ID"
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Sender identity"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Message body"
+                        },
+                        "delay_seconds": {
+                            "type": "integer",
+                            "description": "Deliver after this many seconds from now"
+                        },
+                        "deliver_at": {
+                            "type": "string",
+                            "description": "ISO 8601 timestamp for delivery"
+                        }
+                    },
+                    "required": ["channel_id", "sender", "content"]
+                }),
+            },
+            ToolDefinition {
+                name: "list_scheduled".to_string(),
+                description: Some(
+                    "List all scheduled temporal messages".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Hive mind tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "form_hive".to_string(),
+                description: Some("Form a new hive mind group".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Hive mind name"
+                        },
+                        "coordinator": {
+                            "type": "string",
+                            "description": "Coordinator agent identity"
+                        },
+                        "decision_mode": {
+                            "type": "string",
+                            "description": "Decision mode: coordinator_decides, majority_vote, unanimous, weighted_vote. Default: coordinator_decides",
+                            "default": "coordinator_decides"
+                        }
+                    },
+                    "required": ["name", "coordinator"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Stats tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "get_stats".to_string(),
+                description: Some(
+                    "Get comprehensive communication store statistics".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Affect tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "send_affect".to_string(),
+                description: Some(
+                    "Send a message with emotional/affect context".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Target channel ID"
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Sender identity"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Message body"
+                        },
+                        "valence": {
+                            "type": "number",
+                            "description": "Emotional valence (-1.0 negative to 1.0 positive)"
+                        },
+                        "arousal": {
+                            "type": "number",
+                            "description": "Emotional arousal (0.0 calm to 1.0 excited)"
+                        },
+                        "urgency": {
+                            "type": "string",
+                            "description": "Urgency level: none, low, medium, high, critical",
+                            "default": "none"
+                        }
+                    },
+                    "required": ["channel_id", "sender", "content"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Grounding tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_ground".to_string(),
+                description: Some(
+                    "Ground a claim against the communication store".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "claim": {
+                            "type": "string",
+                            "description": "The claim to verify against stored communications"
+                        }
+                    },
+                    "required": ["claim"]
+                }),
+            },
         ]
     }
 
@@ -427,6 +662,20 @@ impl ToolRegistry {
             "acknowledge_message" => validation::validate_acknowledge_message(params),
             "set_channel_config" => validation::validate_set_channel_config(params),
             "communication_log" => validation::validate_communication_log(params),
+            "manage_consent" => validation::validate_manage_consent(params),
+            "check_consent" => validation::validate_check_consent(params),
+            "set_trust_level" => validation::validate_set_trust_level(params),
+            "get_trust_level" => validation::validate_get_trust_level(params),
+            "schedule_message" => validation::validate_schedule_message(params),
+            "list_scheduled" => validation::validate_list_scheduled(params),
+            "form_hive" => validation::validate_form_hive(params),
+            "get_stats" => validation::validate_get_stats(params),
+            "send_affect" => validation::validate_send_affect(params),
+            "comm_ground" => (|| {
+                let claim = validation::require_string(params, "claim")?;
+                validation::validate_query(claim)?;
+                Ok(())
+            })(),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -454,6 +703,16 @@ impl ToolRegistry {
             "acknowledge_message" => Self::handle_acknowledge_message(params, session),
             "set_channel_config" => Self::handle_set_channel_config(params, session),
             "communication_log" => Self::handle_communication_log(params, session),
+            "manage_consent" => Self::handle_manage_consent(params, session),
+            "check_consent" => Self::handle_check_consent(params, session),
+            "set_trust_level" => Self::handle_set_trust_level(params, session),
+            "get_trust_level" => Self::handle_get_trust_level(params, session),
+            "schedule_message" => Self::handle_schedule_message(params, session),
+            "list_scheduled" => Self::handle_list_scheduled(session),
+            "form_hive" => Self::handle_form_hive(params, session),
+            "get_stats" => Self::handle_get_stats(session),
+            "send_affect" => Self::handle_send_affect(params, session),
+            "comm_ground" => Self::handle_comm_ground(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -918,5 +1177,319 @@ impl ToolRegistry {
             "timestamp": entry.timestamp,
             "intent": entry.intent,
         })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Consent handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_manage_consent(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let action = params
+            .get("action")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("action is required".to_string()))?;
+        let grantor = params
+            .get("grantor")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("grantor is required".to_string()))?;
+        let grantee = params
+            .get("grantee")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("grantee is required".to_string()))?;
+        let scope_str = params
+            .get("scope")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("scope is required".to_string()))?;
+        let scope: ConsentScope = scope_str
+            .parse()
+            .map_err(|e: String| McpError::InvalidParams(e))?;
+
+        match action {
+            "grant" => {
+                match session.store.grant_consent(grantor, grantee, scope, None, None) {
+                    Ok(_entry) => {
+                        session.record_operation("manage_consent", None);
+                        Ok(ToolCallResult::json(&json!({
+                            "status": "granted",
+                            "action": "grant",
+                            "grantor": grantor,
+                            "grantee": grantee,
+                            "scope": scope_str,
+                        })))
+                    }
+                    Err(e) => Ok(ToolCallResult::error(e.to_string())),
+                }
+            }
+            "revoke" => {
+                match session.store.revoke_consent(grantor, grantee, &scope) {
+                    Ok(()) => {
+                        session.record_operation("manage_consent", None);
+                        Ok(ToolCallResult::json(&json!({
+                            "status": "revoked",
+                            "action": "revoke",
+                            "grantor": grantor,
+                            "grantee": grantee,
+                            "scope": scope_str,
+                        })))
+                    }
+                    Err(e) => Ok(ToolCallResult::error(e.to_string())),
+                }
+            }
+            _ => Ok(ToolCallResult::error(format!(
+                "Unknown consent action: {action}. Must be 'grant' or 'revoke'"
+            ))),
+        }
+    }
+
+    fn handle_check_consent(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let grantor = params
+            .get("grantor")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("grantor is required".to_string()))?;
+        let grantee = params
+            .get("grantee")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("grantee is required".to_string()))?;
+        let scope_str = params
+            .get("scope")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("scope is required".to_string()))?;
+        let scope: ConsentScope = scope_str
+            .parse()
+            .map_err(|e: String| McpError::InvalidParams(e))?;
+
+        let granted = session.store.check_consent(grantor, grantee, &scope);
+        session.record_operation("check_consent", None);
+        Ok(ToolCallResult::json(&json!({
+            "grantor": grantor,
+            "grantee": grantee,
+            "scope": scope_str,
+            "granted": granted,
+        })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Trust handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_set_trust_level(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let agent_id = params
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
+        let level_str = params
+            .get("level")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("level is required".to_string()))?;
+        let level: CommTrustLevel = level_str
+            .parse()
+            .map_err(|e: String| McpError::InvalidParams(e))?;
+
+        match session.store.set_trust_level(agent_id, level) {
+            Ok(()) => {
+                session.record_operation("set_trust_level", None);
+                Ok(ToolCallResult::json(&json!({
+                    "status": "updated",
+                    "agent_id": agent_id,
+                    "level": level_str,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_get_trust_level(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let agent_id = params
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
+
+        let level = session.store.get_trust_level(agent_id);
+        session.record_operation("get_trust_level", None);
+        Ok(ToolCallResult::json(&json!({
+            "agent_id": agent_id,
+            "level": format!("{:?}", level),
+        })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Temporal messaging handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_schedule_message(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+        let sender = params
+            .get("sender")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("sender is required".to_string()))?;
+        let content = params
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("content is required".to_string()))?;
+
+        let target = if let Some(delay) = params.get("delay_seconds").and_then(|v| v.as_u64()) {
+            TemporalTarget::FutureRelative { delay_seconds: delay }
+        } else if let Some(ts) = params.get("deliver_at").and_then(|v| v.as_str()) {
+            TemporalTarget::FutureAbsolute { deliver_at: ts.to_string() }
+        } else {
+            TemporalTarget::Immediate
+        };
+
+        match session.store.schedule_message(channel_id, sender, content, target, None) {
+            Ok(temporal_msg) => {
+                let tid = temporal_msg.id;
+                let result = ToolCallResult::json(&temporal_msg);
+                session.record_operation("schedule_message", Some(tid));
+                Ok(result)
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_list_scheduled(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let scheduled: Vec<_> = session.store.list_scheduled()
+            .into_iter()
+            .cloned()
+            .collect();
+        session.record_operation("list_scheduled", None);
+        Ok(ToolCallResult::json(&scheduled))
+    }
+
+    // -----------------------------------------------------------------------
+    // Hive mind handler
+    // -----------------------------------------------------------------------
+
+    fn handle_form_hive(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let name = params
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("name is required".to_string()))?;
+        let coordinator = params
+            .get("coordinator")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("coordinator is required".to_string()))?;
+        let decision_mode_str = params
+            .get("decision_mode")
+            .and_then(|v| v.as_str())
+            .unwrap_or("coordinator_decides");
+        let decision_mode = match decision_mode_str {
+            "coordinator_decides" => CollectiveDecisionMode::CoordinatorDecides,
+            "majority" => CollectiveDecisionMode::Majority,
+            "unanimous" => CollectiveDecisionMode::Unanimous,
+            "consensus" => CollectiveDecisionMode::Consensus,
+            other => return Ok(ToolCallResult::error(format!(
+                "Unknown decision mode: {other}. Must be: coordinator_decides, majority, unanimous, consensus"
+            ))),
+        };
+
+        match session.store.form_hive(name, coordinator, decision_mode) {
+            Ok(hive) => {
+                let hid = hive.id;
+                let result = ToolCallResult::json(&hive);
+                session.record_operation("form_hive", Some(hid));
+                Ok(result)
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Stats handler
+    // -----------------------------------------------------------------------
+
+    fn handle_get_stats(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let stats = session.store.stats();
+        session.record_operation("get_stats", None);
+        Ok(ToolCallResult::json(&stats))
+    }
+
+    // -----------------------------------------------------------------------
+    // Affect handler
+    // -----------------------------------------------------------------------
+
+    fn handle_send_affect(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+        let sender = params
+            .get("sender")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("sender is required".to_string()))?;
+        let content = params
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("content is required".to_string()))?;
+
+        let valence = params.get("valence").and_then(|v| v.as_f64());
+        let arousal = params.get("arousal").and_then(|v| v.as_f64());
+        let urgency_str = params
+            .get("urgency")
+            .and_then(|v| v.as_str())
+            .unwrap_or("normal");
+        let urgency: UrgencyLevel = urgency_str
+            .parse()
+            .map_err(|e: String| McpError::InvalidParams(e))?;
+
+        let affect = AffectState {
+            valence: valence.unwrap_or(0.0),
+            arousal: arousal.unwrap_or(0.0),
+            urgency,
+            ..Default::default()
+        };
+
+        match session.store.send_affect_message(channel_id, sender, content, affect) {
+            Ok(msg) => {
+                session.record_operation("send_affect", Some(msg.id));
+                Ok(ToolCallResult::json(&msg))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Grounding handler
+    // -----------------------------------------------------------------------
+
+    fn handle_comm_ground(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let claim = params
+            .get("claim")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("claim is required".to_string()))?;
+
+        let result = session.store.ground_claim(claim);
+        session.record_operation("comm_ground", None);
+        Ok(ToolCallResult::json(&result))
     }
 }

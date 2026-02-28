@@ -14,6 +14,9 @@ use flate2::Compression;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+pub mod types;
+pub use types::*;
+
 // ---------------------------------------------------------------------------
 // Errors
 // ---------------------------------------------------------------------------
@@ -76,6 +79,26 @@ pub enum CommError {
     /// Invalid file format.
     #[error("Invalid .acomm file: {0}")]
     InvalidFile(String),
+
+    /// Consent error.
+    #[error("Consent error: {0}")]
+    ConsentError(String),
+
+    /// Trust level error.
+    #[error("Trust error: {0}")]
+    TrustError(String),
+
+    /// Temporal scheduling error.
+    #[error("Temporal error: {0}")]
+    TemporalError(String),
+
+    /// Federation error.
+    #[error("Federation error: {0}")]
+    FederationError(String),
+
+    /// Hive mind error.
+    #[error("Hive error: {0}")]
+    HiveError(String),
 }
 
 /// Convenience result type.
@@ -550,6 +573,46 @@ pub struct CommStore {
     /// Dead letter queue for undeliverable messages.
     #[serde(default)]
     pub dead_letters: Vec<DeadLetter>,
+
+    /// Consent gates: (grantor, grantee, scope) -> ConsentGateEntry.
+    #[serde(default)]
+    pub consent_gates: Vec<ConsentGateEntry>,
+
+    /// Trust level overrides: agent_id -> trust_level.
+    #[serde(default)]
+    pub trust_levels: HashMap<String, CommTrustLevel>,
+
+    /// Temporal message queue.
+    #[serde(default)]
+    pub temporal_queue: Vec<TemporalMessage>,
+
+    /// Next temporal message ID.
+    #[serde(default = "default_one")]
+    next_temporal_id: u64,
+
+    /// Federation configuration.
+    #[serde(default)]
+    pub federation_config: FederationConfig,
+
+    /// Hive minds.
+    #[serde(default)]
+    pub hive_minds: HashMap<u64, HiveMind>,
+
+    /// Next hive mind ID.
+    #[serde(default = "default_one")]
+    next_hive_id: u64,
+
+    /// Communication log entries.
+    #[serde(default)]
+    pub comm_log: Vec<CommunicationLogEntry>,
+
+    /// Next log entry index.
+    #[serde(default = "default_one")]
+    next_log_index: u64,
+}
+
+fn default_one() -> u64 {
+    1
 }
 
 impl Default for CommStore {
@@ -569,6 +632,15 @@ impl CommStore {
             next_message_id: 1,
             next_subscription_id: 1,
             dead_letters: Vec::new(),
+            consent_gates: Vec::new(),
+            trust_levels: HashMap::new(),
+            temporal_queue: Vec::new(),
+            next_temporal_id: 1,
+            federation_config: FederationConfig::default(),
+            hive_minds: HashMap::new(),
+            next_hive_id: 1,
+            comm_log: Vec::new(),
+            next_log_index: 1,
         }
     }
 
@@ -1583,6 +1655,562 @@ impl CommStore {
             channels_by_state,
             oldest_message,
             newest_message,
+            consent_gate_count: self.consent_gates.len(),
+            trust_override_count: self.trust_levels.len(),
+            temporal_queue_count: self.temporal_queue.iter().filter(|m| !m.delivered).count(),
+            hive_count: self.hive_minds.len(),
+            comm_log_count: self.comm_log.len(),
+            federation_enabled: self.federation_config.enabled,
+            federated_zone_count: self.federation_config.zones.len(),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Consent management
+    // -----------------------------------------------------------------------
+
+    /// Grant consent from grantor to grantee for a specific scope.
+    pub fn grant_consent(
+        &mut self,
+        grantor: &str,
+        grantee: &str,
+        scope: ConsentScope,
+        reason: Option<String>,
+        expires_at: Option<String>,
+    ) -> CommResult<&ConsentGateEntry> {
+        if grantor.is_empty() || grantee.is_empty() {
+            return Err(CommError::ConsentError(
+                "Grantor and grantee must be non-empty".to_string(),
+            ));
+        }
+        let now = Utc::now().to_rfc3339();
+        // Check if an existing entry exists for this triple
+        if let Some(entry) = self.consent_gates.iter_mut().find(|e| {
+            e.grantor == grantor && e.grantee == grantee && e.scope == scope
+        }) {
+            entry.status = ConsentStatus::Granted;
+            entry.updated_at = now;
+            entry.reason = reason;
+            entry.expires_at = expires_at;
+            let idx = self.consent_gates.iter().position(|e| {
+                e.grantor == grantor && e.grantee == grantee && e.scope == scope
+            }).unwrap();
+            return Ok(&self.consent_gates[idx]);
+        }
+        // Create new entry
+        let entry = ConsentGateEntry {
+            grantor: grantor.to_string(),
+            grantee: grantee.to_string(),
+            scope,
+            status: ConsentStatus::Granted,
+            created_at: now.clone(),
+            updated_at: now,
+            expires_at,
+            reason,
+        };
+        self.consent_gates.push(entry);
+        Ok(self.consent_gates.last().unwrap())
+    }
+
+    /// Revoke consent.
+    pub fn revoke_consent(
+        &mut self,
+        grantor: &str,
+        grantee: &str,
+        scope: &ConsentScope,
+    ) -> CommResult<()> {
+        if let Some(entry) = self.consent_gates.iter_mut().find(|e| {
+            e.grantor == grantor && e.grantee == grantee && e.scope == *scope
+        }) {
+            entry.status = ConsentStatus::Revoked;
+            entry.updated_at = Utc::now().to_rfc3339();
+            Ok(())
+        } else {
+            Err(CommError::ConsentError(format!(
+                "No consent entry found for {grantor} -> {grantee} ({scope})"
+            )))
+        }
+    }
+
+    /// Check if consent is granted.
+    pub fn check_consent(
+        &self,
+        grantor: &str,
+        grantee: &str,
+        scope: &ConsentScope,
+    ) -> bool {
+        self.consent_gates.iter().any(|e| {
+            e.grantor == grantor
+                && e.grantee == grantee
+                && e.scope == *scope
+                && e.status == ConsentStatus::Granted
+        })
+    }
+
+    /// List all consent gates, optionally filtered by agent.
+    pub fn list_consent_gates(&self, agent: Option<&str>) -> Vec<&ConsentGateEntry> {
+        self.consent_gates
+            .iter()
+            .filter(|e| {
+                agent.map_or(true, |a| e.grantor == a || e.grantee == a)
+            })
+            .collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // Trust management
+    // -----------------------------------------------------------------------
+
+    /// Set trust level for an agent.
+    pub fn set_trust_level(
+        &mut self,
+        agent_id: &str,
+        level: CommTrustLevel,
+    ) -> CommResult<()> {
+        if agent_id.is_empty() {
+            return Err(CommError::TrustError(
+                "Agent ID must be non-empty".to_string(),
+            ));
+        }
+        self.trust_levels.insert(agent_id.to_string(), level);
+        Ok(())
+    }
+
+    /// Get trust level for an agent (default: Standard).
+    pub fn get_trust_level(&self, agent_id: &str) -> CommTrustLevel {
+        self.trust_levels
+            .get(agent_id)
+            .copied()
+            .unwrap_or(CommTrustLevel::Standard)
+    }
+
+    /// List all trust level overrides.
+    pub fn list_trust_levels(&self) -> &HashMap<String, CommTrustLevel> {
+        &self.trust_levels
+    }
+
+    // -----------------------------------------------------------------------
+    // Temporal scheduling
+    // -----------------------------------------------------------------------
+
+    /// Schedule a message for future delivery.
+    pub fn schedule_message(
+        &mut self,
+        channel_id: u64,
+        sender: &str,
+        content: &str,
+        target: TemporalTarget,
+        affect: Option<AffectState>,
+    ) -> CommResult<&TemporalMessage> {
+        // Validate channel exists
+        if !self.channels.contains_key(&channel_id) {
+            return Err(CommError::ChannelNotFound(channel_id));
+        }
+        Self::validate_sender(sender)?;
+        Self::validate_content(content)?;
+
+        let id = self.next_temporal_id;
+        self.next_temporal_id += 1;
+
+        let msg = TemporalMessage {
+            id,
+            channel_id,
+            sender: sender.to_string(),
+            content: content.to_string(),
+            target,
+            scheduled_at: Utc::now().to_rfc3339(),
+            delivered: false,
+            affect,
+        };
+        self.temporal_queue.push(msg);
+        Ok(self.temporal_queue.last().unwrap())
+    }
+
+    /// List all scheduled (undelivered) temporal messages.
+    pub fn list_scheduled(&self) -> Vec<&TemporalMessage> {
+        self.temporal_queue
+            .iter()
+            .filter(|m| !m.delivered)
+            .collect()
+    }
+
+    /// Cancel a scheduled message.
+    pub fn cancel_scheduled(&mut self, temporal_id: u64) -> CommResult<()> {
+        if let Some(msg) = self.temporal_queue.iter_mut().find(|m| m.id == temporal_id) {
+            if msg.delivered {
+                return Err(CommError::TemporalError(
+                    "Cannot cancel already-delivered message".to_string(),
+                ));
+            }
+            self.temporal_queue.retain(|m| m.id != temporal_id);
+            Ok(())
+        } else {
+            Err(CommError::TemporalError(format!(
+                "Scheduled message {temporal_id} not found"
+            )))
+        }
+    }
+
+    /// Deliver all pending temporal messages that are due (Immediate targets).
+    /// Returns the number of messages delivered.
+    pub fn deliver_pending_temporal(&mut self) -> usize {
+        let mut delivered = 0;
+        let mut to_deliver = Vec::new();
+
+        for msg in &self.temporal_queue {
+            if msg.delivered {
+                continue;
+            }
+            match &msg.target {
+                TemporalTarget::Immediate => {
+                    to_deliver.push((msg.id, msg.channel_id, msg.sender.clone(), msg.content.clone()));
+                }
+                _ => {} // Other targets need time/condition checking
+            }
+        }
+
+        for (temporal_id, channel_id, sender, content) in to_deliver {
+            if self.send_message(channel_id, &sender, &content, MessageType::Text).is_ok() {
+                if let Some(msg) = self.temporal_queue.iter_mut().find(|m| m.id == temporal_id) {
+                    msg.delivered = true;
+                }
+                delivered += 1;
+            }
+        }
+        delivered
+    }
+
+    // -----------------------------------------------------------------------
+    // Affect messaging
+    // -----------------------------------------------------------------------
+
+    /// Send a message with affect/emotional context.
+    pub fn send_affect_message(
+        &mut self,
+        channel_id: u64,
+        sender: &str,
+        content: &str,
+        affect: AffectState,
+    ) -> CommResult<Message> {
+        // Validate
+        Self::validate_sender(sender)?;
+        Self::validate_content(content)?;
+        self.check_channel_allows_send(channel_id)?;
+
+        // Embed affect as JSON prefix in content for storage
+        let affect_json = serde_json::to_string(&affect)
+            .map_err(|e| CommError::Serialization(e.to_string()))?;
+        let enriched = format!("[affect:{}]{}", affect_json, content);
+
+        self.send_message(channel_id, sender, &enriched, MessageType::Text)
+    }
+
+    // -----------------------------------------------------------------------
+    // Federation management
+    // -----------------------------------------------------------------------
+
+    /// Configure federation settings.
+    pub fn configure_federation(
+        &mut self,
+        enabled: bool,
+        local_zone: &str,
+        default_policy: FederationPolicy,
+    ) -> CommResult<()> {
+        if local_zone.is_empty() {
+            return Err(CommError::FederationError(
+                "Local zone must be non-empty".to_string(),
+            ));
+        }
+        self.federation_config.enabled = enabled;
+        self.federation_config.local_zone = local_zone.to_string();
+        self.federation_config.default_policy = default_policy;
+        Ok(())
+    }
+
+    /// Get current federation configuration.
+    pub fn get_federation_config(&self) -> &FederationConfig {
+        &self.federation_config
+    }
+
+    /// Add a federated zone.
+    pub fn add_federated_zone(&mut self, zone: FederatedZone) -> CommResult<()> {
+        if zone.zone_id.is_empty() {
+            return Err(CommError::FederationError(
+                "Zone ID must be non-empty".to_string(),
+            ));
+        }
+        // Check for duplicates
+        if self.federation_config.zones.iter().any(|z| z.zone_id == zone.zone_id) {
+            return Err(CommError::FederationError(format!(
+                "Zone '{}' already exists", zone.zone_id
+            )));
+        }
+        self.federation_config.zones.push(zone);
+        Ok(())
+    }
+
+    /// Remove a federated zone.
+    pub fn remove_federated_zone(&mut self, zone_id: &str) -> CommResult<()> {
+        let before = self.federation_config.zones.len();
+        self.federation_config.zones.retain(|z| z.zone_id != zone_id);
+        if self.federation_config.zones.len() == before {
+            return Err(CommError::FederationError(format!(
+                "Zone '{zone_id}' not found"
+            )));
+        }
+        Ok(())
+    }
+
+    /// List all federated zones.
+    pub fn list_federated_zones(&self) -> &[FederatedZone] {
+        &self.federation_config.zones
+    }
+
+    // -----------------------------------------------------------------------
+    // Hive mind management
+    // -----------------------------------------------------------------------
+
+    /// Form a new hive mind.
+    pub fn form_hive(
+        &mut self,
+        name: &str,
+        coordinator: &str,
+        decision_mode: CollectiveDecisionMode,
+    ) -> CommResult<&HiveMind> {
+        if name.is_empty() {
+            return Err(CommError::HiveError(
+                "Hive name must be non-empty".to_string(),
+            ));
+        }
+        if coordinator.is_empty() {
+            return Err(CommError::HiveError(
+                "Coordinator must be non-empty".to_string(),
+            ));
+        }
+        let id = self.next_hive_id;
+        self.next_hive_id += 1;
+        let now = Utc::now().to_rfc3339();
+        let hive = HiveMind {
+            id,
+            name: name.to_string(),
+            constituents: vec![HiveConstituent {
+                agent_id: coordinator.to_string(),
+                role: HiveRole::Coordinator,
+                joined_at: now.clone(),
+            }],
+            decision_mode,
+            formed_at: now,
+            metadata: HashMap::new(),
+        };
+        self.hive_minds.insert(id, hive);
+        Ok(self.hive_minds.get(&id).unwrap())
+    }
+
+    /// Dissolve a hive mind.
+    pub fn dissolve_hive(&mut self, hive_id: u64) -> CommResult<()> {
+        if self.hive_minds.remove(&hive_id).is_none() {
+            return Err(CommError::HiveError(format!(
+                "Hive {hive_id} not found"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Join a hive mind.
+    pub fn join_hive(
+        &mut self,
+        hive_id: u64,
+        agent_id: &str,
+        role: HiveRole,
+    ) -> CommResult<()> {
+        let hive = self
+            .hive_minds
+            .get_mut(&hive_id)
+            .ok_or_else(|| CommError::HiveError(format!("Hive {hive_id} not found")))?;
+
+        if hive.constituents.iter().any(|c| c.agent_id == agent_id) {
+            return Err(CommError::HiveError(format!(
+                "Agent '{agent_id}' is already in hive {hive_id}"
+            )));
+        }
+
+        hive.constituents.push(HiveConstituent {
+            agent_id: agent_id.to_string(),
+            role,
+            joined_at: Utc::now().to_rfc3339(),
+        });
+        Ok(())
+    }
+
+    /// Leave a hive mind.
+    pub fn leave_hive(&mut self, hive_id: u64, agent_id: &str) -> CommResult<()> {
+        let hive = self
+            .hive_minds
+            .get_mut(&hive_id)
+            .ok_or_else(|| CommError::HiveError(format!("Hive {hive_id} not found")))?;
+
+        let before = hive.constituents.len();
+        hive.constituents.retain(|c| c.agent_id != agent_id);
+        if hive.constituents.len() == before {
+            return Err(CommError::HiveError(format!(
+                "Agent '{agent_id}' is not in hive {hive_id}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// List all hive minds.
+    pub fn list_hives(&self) -> Vec<&HiveMind> {
+        self.hive_minds.values().collect()
+    }
+
+    /// Get a specific hive mind.
+    pub fn get_hive(&self, hive_id: u64) -> Option<&HiveMind> {
+        self.hive_minds.get(&hive_id)
+    }
+
+    // -----------------------------------------------------------------------
+    // Communication log (mirrors memory's conversation_log)
+    // -----------------------------------------------------------------------
+
+    /// Log a communication context entry.
+    pub fn log_communication(
+        &mut self,
+        content: &str,
+        role: &str,
+        topic: Option<String>,
+        linked_message_id: Option<u64>,
+        affect: Option<AffectState>,
+    ) -> &CommunicationLogEntry {
+        let idx = self.next_log_index;
+        self.next_log_index += 1;
+        let entry = CommunicationLogEntry {
+            index: idx,
+            content: content.to_string(),
+            role: role.to_string(),
+            topic,
+            timestamp: Utc::now().to_rfc3339(),
+            linked_message_id,
+            affect,
+        };
+        self.comm_log.push(entry);
+        self.comm_log.last().unwrap()
+    }
+
+    /// Get communication log entries.
+    pub fn get_comm_log(&self, limit: Option<usize>) -> &[CommunicationLogEntry] {
+        match limit {
+            Some(n) if n < self.comm_log.len() => &self.comm_log[self.comm_log.len() - n..],
+            _ => &self.comm_log,
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Grounding (mirrors memory's memory_ground)
+    // -----------------------------------------------------------------------
+
+    /// Ground a claim against the communication store.
+    pub fn ground_claim(&self, claim: &str) -> GroundingResult {
+        let claim_lower = claim.to_lowercase();
+        let mut evidence = Vec::new();
+        let mut score = 0.0f64;
+
+        // Check channels
+        for ch in self.channels.values() {
+            if claim_lower.contains(&ch.name.to_lowercase()) {
+                evidence.push(GroundingEvidence {
+                    evidence_type: "channel".to_string(),
+                    content: format!("Channel '{}' (id={}, state={})", ch.name, ch.id, ch.state),
+                    relevance: 0.9,
+                });
+                score = score.max(0.8);
+            }
+            for p in &ch.participants {
+                if claim_lower.contains(&p.to_lowercase()) {
+                    evidence.push(GroundingEvidence {
+                        evidence_type: "participant".to_string(),
+                        content: format!("'{}' is a participant in channel '{}'", p, ch.name),
+                        relevance: 0.8,
+                    });
+                    score = score.max(0.7);
+                }
+            }
+        }
+
+        // Check messages
+        for msg in self.messages.values() {
+            if claim_lower.contains(&msg.sender.to_lowercase())
+                || claim_lower.contains(&msg.content.to_lowercase().chars().take(50).collect::<String>())
+            {
+                evidence.push(GroundingEvidence {
+                    evidence_type: "message".to_string(),
+                    content: format!(
+                        "Message from '{}' in channel {} at {}",
+                        msg.sender, msg.channel_id, msg.timestamp
+                    ),
+                    relevance: 0.7,
+                });
+                score = score.max(0.6);
+            }
+        }
+
+        // Check consent gates
+        for gate in &self.consent_gates {
+            if claim_lower.contains(&gate.grantor.to_lowercase())
+                || claim_lower.contains(&gate.grantee.to_lowercase())
+            {
+                evidence.push(GroundingEvidence {
+                    evidence_type: "consent".to_string(),
+                    content: format!(
+                        "Consent: {} -> {} ({}, status={})",
+                        gate.grantor, gate.grantee, gate.scope, gate.status
+                    ),
+                    relevance: 0.8,
+                });
+                score = score.max(0.7);
+            }
+        }
+
+        // Check trust levels
+        for (agent, level) in &self.trust_levels {
+            if claim_lower.contains(&agent.to_lowercase()) {
+                evidence.push(GroundingEvidence {
+                    evidence_type: "trust".to_string(),
+                    content: format!("Trust level for '{}': {}", agent, level),
+                    relevance: 0.8,
+                });
+                score = score.max(0.7);
+            }
+        }
+
+        // Check hive minds
+        for hive in self.hive_minds.values() {
+            if claim_lower.contains(&hive.name.to_lowercase()) {
+                evidence.push(GroundingEvidence {
+                    evidence_type: "hive".to_string(),
+                    content: format!(
+                        "Hive '{}' (id={}, members={})",
+                        hive.name, hive.id, hive.constituents.len()
+                    ),
+                    relevance: 0.8,
+                });
+                score = score.max(0.7);
+            }
+        }
+
+        let status = if score >= 0.7 {
+            GroundingStatus::Verified
+        } else if score >= 0.3 {
+            GroundingStatus::Partial
+        } else {
+            GroundingStatus::Ungrounded
+        };
+
+        GroundingResult {
+            claim: claim.to_string(),
+            status,
+            evidence,
+            confidence: score,
         }
     }
 }
@@ -1616,6 +2244,27 @@ pub struct CommStoreStats {
     /// Timestamp of the newest message in the store.
     #[serde(default)]
     pub newest_message: Option<DateTime<Utc>>,
+    /// Number of consent gates.
+    #[serde(default)]
+    pub consent_gate_count: usize,
+    /// Number of trust level overrides.
+    #[serde(default)]
+    pub trust_override_count: usize,
+    /// Number of scheduled temporal messages.
+    #[serde(default)]
+    pub temporal_queue_count: usize,
+    /// Number of hive minds.
+    #[serde(default)]
+    pub hive_count: usize,
+    /// Number of communication log entries.
+    #[serde(default)]
+    pub comm_log_count: usize,
+    /// Whether federation is enabled.
+    #[serde(default)]
+    pub federation_enabled: bool,
+    /// Number of federated zones.
+    #[serde(default)]
+    pub federated_zone_count: usize,
 }
 
 // ---------------------------------------------------------------------------
@@ -2498,5 +3147,813 @@ mod tests {
         assert_eq!(store.dead_letter_count(), 1);
         let dls = store.list_dead_letters();
         assert_eq!(dls[0].reason, DeadLetterReason::ChannelNotFound);
+    }
+
+    // --- Consent tests ---
+
+    #[test]
+    fn consent_grant_and_check() {
+        let mut store = CommStore::new();
+        store
+            .grant_consent("alice", "bob", ConsentScope::ReadMessages, None, None)
+            .unwrap();
+        assert!(store.check_consent("alice", "bob", &ConsentScope::ReadMessages));
+        assert!(!store.check_consent("bob", "alice", &ConsentScope::ReadMessages));
+    }
+
+    #[test]
+    fn consent_revoke() {
+        let mut store = CommStore::new();
+        store
+            .grant_consent("alice", "bob", ConsentScope::SendMessages, None, None)
+            .unwrap();
+        assert!(store.check_consent("alice", "bob", &ConsentScope::SendMessages));
+        store
+            .revoke_consent("alice", "bob", &ConsentScope::SendMessages)
+            .unwrap();
+        assert!(!store.check_consent("alice", "bob", &ConsentScope::SendMessages));
+    }
+
+    #[test]
+    fn consent_list_filtered() {
+        let mut store = CommStore::new();
+        store.grant_consent("alice", "bob", ConsentScope::ReadMessages, None, None).unwrap();
+        store.grant_consent("charlie", "bob", ConsentScope::SendMessages, None, None).unwrap();
+        assert_eq!(store.list_consent_gates(Some("bob")).len(), 2);
+        assert_eq!(store.list_consent_gates(Some("alice")).len(), 1);
+        assert_eq!(store.list_consent_gates(None).len(), 2);
+    }
+
+    // --- Trust tests ---
+
+    #[test]
+    fn trust_set_and_get() {
+        let mut store = CommStore::new();
+        assert_eq!(store.get_trust_level("agent-1"), CommTrustLevel::Standard);
+        store.set_trust_level("agent-1", CommTrustLevel::High).unwrap();
+        assert_eq!(store.get_trust_level("agent-1"), CommTrustLevel::High);
+    }
+
+    #[test]
+    fn trust_list() {
+        let mut store = CommStore::new();
+        store.set_trust_level("a", CommTrustLevel::Full).unwrap();
+        store.set_trust_level("b", CommTrustLevel::Minimal).unwrap();
+        assert_eq!(store.list_trust_levels().len(), 2);
+    }
+
+    // --- Temporal tests ---
+
+    #[test]
+    fn temporal_schedule_and_list() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store.join_channel(ch_id, "alice").unwrap();
+        store
+            .schedule_message(ch_id, "alice", "hello future", TemporalTarget::Immediate, None)
+            .unwrap();
+        assert_eq!(store.list_scheduled().len(), 1);
+    }
+
+    #[test]
+    fn temporal_cancel() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store.join_channel(ch_id, "alice").unwrap();
+        let msg = store
+            .schedule_message(ch_id, "alice", "later", TemporalTarget::FutureRelative { delay_seconds: 3600 }, None)
+            .unwrap();
+        let tid = msg.id;
+        assert_eq!(store.list_scheduled().len(), 1);
+        store.cancel_scheduled(tid).unwrap();
+        assert_eq!(store.list_scheduled().len(), 0);
+    }
+
+    #[test]
+    fn temporal_deliver_immediate() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store.join_channel(ch_id, "alice").unwrap();
+        store
+            .schedule_message(ch_id, "alice", "now!", TemporalTarget::Immediate, None)
+            .unwrap();
+        let delivered = store.deliver_pending_temporal();
+        assert_eq!(delivered, 1);
+        assert_eq!(store.list_scheduled().len(), 0);
+    }
+
+    // --- Federation tests ---
+
+    #[test]
+    fn federation_configure() {
+        let mut store = CommStore::new();
+        store
+            .configure_federation(true, "zone-a", FederationPolicy::Allow)
+            .unwrap();
+        let config = store.get_federation_config();
+        assert!(config.enabled);
+        assert_eq!(config.local_zone, "zone-a");
+    }
+
+    #[test]
+    fn federation_add_remove_zone() {
+        let mut store = CommStore::new();
+        store.add_federated_zone(FederatedZone {
+            zone_id: "zone-b".to_string(),
+            name: "Zone B".to_string(),
+            endpoint: "https://b.example.com".to_string(),
+            policy: FederationPolicy::Allow,
+            trust_level: CommTrustLevel::High,
+        }).unwrap();
+        assert_eq!(store.list_federated_zones().len(), 1);
+        store.remove_federated_zone("zone-b").unwrap();
+        assert_eq!(store.list_federated_zones().len(), 0);
+    }
+
+    #[test]
+    fn federation_duplicate_zone_error() {
+        let mut store = CommStore::new();
+        let zone = FederatedZone {
+            zone_id: "z1".to_string(),
+            name: "Z1".to_string(),
+            endpoint: String::new(),
+            policy: FederationPolicy::Deny,
+            trust_level: CommTrustLevel::Basic,
+        };
+        store.add_federated_zone(zone.clone()).unwrap();
+        assert!(store.add_federated_zone(zone).is_err());
+    }
+
+    // --- Hive mind tests ---
+
+    #[test]
+    fn hive_form_and_list() {
+        let mut store = CommStore::new();
+        store.form_hive("test-hive", "alice", CollectiveDecisionMode::Majority).unwrap();
+        assert_eq!(store.list_hives().len(), 1);
+    }
+
+    #[test]
+    fn hive_join_and_leave() {
+        let mut store = CommStore::new();
+        let hive = store.form_hive("h1", "alice", CollectiveDecisionMode::Consensus).unwrap();
+        let hid = hive.id;
+        store.join_hive(hid, "bob", HiveRole::Member).unwrap();
+        assert_eq!(store.get_hive(hid).unwrap().constituents.len(), 2);
+        store.leave_hive(hid, "bob").unwrap();
+        assert_eq!(store.get_hive(hid).unwrap().constituents.len(), 1);
+    }
+
+    #[test]
+    fn hive_dissolve() {
+        let mut store = CommStore::new();
+        let hive = store.form_hive("h2", "alice", CollectiveDecisionMode::CoordinatorDecides).unwrap();
+        let hid = hive.id;
+        store.dissolve_hive(hid).unwrap();
+        assert!(store.get_hive(hid).is_none());
+    }
+
+    #[test]
+    fn hive_join_duplicate_error() {
+        let mut store = CommStore::new();
+        let hive = store.form_hive("h3", "alice", CollectiveDecisionMode::Unanimous).unwrap();
+        let hid = hive.id;
+        assert!(store.join_hive(hid, "alice", HiveRole::Member).is_err());
+    }
+
+    // --- Communication log tests ---
+
+    #[test]
+    fn comm_log_entries() {
+        let mut store = CommStore::new();
+        store.log_communication("hello", "user", Some("greeting".to_string()), None, None);
+        store.log_communication("hi back", "agent", Some("greeting".to_string()), None, None);
+        assert_eq!(store.get_comm_log(None).len(), 2);
+        assert_eq!(store.get_comm_log(Some(1)).len(), 1);
+    }
+
+    // --- Grounding tests ---
+
+    #[test]
+    fn grounding_verified_channel() {
+        let (store, _ch_id) = new_store_with_channel();
+        let result = store.ground_claim("test-channel exists");
+        assert_eq!(result.status, GroundingStatus::Verified);
+        assert!(!result.evidence.is_empty());
+    }
+
+    #[test]
+    fn grounding_ungrounded() {
+        let store = CommStore::new();
+        let result = store.ground_claim("nonexistent-thing");
+        assert_eq!(result.status, GroundingStatus::Ungrounded);
+        assert!(result.evidence.is_empty());
+    }
+
+    #[test]
+    fn grounding_trust_evidence() {
+        let mut store = CommStore::new();
+        store.set_trust_level("agent-x", CommTrustLevel::High).unwrap();
+        let result = store.ground_claim("agent-x has trust");
+        assert_ne!(result.status, GroundingStatus::Ungrounded);
+    }
+
+    // --- Stats tests ---
+
+    #[test]
+    fn stats_include_new_fields() {
+        let mut store = CommStore::new();
+        store.grant_consent("a", "b", ConsentScope::ReadMessages, None, None).unwrap();
+        store.set_trust_level("x", CommTrustLevel::Full).unwrap();
+        store.form_hive("h", "coord", CollectiveDecisionMode::Majority).unwrap();
+        let stats = store.stats();
+        assert_eq!(stats.consent_gate_count, 1);
+        assert_eq!(stats.trust_override_count, 1);
+        assert_eq!(stats.hive_count, 1);
+    }
+
+    // --- Affect messaging test ---
+
+    #[test]
+    fn affect_message_send() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store.join_channel(ch_id, "alice").unwrap();
+        let msg = store
+            .send_affect_message(
+                ch_id,
+                "alice",
+                "I'm excited!",
+                AffectState {
+                    valence: 0.8,
+                    arousal: 0.9,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        assert!(msg.content.contains("[affect:"));
+        assert!(msg.content.contains("I'm excited!"));
+    }
+
+    // ===================================================================
+    // NEW TESTS — Consent, Trust, Temporal, Federation, Hive, Grounding,
+    //             Comm Log, Stats, Save/Load round-trips (30 tests)
+    // ===================================================================
+
+    // --- Consent tests ---
+
+    #[test]
+    fn consent_grant_with_reason_and_expiry() {
+        let mut store = CommStore::new();
+        let entry = store
+            .grant_consent(
+                "alice",
+                "bob",
+                ConsentScope::ScheduleMessages,
+                Some("project collaboration".to_string()),
+                Some("2030-12-31T23:59:59Z".to_string()),
+            )
+            .unwrap();
+        assert_eq!(entry.grantor, "alice");
+        assert_eq!(entry.grantee, "bob");
+        assert_eq!(entry.scope, ConsentScope::ScheduleMessages);
+        assert_eq!(entry.status, ConsentStatus::Granted);
+        assert_eq!(entry.reason.as_deref(), Some("project collaboration"));
+        assert_eq!(entry.expires_at.as_deref(), Some("2030-12-31T23:59:59Z"));
+    }
+
+    #[test]
+    fn consent_update_existing() {
+        let mut store = CommStore::new();
+        // First grant with no reason
+        store
+            .grant_consent("alice", "bob", ConsentScope::ReadMessages, None, None)
+            .unwrap();
+        assert!(store.check_consent("alice", "bob", &ConsentScope::ReadMessages));
+
+        // Grant again with reason and expiry — should update, not duplicate
+        store
+            .grant_consent(
+                "alice",
+                "bob",
+                ConsentScope::ReadMessages,
+                Some("updated reason".to_string()),
+                Some("2031-01-01T00:00:00Z".to_string()),
+            )
+            .unwrap();
+
+        // Should still be only one entry for this (grantor, grantee, scope) triple
+        let gates = store.list_consent_gates(Some("alice"));
+        let matching: Vec<_> = gates
+            .iter()
+            .filter(|e| {
+                e.grantor == "alice"
+                    && e.grantee == "bob"
+                    && e.scope == ConsentScope::ReadMessages
+            })
+            .collect();
+        assert_eq!(matching.len(), 1, "Should update existing, not create duplicate");
+        assert_eq!(matching[0].reason.as_deref(), Some("updated reason"));
+    }
+
+    #[test]
+    fn consent_revoke_nonexistent_error() {
+        let mut store = CommStore::new();
+        let result = store.revoke_consent("alice", "bob", &ConsentScope::Federate);
+        assert!(result.is_err(), "Revoking non-existent consent should fail");
+    }
+
+    #[test]
+    fn consent_empty_grantor_error() {
+        let mut store = CommStore::new();
+        let result = store.grant_consent("", "bob", ConsentScope::ReadMessages, None, None);
+        assert!(result.is_err(), "Empty grantor should return error");
+    }
+
+    #[test]
+    fn consent_list_empty_returns_empty() {
+        let store = CommStore::new();
+        let gates = store.list_consent_gates(None);
+        assert!(gates.is_empty(), "Fresh store should have no consent gates");
+        let gates_filtered = store.list_consent_gates(Some("nobody"));
+        assert!(gates_filtered.is_empty());
+    }
+
+    // --- Trust tests ---
+
+    #[test]
+    fn trust_empty_agent_error() {
+        let mut store = CommStore::new();
+        let result = store.set_trust_level("", CommTrustLevel::High);
+        assert!(result.is_err(), "Empty agent_id should return error");
+    }
+
+    #[test]
+    fn trust_override_existing() {
+        let mut store = CommStore::new();
+        store.set_trust_level("agent-1", CommTrustLevel::Basic).unwrap();
+        assert_eq!(store.get_trust_level("agent-1"), CommTrustLevel::Basic);
+        store.set_trust_level("agent-1", CommTrustLevel::Absolute).unwrap();
+        assert_eq!(store.get_trust_level("agent-1"), CommTrustLevel::Absolute);
+        // Should still be only one entry
+        assert_eq!(store.list_trust_levels().len(), 1);
+    }
+
+    #[test]
+    fn trust_default_is_standard() {
+        let store = CommStore::new();
+        assert_eq!(
+            store.get_trust_level("unknown-agent"),
+            CommTrustLevel::Standard,
+            "Fresh agent should default to Standard trust"
+        );
+    }
+
+    // --- Temporal tests ---
+
+    #[test]
+    fn temporal_schedule_to_nonexistent_channel() {
+        let mut store = CommStore::new();
+        let result = store.schedule_message(
+            999,
+            "alice",
+            "hello",
+            TemporalTarget::Immediate,
+            None,
+        );
+        assert!(result.is_err(), "Scheduling to non-existent channel should fail");
+    }
+
+    #[test]
+    fn temporal_cancel_delivered_error() {
+        let (mut store, ch_id) = new_store_with_channel();
+        let msg = store
+            .schedule_message(ch_id, "alice", "now", TemporalTarget::Immediate, None)
+            .unwrap();
+        let tid = msg.id;
+
+        // Deliver it
+        let delivered = store.deliver_pending_temporal();
+        assert_eq!(delivered, 1);
+
+        // Try to cancel the already-delivered message
+        let result = store.cancel_scheduled(tid);
+        assert!(result.is_err(), "Cannot cancel already-delivered message");
+    }
+
+    #[test]
+    fn temporal_cancel_nonexistent_error() {
+        let mut store = CommStore::new();
+        let result = store.cancel_scheduled(9999);
+        assert!(result.is_err(), "Cancelling non-existent temporal ID should fail");
+    }
+
+    #[test]
+    fn temporal_deliver_future_relative_not_delivered() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store
+            .schedule_message(
+                ch_id,
+                "alice",
+                "later msg",
+                TemporalTarget::FutureRelative { delay_seconds: 3600 },
+                None,
+            )
+            .unwrap();
+
+        // deliver_pending_temporal only delivers Immediate targets
+        let delivered = store.deliver_pending_temporal();
+        assert_eq!(delivered, 0, "FutureRelative messages should not be delivered by deliver_pending_temporal");
+        assert_eq!(store.list_scheduled().len(), 1, "Message should still be in queue");
+    }
+
+    #[test]
+    fn temporal_multiple_immediate() {
+        let (mut store, ch_id) = new_store_with_channel();
+        for i in 0..5 {
+            store
+                .schedule_message(
+                    ch_id,
+                    "alice",
+                    &format!("immediate-{i}"),
+                    TemporalTarget::Immediate,
+                    None,
+                )
+                .unwrap();
+        }
+        assert_eq!(store.list_scheduled().len(), 5);
+
+        let delivered = store.deliver_pending_temporal();
+        assert_eq!(delivered, 5, "All 5 Immediate messages should be delivered");
+        assert_eq!(store.list_scheduled().len(), 0, "No undelivered messages should remain");
+        // The delivered messages should be in the message store
+        assert_eq!(store.messages.len(), 5);
+    }
+
+    // --- Federation tests ---
+
+    #[test]
+    fn federation_empty_zone_error() {
+        let mut store = CommStore::new();
+        let result = store.configure_federation(true, "", FederationPolicy::Allow);
+        assert!(result.is_err(), "Empty local_zone should return error");
+    }
+
+    #[test]
+    fn federation_remove_nonexistent_zone_error() {
+        let mut store = CommStore::new();
+        let result = store.remove_federated_zone("does-not-exist");
+        assert!(result.is_err(), "Removing non-existent zone should return error");
+    }
+
+    #[test]
+    fn federation_zone_with_trust_level() {
+        let mut store = CommStore::new();
+        store
+            .add_federated_zone(FederatedZone {
+                zone_id: "trusted-zone".to_string(),
+                name: "Trusted Zone".to_string(),
+                endpoint: "https://trusted.example.com".to_string(),
+                policy: FederationPolicy::Allow,
+                trust_level: CommTrustLevel::Full,
+            })
+            .unwrap();
+        let zones = store.list_federated_zones();
+        assert_eq!(zones.len(), 1);
+        assert_eq!(zones[0].trust_level, CommTrustLevel::Full);
+        assert_eq!(zones[0].zone_id, "trusted-zone");
+        assert_eq!(zones[0].policy, FederationPolicy::Allow);
+    }
+
+    // --- Hive tests ---
+
+    #[test]
+    fn hive_form_empty_name_error() {
+        let mut store = CommStore::new();
+        let result = store.form_hive("", "alice", CollectiveDecisionMode::Majority);
+        assert!(result.is_err(), "Empty hive name should return error");
+    }
+
+    #[test]
+    fn hive_dissolve_nonexistent_error() {
+        let mut store = CommStore::new();
+        let result = store.dissolve_hive(9999);
+        assert!(result.is_err(), "Dissolving non-existent hive should return error");
+    }
+
+    #[test]
+    fn hive_leave_nonexistent_member_error() {
+        let mut store = CommStore::new();
+        let hive = store
+            .form_hive("test-hive", "alice", CollectiveDecisionMode::Majority)
+            .unwrap();
+        let hid = hive.id;
+        let result = store.leave_hive(hid, "ghost");
+        assert!(result.is_err(), "Leaving hive when not a member should fail");
+    }
+
+    #[test]
+    fn hive_multiple_members() {
+        let mut store = CommStore::new();
+        let hive = store
+            .form_hive("big-hive", "coordinator", CollectiveDecisionMode::Consensus)
+            .unwrap();
+        let hid = hive.id;
+        // Coordinator is already the first member
+        assert_eq!(store.get_hive(hid).unwrap().constituents.len(), 1);
+
+        store.join_hive(hid, "agent-a", HiveRole::Member).unwrap();
+        store.join_hive(hid, "agent-b", HiveRole::Member).unwrap();
+        store.join_hive(hid, "agent-c", HiveRole::Observer).unwrap();
+
+        let hive = store.get_hive(hid).unwrap();
+        assert_eq!(hive.constituents.len(), 4, "Should have coordinator + 3 members");
+        // Verify roles
+        assert_eq!(hive.constituents[0].role, HiveRole::Coordinator);
+        assert_eq!(hive.constituents[1].role, HiveRole::Member);
+        assert_eq!(hive.constituents[3].role, HiveRole::Observer);
+    }
+
+    // --- Grounding tests ---
+
+    #[test]
+    fn grounding_message_content() {
+        let (mut store, ch_id) = new_store_with_channel();
+        store
+            .send_message(ch_id, "alice", "the deployment succeeded", MessageType::Text)
+            .unwrap();
+        // Ground a claim that references the sender
+        let result = store.ground_claim("alice sent a message");
+        assert_ne!(result.status, GroundingStatus::Ungrounded);
+        assert!(
+            result.evidence.iter().any(|e| e.evidence_type == "message"),
+            "Should have message evidence"
+        );
+    }
+
+    #[test]
+    fn grounding_hive_name() {
+        let mut store = CommStore::new();
+        store
+            .form_hive("project-alpha", "alice", CollectiveDecisionMode::Majority)
+            .unwrap();
+        let result = store.ground_claim("project-alpha hive exists");
+        assert_eq!(result.status, GroundingStatus::Verified);
+        assert!(
+            result.evidence.iter().any(|e| e.evidence_type == "hive"),
+            "Should have hive evidence"
+        );
+    }
+
+    #[test]
+    fn grounding_consent_evidence() {
+        let mut store = CommStore::new();
+        store
+            .grant_consent("alice", "bob", ConsentScope::ReadMessages, None, None)
+            .unwrap();
+        let result = store.ground_claim("alice has granted consent");
+        assert_ne!(result.status, GroundingStatus::Ungrounded);
+        assert!(
+            result.evidence.iter().any(|e| e.evidence_type == "consent"),
+            "Should have consent evidence"
+        );
+    }
+
+    // --- Communication log tests ---
+
+    #[test]
+    fn comm_log_with_affect() {
+        let mut store = CommStore::new();
+        let affect = AffectState {
+            valence: 0.7,
+            arousal: 0.5,
+            dominance: 0.6,
+            emotions: vec![Emotion::Joy, Emotion::Excitement],
+            urgency: UrgencyLevel::High,
+            meta_confidence: 0.9,
+        };
+        let entry = store.log_communication(
+            "Great progress today!",
+            "agent",
+            Some("status-update".to_string()),
+            None,
+            Some(affect),
+        );
+        assert_eq!(entry.content, "Great progress today!");
+        assert_eq!(entry.role, "agent");
+        assert_eq!(entry.topic.as_deref(), Some("status-update"));
+        assert!(entry.affect.is_some());
+        let stored_affect = entry.affect.as_ref().unwrap();
+        assert_eq!(stored_affect.valence, 0.7);
+        assert_eq!(stored_affect.emotions.len(), 2);
+    }
+
+    #[test]
+    fn comm_log_limit() {
+        let mut store = CommStore::new();
+        for i in 0..10 {
+            store.log_communication(
+                &format!("entry-{i}"),
+                "user",
+                None,
+                None,
+                None,
+            );
+        }
+        assert_eq!(store.get_comm_log(None).len(), 10, "All 10 entries should be present");
+        let last_3 = store.get_comm_log(Some(3));
+        assert_eq!(last_3.len(), 3, "Should return last 3 entries");
+        assert_eq!(last_3[0].content, "entry-7");
+        assert_eq!(last_3[1].content, "entry-8");
+        assert_eq!(last_3[2].content, "entry-9");
+    }
+
+    // --- Stats tests ---
+
+    #[test]
+    fn stats_comprehensive() {
+        let mut store = CommStore::new();
+
+        // Create channels
+        let ch1 = store.create_channel("chan-1", ChannelType::Group, None).unwrap();
+        let ch2 = store.create_channel("chan-2", ChannelType::Direct, None).unwrap();
+        store.join_channel(ch1.id, "alice").unwrap();
+        store.join_channel(ch1.id, "bob").unwrap();
+        store.join_channel(ch2.id, "carol").unwrap();
+
+        // Send messages
+        store.send_message(ch1.id, "alice", "msg1", MessageType::Text).unwrap();
+        store.send_message(ch1.id, "bob", "msg2", MessageType::Command).unwrap();
+        store.send_message(ch2.id, "carol", "msg3", MessageType::Query).unwrap();
+
+        // Add consent
+        store.grant_consent("alice", "bob", ConsentScope::ReadMessages, None, None).unwrap();
+        store.grant_consent("bob", "carol", ConsentScope::SendMessages, None, None).unwrap();
+
+        // Add trust overrides
+        store.set_trust_level("alice", CommTrustLevel::High).unwrap();
+
+        // Form a hive
+        store.form_hive("stats-hive", "alice", CollectiveDecisionMode::Majority).unwrap();
+
+        // Schedule a temporal message
+        store.schedule_message(ch1.id, "alice", "future", TemporalTarget::FutureRelative { delay_seconds: 100 }, None).unwrap();
+
+        // Configure federation
+        store.configure_federation(true, "local-zone", FederationPolicy::Allow).unwrap();
+        store.add_federated_zone(FederatedZone {
+            zone_id: "remote".to_string(),
+            name: "Remote Zone".to_string(),
+            endpoint: String::new(),
+            policy: FederationPolicy::Selective,
+            trust_level: CommTrustLevel::Basic,
+        }).unwrap();
+
+        // Add comm log entries
+        store.log_communication("log1", "user", None, None, None);
+        store.log_communication("log2", "agent", None, None, None);
+
+        let stats = store.stats();
+        assert_eq!(stats.channel_count, 2);
+        assert_eq!(stats.message_count, 3);
+        assert_eq!(stats.total_participants, 3); // alice + bob in ch1, carol in ch2
+        assert_eq!(stats.consent_gate_count, 2);
+        assert_eq!(stats.trust_override_count, 1);
+        assert_eq!(stats.hive_count, 1);
+        assert_eq!(stats.temporal_queue_count, 1);
+        assert!(stats.federation_enabled);
+        assert_eq!(stats.federated_zone_count, 1);
+        assert_eq!(stats.comm_log_count, 2);
+        assert_eq!(stats.dead_letter_count, 0);
+        // Check messages_by_type
+        assert_eq!(stats.messages_by_type.get("text"), Some(&1));
+        assert_eq!(stats.messages_by_type.get("command"), Some(&1));
+        assert_eq!(stats.messages_by_type.get("query"), Some(&1));
+        // Check channels_by_state
+        assert_eq!(stats.channels_by_state.get("active"), Some(&2));
+        // Oldest and newest should be set
+        assert!(stats.oldest_message.is_some());
+        assert!(stats.newest_message.is_some());
+    }
+
+    // --- Save/Load round-trip tests ---
+
+    #[test]
+    fn save_load_consent_roundtrip() {
+        let mut store = CommStore::new();
+        store
+            .grant_consent(
+                "alice",
+                "bob",
+                ConsentScope::Federate,
+                Some("federation partnership".to_string()),
+                Some("2030-06-15T00:00:00Z".to_string()),
+            )
+            .unwrap();
+        store
+            .grant_consent("carol", "dave", ConsentScope::HiveParticipation, None, None)
+            .unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("consent_roundtrip.acomm");
+        store.save(&path).unwrap();
+
+        let loaded = CommStore::load(&path).unwrap();
+        assert_eq!(loaded.consent_gates.len(), 2);
+        assert!(loaded.check_consent("alice", "bob", &ConsentScope::Federate));
+        assert!(loaded.check_consent("carol", "dave", &ConsentScope::HiveParticipation));
+        // Verify reason survived
+        let alice_gate = loaded
+            .consent_gates
+            .iter()
+            .find(|e| e.grantor == "alice" && e.grantee == "bob")
+            .unwrap();
+        assert_eq!(alice_gate.reason.as_deref(), Some("federation partnership"));
+        assert_eq!(alice_gate.expires_at.as_deref(), Some("2030-06-15T00:00:00Z"));
+    }
+
+    #[test]
+    fn save_load_trust_roundtrip() {
+        let mut store = CommStore::new();
+        store.set_trust_level("agent-a", CommTrustLevel::Absolute).unwrap();
+        store.set_trust_level("agent-b", CommTrustLevel::None).unwrap();
+        store.set_trust_level("agent-c", CommTrustLevel::Minimal).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("trust_roundtrip.acomm");
+        store.save(&path).unwrap();
+
+        let loaded = CommStore::load(&path).unwrap();
+        assert_eq!(loaded.list_trust_levels().len(), 3);
+        assert_eq!(loaded.get_trust_level("agent-a"), CommTrustLevel::Absolute);
+        assert_eq!(loaded.get_trust_level("agent-b"), CommTrustLevel::None);
+        assert_eq!(loaded.get_trust_level("agent-c"), CommTrustLevel::Minimal);
+        // Unknown agent should still return default
+        assert_eq!(loaded.get_trust_level("unknown"), CommTrustLevel::Standard);
+    }
+
+    #[test]
+    fn save_load_hive_roundtrip() {
+        let mut store = CommStore::new();
+        let hive = store
+            .form_hive("persistent-hive", "coordinator", CollectiveDecisionMode::Unanimous)
+            .unwrap();
+        let hid = hive.id;
+        store.join_hive(hid, "member-a", HiveRole::Member).unwrap();
+        store.join_hive(hid, "observer-b", HiveRole::Observer).unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hive_roundtrip.acomm");
+        store.save(&path).unwrap();
+
+        let loaded = CommStore::load(&path).unwrap();
+        assert_eq!(loaded.hive_minds.len(), 1);
+        let loaded_hive = loaded.get_hive(hid).unwrap();
+        assert_eq!(loaded_hive.name, "persistent-hive");
+        assert_eq!(loaded_hive.constituents.len(), 3);
+        assert_eq!(loaded_hive.decision_mode, CollectiveDecisionMode::Unanimous);
+        assert_eq!(loaded_hive.constituents[0].role, HiveRole::Coordinator);
+        assert_eq!(loaded_hive.constituents[0].agent_id, "coordinator");
+        assert_eq!(loaded_hive.constituents[1].agent_id, "member-a");
+        assert_eq!(loaded_hive.constituents[2].agent_id, "observer-b");
+    }
+
+    #[test]
+    fn save_load_temporal_roundtrip() {
+        let mut store = CommStore::new();
+        let ch = store.create_channel("temporal-ch", ChannelType::Group, None).unwrap();
+        store
+            .schedule_message(
+                ch.id,
+                "alice",
+                "deliver later",
+                TemporalTarget::FutureAbsolute {
+                    deliver_at: "2030-01-01T00:00:00Z".to_string(),
+                },
+                Some(AffectState {
+                    valence: 0.5,
+                    arousal: 0.3,
+                    ..Default::default()
+                }),
+            )
+            .unwrap();
+        store
+            .schedule_message(ch.id, "bob", "deliver now", TemporalTarget::Immediate, None)
+            .unwrap();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("temporal_roundtrip.acomm");
+        store.save(&path).unwrap();
+
+        let loaded = CommStore::load(&path).unwrap();
+        assert_eq!(loaded.temporal_queue.len(), 2);
+        // Both should be undelivered after load
+        assert_eq!(loaded.list_scheduled().len(), 2);
+        // First message should have affect
+        let first = &loaded.temporal_queue[0];
+        assert_eq!(first.sender, "alice");
+        assert_eq!(first.content, "deliver later");
+        assert!(first.affect.is_some());
+        assert!(!first.delivered);
+        // Second message
+        let second = &loaded.temporal_queue[1];
+        assert_eq!(second.sender, "bob");
+        assert!(second.affect.is_none());
     }
 }
