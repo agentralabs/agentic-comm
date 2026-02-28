@@ -138,6 +138,10 @@ pub enum CommError {
     /// Key not found.
     #[error("Key not found: {0}")]
     KeyNotFound(u64),
+
+    /// Generic not-found error.
+    #[error("Not found: {0}")]
+    NotFound(String),
 }
 
 /// Convenience result type.
@@ -903,6 +907,15 @@ pub struct CommStore {
     /// Not serialized — must be set at runtime via `set_signing_key`.
     #[serde(skip)]
     pub key_pair: Option<CommKeyPair>,
+
+    /// Registered communicating agents (agent_id -> CommunicatingAgent).
+    #[serde(default)]
+    pub agents: HashMap<String, CommunicatingAgent>,
+
+    /// Bridge configuration for sister integrations.
+    /// Not serialized — must be set at runtime via `set_bridge_config`.
+    #[serde(skip)]
+    pub bridge_config: BridgeConfig,
 }
 
 fn default_one() -> u64 {
@@ -954,6 +967,73 @@ impl CommStore {
             lamport_counter: 0,
             rate_trackers: HashMap::new(),
             key_pair: None,
+            agents: HashMap::new(),
+            bridge_config: BridgeConfig::default(),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Bridge configuration
+    // -----------------------------------------------------------------------
+
+    /// Set the bridge configuration for sister integrations.
+    pub fn set_bridge_config(&mut self, config: BridgeConfig) {
+        self.bridge_config = config;
+    }
+
+    // -----------------------------------------------------------------------
+    // Agent registry
+    // -----------------------------------------------------------------------
+
+    /// Register a new communicating agent.
+    pub fn register_agent(&mut self, agent: CommunicatingAgent) -> CommResult<()> {
+        let agent_id = agent.agent_id.clone();
+        self.agents.insert(agent_id.clone(), agent);
+        self.log_audit(
+            AuditEventType::AgentRegistered,
+            &agent_id,
+            &format!("Agent registered: {}", agent_id),
+            Some(agent_id.clone()),
+        );
+        Ok(())
+    }
+
+    /// Get a registered agent by ID.
+    pub fn get_agent(&self, agent_id: &str) -> Option<&CommunicatingAgent> {
+        self.agents.get(agent_id)
+    }
+
+    /// List all registered agents.
+    pub fn list_agents(&self) -> Vec<&CommunicatingAgent> {
+        self.agents.values().collect()
+    }
+
+    /// Update agent availability/presence.
+    pub fn update_agent_availability(
+        &mut self,
+        agent_id: &str,
+        availability: Availability,
+    ) -> CommResult<()> {
+        if let Some(agent) = self.agents.get_mut(agent_id) {
+            agent.availability = availability;
+            Ok(())
+        } else {
+            Err(CommError::NotFound(format!("Agent not found: {}", agent_id)))
+        }
+    }
+
+    /// Remove a registered agent.
+    pub fn unregister_agent(&mut self, agent_id: &str) -> CommResult<()> {
+        if self.agents.remove(agent_id).is_some() {
+            self.log_audit(
+                AuditEventType::AgentUnregistered,
+                agent_id,
+                &format!("Agent unregistered: {}", agent_id),
+                Some(agent_id.to_string()),
+            );
+            Ok(())
+        } else {
+            Err(CommError::NotFound(format!("Agent not found: {}", agent_id)))
         }
     }
 
@@ -1477,6 +1557,8 @@ impl CommStore {
             Some(id.to_string()),
         );
 
+        // Bridge point: memory_bridge.log_conversation() for temporal chaining
+
         Ok(message)
     }
 
@@ -1780,6 +1862,8 @@ impl CommStore {
     /// Join a channel as a participant.
     pub fn join_channel(&mut self, channel_id: u64, participant: &str) -> CommResult<()> {
         Self::validate_sender(participant)?;
+
+        // Bridge point: identity_bridge.resolve_identity() for participant verification
 
         // --- Trust enforcement ---
         self.check_trust_for_channel(participant, channel_id)?;
@@ -2253,7 +2337,7 @@ impl CommStore {
             encoder.finish()?;
         }
 
-        // Wrap the compressed data with the binary format header (magic + CRC32).
+        // Wrap the compressed data with the binary format header (magic + Blake3).
         let output = format::write_with_header(&gz_buf);
 
         let mut file = std::fs::File::create(path)?;
@@ -2284,7 +2368,7 @@ impl CommStore {
         }
 
         if format::is_new_format(&raw) {
-            // ---- New binary format (v2) ----
+            // ---- New binary format (v2/v3) ----
             let gz_data = format::read_with_header(&raw)
                 .map_err(|e| CommError::InvalidFile(e))?;
 
@@ -2591,6 +2675,8 @@ impl CommStore {
         };
         self.temporal_queue.push(msg);
 
+        // Bridge point: time_bridge.schedule_at() for precise timing
+
         // --- Audit logging ---
         self.audit_log.push(AuditEntry {
             event_type: AuditEventType::ScheduledMessage,
@@ -2815,6 +2901,8 @@ impl CommStore {
             separation_policy: "graceful".to_string(),
         };
         self.hive_minds.insert(id, hive);
+
+        // Bridge point: contract_bridge.validate_channel_contract() for SLA enforcement
 
         // --- Audit logging ---
         self.audit_log.push(AuditEntry {
@@ -7317,5 +7405,108 @@ mod tests {
         }"#;
         let config: ChannelConfig = serde_json::from_str(json).unwrap();
         assert_eq!(config.min_trust_level, None);
+    }
+
+    // -----------------------------------------------------------------------
+    // Agent registry tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_agent_registry_basic() {
+        let mut store = CommStore::new();
+        let agent = CommunicatingAgent {
+            agent_id: "agent-1".to_string(),
+            availability: Availability::Available,
+            ..Default::default()
+        };
+        store.register_agent(agent).unwrap();
+        assert!(store.get_agent("agent-1").is_some());
+        assert_eq!(store.list_agents().len(), 1);
+    }
+
+    #[test]
+    fn test_agent_availability_update() {
+        let mut store = CommStore::new();
+        let agent = CommunicatingAgent {
+            agent_id: "agent-1".to_string(),
+            availability: Availability::Available,
+            ..Default::default()
+        };
+        store.register_agent(agent).unwrap();
+        store
+            .update_agent_availability("agent-1", Availability::Busy)
+            .unwrap();
+        assert_eq!(
+            store.get_agent("agent-1").unwrap().availability,
+            Availability::Busy
+        );
+    }
+
+    #[test]
+    fn test_agent_unregister() {
+        let mut store = CommStore::new();
+        let agent = CommunicatingAgent {
+            agent_id: "agent-1".to_string(),
+            ..Default::default()
+        };
+        store.register_agent(agent).unwrap();
+        store.unregister_agent("agent-1").unwrap();
+        assert!(store.get_agent("agent-1").is_none());
+        assert!(store.unregister_agent("agent-1").is_err());
+    }
+
+    #[test]
+    fn test_bridge_config_set() {
+        let mut store = CommStore::new();
+        let config = BridgeConfig {
+            identity_enabled: true,
+            memory_enabled: true,
+            ..Default::default()
+        };
+        store.set_bridge_config(config);
+        assert!(store.bridge_config.identity_enabled);
+        assert!(store.bridge_config.memory_enabled);
+        assert!(!store.bridge_config.time_enabled);
+    }
+
+    #[test]
+    fn test_agent_update_nonexistent() {
+        let mut store = CommStore::new();
+        let result = store.update_agent_availability("ghost", Availability::Busy);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_agent_registry_audit_log() {
+        let mut store = CommStore::new();
+        let agent = CommunicatingAgent {
+            agent_id: "agent-audit".to_string(),
+            ..Default::default()
+        };
+        store.register_agent(agent).unwrap();
+        store.unregister_agent("agent-audit").unwrap();
+
+        // Should have at least 2 audit entries (register + unregister)
+        let register_entries: Vec<_> = store
+            .audit_log
+            .iter()
+            .filter(|e| e.event_type == AuditEventType::AgentRegistered)
+            .collect();
+        let unregister_entries: Vec<_> = store
+            .audit_log
+            .iter()
+            .filter(|e| e.event_type == AuditEventType::AgentUnregistered)
+            .collect();
+        assert_eq!(register_entries.len(), 1);
+        assert_eq!(unregister_entries.len(), 1);
+    }
+
+    #[test]
+    fn test_agents_serde_backward_compat() {
+        // A CommStore serialized without agents should deserialize fine
+        let store = CommStore::new();
+        let json = serde_json::to_string(&store).unwrap();
+        let deserialized: CommStore = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.agents.is_empty());
     }
 }

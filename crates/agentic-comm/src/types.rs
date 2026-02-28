@@ -688,6 +688,26 @@ fn default_agent_type() -> String {
     "ai".to_string()
 }
 
+impl Default for CommunicatingAgent {
+    fn default() -> Self {
+        Self {
+            agent_id: String::new(),
+            display_name: String::new(),
+            agent_type: default_agent_type(),
+            capabilities: CommCapabilities::default(),
+            trust_profile: CommTrustProfile::default(),
+            availability: Availability::default(),
+            preferences: CommPreferences::default(),
+            registered_at: String::new(),
+            metadata: HashMap::new(),
+            identity_anchor: IdentityAnchor::default(),
+            capability_labels: Vec::new(),
+            availability_label: default_availability_string(),
+            preference_overrides: HashMap::new(),
+        }
+    }
+}
+
 /// What communication capabilities an agent has.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CommCapabilities {
@@ -1341,6 +1361,8 @@ pub enum AuditEventType {
     AuthFailure,
     RateLimitExceeded,
     SignatureWarning,
+    AgentRegistered,
+    AgentUnregistered,
 }
 
 /// An audit log entry.
