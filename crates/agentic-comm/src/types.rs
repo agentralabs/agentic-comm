@@ -601,6 +601,42 @@ impl Default for CollectiveDecisionMode {
 // CommunicatingAgent
 // ---------------------------------------------------------------------------
 
+/// Cryptographic identity anchor (public key fingerprint).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IdentityAnchor {
+    /// Public key fingerprint (hex).
+    #[serde(default)]
+    pub public_key: String,
+    /// Key algorithm.
+    #[serde(default = "default_algorithm")]
+    pub algorithm: String,
+    /// Identity verification status.
+    #[serde(default)]
+    pub verified: bool,
+    /// Identity provider (e.g., "agentic-identity").
+    #[serde(default)]
+    pub provider: String,
+}
+
+impl Default for IdentityAnchor {
+    fn default() -> Self {
+        Self {
+            public_key: String::new(),
+            algorithm: default_algorithm(),
+            verified: false,
+            provider: String::new(),
+        }
+    }
+}
+
+fn default_algorithm() -> String {
+    "Ed25519".to_string()
+}
+
+fn default_availability_string() -> String {
+    "online".to_string()
+}
+
 /// Rich agent profile for the communication system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommunicatingAgent {
@@ -630,6 +666,18 @@ pub struct CommunicatingAgent {
     /// Arbitrary metadata.
     #[serde(default)]
     pub metadata: HashMap<String, String>,
+    /// Cryptographic identity anchor (public key fingerprint).
+    #[serde(default)]
+    pub identity_anchor: IdentityAnchor,
+    /// Agent capability labels (e.g., "code-review", "deploy").
+    #[serde(default)]
+    pub capability_labels: Vec<String>,
+    /// Availability status string (e.g., "online", "busy", "away").
+    #[serde(default = "default_availability_string")]
+    pub availability_label: String,
+    /// Communication preferences (key-value pairs).
+    #[serde(default)]
+    pub preference_overrides: HashMap<String, String>,
 }
 
 fn default_agent_type() -> String {
@@ -1422,6 +1470,70 @@ pub struct ZonePolicyConfig {
     pub max_message_size: u64,
 }
 
+// ---------------------------------------------------------------------------
+// Federation Gateway
+// ---------------------------------------------------------------------------
+
+/// A gateway node for cross-zone federation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FederationGateway {
+    /// Zone identifier.
+    pub zone_id: String,
+    /// Gateway endpoint URL or address.
+    pub endpoint: String,
+    /// Protocol identifier.
+    pub protocol: String,
+    /// Gateway status (e.g., "online", "offline", "degraded").
+    pub status: String,
+    /// Last heartbeat timestamp (epoch seconds).
+    pub last_heartbeat: u64,
+    /// Capabilities supported by this gateway.
+    pub capabilities: Vec<String>,
+    /// Maximum message size in bytes.
+    pub max_message_size: u64,
+}
+
+impl Default for FederationGateway {
+    fn default() -> Self {
+        Self {
+            zone_id: String::new(),
+            endpoint: String::new(),
+            protocol: "agentic-comm/1.0".to_string(),
+            status: "unknown".to_string(),
+            last_heartbeat: 0,
+            capabilities: vec!["messages".to_string()],
+            max_message_size: 1_048_576,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Federation Message
+// ---------------------------------------------------------------------------
+
+/// A message that traverses federation boundaries (cross-zone messaging).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FederationMessage {
+    /// Unique message identifier.
+    pub id: String,
+    /// Originating zone.
+    pub source_zone: String,
+    /// Destination zone.
+    pub target_zone: String,
+    /// Channel ID within the target zone.
+    pub channel_id: u64,
+    /// Message content.
+    pub content: String,
+    /// Sender identity.
+    pub sender: String,
+    /// Timestamp (epoch seconds).
+    pub timestamp: u64,
+    /// Cryptographic signature.
+    pub signature: String,
+    /// Gateway hops this message has traversed.
+    pub hops: Vec<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1597,6 +1709,10 @@ mod tests {
             preferences: CommPreferences::default(),
             registered_at: "2025-01-01T00:00:00Z".to_string(),
             metadata: HashMap::new(),
+            identity_anchor: IdentityAnchor::default(),
+            capability_labels: Vec::new(),
+            availability_label: "online".to_string(),
+            preference_overrides: HashMap::new(),
         };
         let json = serde_json::to_string(&agent).unwrap();
         let parsed: CommunicatingAgent = serde_json::from_str(&json).unwrap();
@@ -1950,6 +2066,181 @@ mod tests {
         let parsed: HiveRole = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, HiveRole::Mediator);
         assert_eq!(role.to_string(), "mediator");
+    }
+
+    // -----------------------------------------------------------------------
+    // IdentityAnchor tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn identity_anchor_default() {
+        let anchor = IdentityAnchor::default();
+        assert_eq!(anchor.public_key, "");
+        assert_eq!(anchor.algorithm, "Ed25519");
+        assert!(!anchor.verified);
+        assert_eq!(anchor.provider, "");
+    }
+
+    #[test]
+    fn identity_anchor_serde_roundtrip() {
+        let anchor = IdentityAnchor {
+            public_key: "abcdef1234567890".to_string(),
+            algorithm: "Ed25519".to_string(),
+            verified: true,
+            provider: "agentic-identity".to_string(),
+        };
+        let json = serde_json::to_string(&anchor).unwrap();
+        let parsed: IdentityAnchor = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.public_key, "abcdef1234567890");
+        assert_eq!(parsed.algorithm, "Ed25519");
+        assert!(parsed.verified);
+        assert_eq!(parsed.provider, "agentic-identity");
+    }
+
+    #[test]
+    fn identity_anchor_deserialize_defaults() {
+        // Empty JSON should use defaults
+        let parsed: IdentityAnchor = serde_json::from_str("{}").unwrap();
+        assert_eq!(parsed.public_key, "");
+        assert_eq!(parsed.algorithm, "Ed25519");
+        assert!(!parsed.verified);
+        assert_eq!(parsed.provider, "");
+    }
+
+    #[test]
+    fn communicating_agent_with_new_fields_roundtrip() {
+        let mut prefs = HashMap::new();
+        prefs.insert("format".to_string(), "markdown".to_string());
+        let agent = CommunicatingAgent {
+            agent_id: "agent-x".to_string(),
+            display_name: "Agent X".to_string(),
+            agent_type: "ai".to_string(),
+            capabilities: CommCapabilities::default(),
+            trust_profile: CommTrustProfile::default(),
+            availability: Availability::Available,
+            preferences: CommPreferences::default(),
+            registered_at: "2026-02-28T00:00:00Z".to_string(),
+            metadata: HashMap::new(),
+            identity_anchor: IdentityAnchor {
+                public_key: "deadbeef".to_string(),
+                algorithm: "Ed25519".to_string(),
+                verified: true,
+                provider: "agentic-identity".to_string(),
+            },
+            capability_labels: vec!["code-review".to_string(), "deploy".to_string()],
+            availability_label: "online".to_string(),
+            preference_overrides: prefs,
+        };
+        let json = serde_json::to_string(&agent).unwrap();
+        let parsed: CommunicatingAgent = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.identity_anchor.public_key, "deadbeef");
+        assert!(parsed.identity_anchor.verified);
+        assert_eq!(parsed.capability_labels, vec!["code-review", "deploy"]);
+        assert_eq!(parsed.availability_label, "online");
+        assert_eq!(
+            parsed.preference_overrides.get("format"),
+            Some(&"markdown".to_string())
+        );
+    }
+
+    #[test]
+    fn communicating_agent_backward_compatible_defaults() {
+        // Old-format JSON without new fields should deserialize with defaults
+        let json = r#"{
+            "agent_id": "legacy-agent",
+            "display_name": "Legacy",
+            "agent_type": "ai",
+            "registered_at": "2025-01-01T00:00:00Z"
+        }"#;
+        let parsed: CommunicatingAgent = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.agent_id, "legacy-agent");
+        assert_eq!(parsed.identity_anchor.public_key, "");
+        assert_eq!(parsed.identity_anchor.algorithm, "Ed25519");
+        assert!(!parsed.identity_anchor.verified);
+        assert!(parsed.capability_labels.is_empty());
+        assert_eq!(parsed.availability_label, "online");
+        assert!(parsed.preference_overrides.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // FederationGateway tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn federation_gateway_default() {
+        let gw = FederationGateway::default();
+        assert_eq!(gw.zone_id, "");
+        assert_eq!(gw.endpoint, "");
+        assert_eq!(gw.protocol, "agentic-comm/1.0");
+        assert_eq!(gw.status, "unknown");
+        assert_eq!(gw.last_heartbeat, 0);
+        assert_eq!(gw.capabilities, vec!["messages"]);
+        assert_eq!(gw.max_message_size, 1_048_576);
+    }
+
+    #[test]
+    fn federation_gateway_serde_roundtrip() {
+        let gw = FederationGateway {
+            zone_id: "zone-us-east".to_string(),
+            endpoint: "https://gw.us-east.example.com".to_string(),
+            protocol: "agentic-comm/1.0".to_string(),
+            status: "online".to_string(),
+            last_heartbeat: 1709_000_000,
+            capabilities: vec!["messages".to_string(), "semantic".to_string()],
+            max_message_size: 2_097_152,
+        };
+        let json = serde_json::to_string(&gw).unwrap();
+        let parsed: FederationGateway = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.zone_id, "zone-us-east");
+        assert_eq!(parsed.endpoint, "https://gw.us-east.example.com");
+        assert_eq!(parsed.status, "online");
+        assert_eq!(parsed.capabilities.len(), 2);
+        assert_eq!(parsed.max_message_size, 2_097_152);
+    }
+
+    // -----------------------------------------------------------------------
+    // FederationMessage tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn federation_message_serde_roundtrip() {
+        let msg = FederationMessage {
+            id: "fmsg-001".to_string(),
+            source_zone: "zone-us-east".to_string(),
+            target_zone: "zone-eu-west".to_string(),
+            channel_id: 42,
+            content: "Hello from across the federation".to_string(),
+            sender: "agent-alpha".to_string(),
+            timestamp: 1709_000_000,
+            signature: "abcdef1234".to_string(),
+            hops: vec!["gw-us-east".to_string(), "gw-eu-west".to_string()],
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let parsed: FederationMessage = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.id, "fmsg-001");
+        assert_eq!(parsed.source_zone, "zone-us-east");
+        assert_eq!(parsed.target_zone, "zone-eu-west");
+        assert_eq!(parsed.channel_id, 42);
+        assert_eq!(parsed.sender, "agent-alpha");
+        assert_eq!(parsed.hops.len(), 2);
+    }
+
+    #[test]
+    fn federation_message_empty_hops() {
+        let msg = FederationMessage {
+            id: "fmsg-002".to_string(),
+            source_zone: "local".to_string(),
+            target_zone: "remote".to_string(),
+            channel_id: 1,
+            content: "Direct message".to_string(),
+            sender: "agent-1".to_string(),
+            timestamp: 0,
+            signature: String::new(),
+            hops: Vec::new(),
+        };
+        let json = serde_json::to_string(&msg).unwrap();
+        let parsed: FederationMessage = serde_json::from_str(&json).unwrap();
+        assert!(parsed.hops.is_empty());
     }
 
 }

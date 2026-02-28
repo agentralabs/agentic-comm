@@ -968,6 +968,65 @@ pub fn validate_set_federation_policy(params: &Value) -> ValidationResult {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Crypto / encryption tool validators
+// ---------------------------------------------------------------------------
+
+/// Validate encrypt_message parameters.
+pub fn validate_encrypt_message(params: &Value) -> Result<(), ToolCallResult> {
+    let content = require_string(params, "content")?;
+    validate_content(content)?;
+    Ok(())
+}
+
+/// Validate decrypt_message parameters.
+pub fn validate_decrypt_message(params: &Value) -> Result<(), ToolCallResult> {
+    let ciphertext = require_string(params, "ciphertext")?;
+    if ciphertext.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: ciphertext must not be empty".to_string(),
+        ));
+    }
+    let nonce = require_string(params, "nonce")?;
+    if nonce.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: nonce must not be empty".to_string(),
+        ));
+    }
+    // epoch is optional — if present, must be a positive integer
+    if let Some(epoch_val) = params.get("epoch") {
+        if epoch_val.as_u64().is_none() {
+            return Err(ToolCallResult::error(
+                "Validation error: epoch must be a non-negative integer".to_string(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Validate verify_signature parameters.
+pub fn validate_verify_signature(params: &Value) -> Result<(), ToolCallResult> {
+    let public_key = require_string(params, "public_key")?;
+    if public_key.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: public_key must not be empty".to_string(),
+        ));
+    }
+    let content = require_string(params, "content")?;
+    if content.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: content must not be empty".to_string(),
+        ));
+    }
+    let signature = require_string(params, "signature")?;
+    if signature.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: signature must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
