@@ -1063,8 +1063,14 @@ impl std::fmt::Display for GroundingStatus {
 pub struct GroundingEvidence {
     /// What kind of evidence (channel, message, consent, trust, etc.).
     pub evidence_type: String,
+    /// Source of the evidence (e.g. "messages", "channels", "agents").
+    #[serde(default)]
+    pub source: String,
     /// The relevant data.
     pub content: String,
+    /// Epoch timestamp of the evidence (seconds since Unix epoch).
+    #[serde(default)]
+    pub timestamp: u64,
     /// Relevance score 0.0-1.0.
     #[serde(default)]
     pub relevance: f64,
@@ -1686,6 +1692,8 @@ mod tests {
             status: GroundingStatus::Verified,
             evidence: vec![GroundingEvidence {
                 evidence_type: "channel".to_string(),
+                source: "channels".to_string(),
+                timestamp: 0,
                 content: "channel-1 active".to_string(),
                 relevance: 0.9,
             }],

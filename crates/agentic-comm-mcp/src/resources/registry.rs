@@ -48,17 +48,43 @@ impl ResourceRegistry {
                 description: Some("Get federation configuration".to_string()),
                 mime_type: Some("application/json".to_string()),
             },
+            ResourceDefinition {
+                uri: "comm://relationships".to_string(),
+                name: "Agent Relationships".to_string(),
+                description: Some("List all agent relationships".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceDefinition {
+                uri: "comm://affect".to_string(),
+                name: "Affect State".to_string(),
+                description: Some("Get current affect state for all agents".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
         ]
     }
 
     /// List all resource URI templates.
     pub fn list_templates() -> Vec<ResourceTemplateDefinition> {
-        vec![ResourceTemplateDefinition {
-            uri_template: "comm://channels/{channel_id}/messages".to_string(),
-            name: "Channel Messages".to_string(),
-            description: Some("List messages in a channel".to_string()),
-            mime_type: Some("application/json".to_string()),
-        }]
+        vec![
+            ResourceTemplateDefinition {
+                uri_template: "comm://channels/{channel_id}/messages".to_string(),
+                name: "Channel Messages".to_string(),
+                description: Some("List messages in a channel".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplateDefinition {
+                uri_template: "comm://channels/{channel_id}".to_string(),
+                name: "Channel Details".to_string(),
+                description: Some("Get details for a specific channel".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplateDefinition {
+                uri_template: "comm://messages/{message_id}".to_string(),
+                name: "Message Details".to_string(),
+                description: Some("Get details for a specific message".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+        ]
     }
 
     /// List templates wrapped in the standard result type.
@@ -90,6 +116,12 @@ impl ResourceRegistry {
         if uri == "comm://federation" {
             return Self::read_federation(session).await;
         }
+        if uri == "comm://relationships" {
+            return Self::read_relationships(session).await;
+        }
+        if uri == "comm://affect" {
+            return Self::read_affect(session).await;
+        }
 
         // Match templated resources: comm://channels/{id}/messages
         if let Some(rest) = uri.strip_prefix("comm://channels/") {
@@ -99,6 +131,19 @@ impl ResourceRegistry {
                 })?;
                 return Self::read_channel_messages(channel_id, session).await;
             }
+            // Match comm://channels/{id} (single channel details)
+            let channel_id: u64 = rest.parse().map_err(|_| {
+                McpError::InvalidParams(format!("Invalid channel ID: {rest}"))
+            })?;
+            return Self::read_channel_detail(channel_id, session).await;
+        }
+
+        // Match templated resources: comm://messages/{id}
+        if let Some(id_str) = uri.strip_prefix("comm://messages/") {
+            let message_id: u64 = id_str.parse().map_err(|_| {
+                McpError::InvalidParams(format!("Invalid message ID: {id_str}"))
+            })?;
+            return Self::read_message_detail(message_id, session).await;
         }
 
         Err(McpError::ResourceNotFound(uri.to_string()))
@@ -210,6 +255,104 @@ impl ResourceRegistry {
         Ok(ReadResourceResult {
             contents: vec![ResourceContent {
                 uri: "comm://federation".to_string(),
+                mime_type: Some("application/json".to_string()),
+                text: Some(text),
+                blob: None,
+            }],
+        })
+    }
+
+    async fn read_channel_detail(
+        channel_id: u64,
+        session: &Arc<Mutex<SessionManager>>,
+    ) -> McpResult<ReadResourceResult> {
+        let session = session.lock().await;
+        let channel = session.store.get_channel(channel_id).ok_or_else(|| {
+            McpError::ResourceNotFound(format!("comm://channels/{channel_id}"))
+        })?;
+        let text = serde_json::to_string_pretty(&channel)
+            .map_err(|e| McpError::InternalError(e.to_string()))?;
+        let uri = format!("comm://channels/{channel_id}");
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContent {
+                uri,
+                mime_type: Some("application/json".to_string()),
+                text: Some(text),
+                blob: None,
+            }],
+        })
+    }
+
+    async fn read_message_detail(
+        message_id: u64,
+        session: &Arc<Mutex<SessionManager>>,
+    ) -> McpResult<ReadResourceResult> {
+        let session = session.lock().await;
+        let message = session.store.messages.get(&message_id).ok_or_else(|| {
+            McpError::ResourceNotFound(format!("comm://messages/{message_id}"))
+        })?;
+        let text = serde_json::to_string_pretty(&message)
+            .map_err(|e| McpError::InternalError(e.to_string()))?;
+        let uri = format!("comm://messages/{message_id}");
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContent {
+                uri,
+                mime_type: Some("application/json".to_string()),
+                text: Some(text),
+                blob: None,
+            }],
+        })
+    }
+
+    async fn read_relationships(
+        session: &Arc<Mutex<SessionManager>>,
+    ) -> McpResult<ReadResourceResult> {
+        let session = session.lock().await;
+        // Collect relationships for all known agents
+        let mut all_agents: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for agent_id in session.store.trust_levels.keys() {
+            all_agents.insert(agent_id.clone());
+        }
+        for gate in &session.store.consent_gates {
+            all_agents.insert(gate.grantor.clone());
+            all_agents.insert(gate.grantee.clone());
+        }
+        for hive in session.store.hive_minds.values() {
+            for c in &hive.constituents {
+                all_agents.insert(c.agent_id.clone());
+            }
+        }
+        let mut results = Vec::new();
+        for agent_id in &all_agents {
+            let rel = session.store.query_relationships(agent_id, None, 1);
+            results.push(rel);
+        }
+        let text = serde_json::to_string_pretty(&results)
+            .map_err(|e| McpError::InternalError(e.to_string()))?;
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContent {
+                uri: "comm://relationships".to_string(),
+                mime_type: Some("application/json".to_string()),
+                text: Some(text),
+                blob: None,
+            }],
+        })
+    }
+
+    async fn read_affect(
+        session: &Arc<Mutex<SessionManager>>,
+    ) -> McpResult<ReadResourceResult> {
+        let session = session.lock().await;
+        let affect = &session.store.affect_states;
+        let text = serde_json::to_string_pretty(&affect)
+            .map_err(|e| McpError::InternalError(e.to_string()))?;
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContent {
+                uri: "comm://affect".to_string(),
                 mime_type: Some("application/json".to_string()),
                 text: Some(text),
                 blob: None,

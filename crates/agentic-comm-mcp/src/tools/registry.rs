@@ -8,13 +8,13 @@ use crate::tools::validation;
 use crate::types::response::{ToolCallResult, ToolDefinition};
 use crate::types::McpError;
 
-use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode, FederationPolicy, FederatedZone, HiveRole, CommKeyPair, EncryptionKey, EncryptedPayload};
+use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, MessagePriority, CommTrustLevel, ConsentScope, AffectState, UrgencyLevel, TemporalTarget, CollectiveDecisionMode, FederationPolicy, FederatedZone, HiveRole, CommKeyPair, EncryptionKey, EncryptedPayload, KeyEntry};
 
 /// Tool registry — lists all available tools and dispatches calls.
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 63 tools.
+    /// Return definitions for all 85 tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
@@ -628,6 +628,49 @@ impl ToolRegistry {
                         }
                     },
                     "required": ["claim"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Evidence search tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_evidence".to_string(),
+                description: Some(
+                    "Search the communication store for evidence matching a query".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query to find matching messages, channels, and agents"
+                        }
+                    },
+                    "required": ["query"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Suggestion tool
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_suggest".to_string(),
+                description: Some(
+                    "Get fuzzy suggestions for agent names, channel names, or message content".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "Search query for fuzzy matching"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of suggestions to return (default: 10)",
+                            "default": 10
+                        }
+                    },
+                    "required": ["query"]
                 }),
             },
             // ---------------------------------------------------------------
@@ -1376,6 +1419,339 @@ impl ToolRegistry {
                     "properties": {}
                 }),
             },
+            // ---------------------------------------------------------------
+            // Messaging: replies, threads, priority
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_send_reply".to_string(),
+                description: Some("Send a reply linked to a parent message".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Target channel ID"
+                        },
+                        "reply_to_id": {
+                            "type": "integer",
+                            "description": "ID of the message being replied to"
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Sender identity"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Reply message body (1 byte to 1 MB)"
+                        },
+                        "message_type": {
+                            "type": "string",
+                            "description": "Message type: text, command, query, response, broadcast, notification, acknowledgment, error. Default: text",
+                            "default": "text"
+                        }
+                    },
+                    "required": ["channel_id", "reply_to_id", "sender", "content"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_get_thread".to_string(),
+                description: Some("Retrieve all messages in a thread by thread ID".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "thread_id": {
+                            "type": "string",
+                            "description": "Thread identifier"
+                        }
+                    },
+                    "required": ["thread_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_get_replies".to_string(),
+                description: Some("Retrieve all direct replies to a specific message".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "message_id": {
+                            "type": "integer",
+                            "description": "ID of the parent message"
+                        }
+                    },
+                    "required": ["message_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_send_with_priority".to_string(),
+                description: Some("Send a message with a specific priority level".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Target channel ID"
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Sender identity"
+                        },
+                        "content": {
+                            "type": "string",
+                            "description": "Message body (1 byte to 1 MB)"
+                        },
+                        "priority": {
+                            "type": "string",
+                            "description": "Priority level: low, normal, high, urgent, critical. Default: normal",
+                            "default": "normal"
+                        },
+                        "message_type": {
+                            "type": "string",
+                            "description": "Message type: text, command, query, response, broadcast, notification, acknowledgment, error. Default: text",
+                            "default": "text"
+                        }
+                    },
+                    "required": ["channel_id", "sender", "content"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Channel state management
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_pause_channel".to_string(),
+                description: Some("Pause a channel, blocking new sends and receives".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Channel ID to pause"
+                        }
+                    },
+                    "required": ["channel_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_resume_channel".to_string(),
+                description: Some("Resume a paused channel back to active state".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Channel ID to resume"
+                        }
+                    },
+                    "required": ["channel_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_drain_channel".to_string(),
+                description: Some("Set a channel to draining state, allowing receive but blocking send".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Channel ID to drain"
+                        }
+                    },
+                    "required": ["channel_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_close_channel".to_string(),
+                description: Some("Close a channel, blocking all operations".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Channel ID to close"
+                        }
+                    },
+                    "required": ["channel_id"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Dead letter queue
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_list_dead_letters".to_string(),
+                description: Some("List all messages in the dead letter queue".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            ToolDefinition {
+                name: "comm_replay_dead_letter".to_string(),
+                description: Some("Retry delivery of a dead letter by its index".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "index": {
+                            "type": "integer",
+                            "description": "Zero-based index of the dead letter to replay"
+                        }
+                    },
+                    "required": ["index"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_clear_dead_letters".to_string(),
+                description: Some("Clear all messages from the dead letter queue".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Maintenance
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_expire_messages".to_string(),
+                description: Some("Expire messages that have exceeded their channel TTL".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            ToolDefinition {
+                name: "comm_compact".to_string(),
+                description: Some("Compact the store by removing messages from closed channels".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Key management
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_generate_key".to_string(),
+                description: Some("Generate a new encryption key with metadata".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "algorithm": {
+                            "type": "string",
+                            "description": "Encryption algorithm name (e.g. aes-256-gcm, x25519)"
+                        },
+                        "label": {
+                            "type": "string",
+                            "description": "Optional channel ID to bind the key to",
+                            "default": null
+                        }
+                    },
+                    "required": ["algorithm"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_list_keys".to_string(),
+                description: Some("List all key entries in the key store".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            ToolDefinition {
+                name: "comm_rotate_key".to_string(),
+                description: Some("Rotate a key by marking it rotated and generating a replacement".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "key_id": {
+                            "type": "integer",
+                            "description": "ID of the key to rotate"
+                        }
+                    },
+                    "required": ["key_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_revoke_key".to_string(),
+                description: Some("Revoke a key by its ID".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "key_id": {
+                            "type": "integer",
+                            "description": "ID of the key to revoke"
+                        }
+                    },
+                    "required": ["key_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_export_key".to_string(),
+                description: Some("Export a key fingerprint by its ID".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "key_id": {
+                            "type": "integer",
+                            "description": "ID of the key to export"
+                        },
+                        "include_private": {
+                            "type": "boolean",
+                            "description": "Whether to include private key material (stub, always false)",
+                            "default": false
+                        }
+                    },
+                    "required": ["key_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_get_key".to_string(),
+                description: Some("Retrieve a specific key entry by its ID".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "key_id": {
+                            "type": "integer",
+                            "description": "ID of the key to retrieve"
+                        }
+                    },
+                    "required": ["key_id"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Federation zone policy
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "comm_set_zone_policy".to_string(),
+                description: Some("Set federation policy configuration for a specific zone".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "zone": {
+                            "type": "string",
+                            "description": "Zone identifier"
+                        },
+                        "allow_semantic": {
+                            "type": "boolean",
+                            "description": "Allow semantic operations through this zone",
+                            "default": true
+                        },
+                        "allow_affect": {
+                            "type": "boolean",
+                            "description": "Allow affect propagation through this zone",
+                            "default": true
+                        },
+                        "allow_hive": {
+                            "type": "boolean",
+                            "description": "Allow hive operations through this zone",
+                            "default": true
+                        },
+                        "max_message_size": {
+                            "type": "integer",
+                            "description": "Maximum message size in bytes (0 = unlimited)",
+                            "default": 1048576
+                        }
+                    },
+                    "required": ["zone"]
+                }),
+            },
         ]
     }
 
@@ -1422,6 +1798,16 @@ impl ToolRegistry {
                 validation::validate_query(claim)?;
                 Ok(())
             })(),
+            "comm_evidence" => (|| {
+                let query = validation::require_string(params, "query")?;
+                validation::validate_query(query)?;
+                Ok(())
+            })(),
+            "comm_suggest" => (|| {
+                let query = validation::require_string(params, "query")?;
+                validation::validate_query(query)?;
+                Ok(())
+            })(),
             "comm_list_consent_gates" => validation::validate_list_consent_gates(params),
             "comm_list_trust_levels" => Ok(()), // No required params
             "comm_cancel_scheduled" => validation::validate_cancel_scheduled(params),
@@ -1465,6 +1851,32 @@ impl ToolRegistry {
             "comm_decrypt_message" => validation::validate_decrypt_message(params),
             "comm_verify_signature" => validation::validate_verify_signature(params),
             "comm_get_public_key" => Ok(()), // No required params
+            // Messaging: replies, threads, priority
+            "comm_send_reply" => validation::validate_send_reply(params),
+            "comm_get_thread" => validation::validate_get_thread(params),
+            "comm_get_replies" => validation::validate_get_replies(params),
+            "comm_send_with_priority" => validation::validate_send_with_priority(params),
+            // Channel state management
+            "comm_pause_channel" => validation::validate_channel_state_change(params),
+            "comm_resume_channel" => validation::validate_channel_state_change(params),
+            "comm_drain_channel" => validation::validate_channel_state_change(params),
+            "comm_close_channel" => validation::validate_channel_state_change(params),
+            // Dead letter queue
+            "comm_list_dead_letters" => Ok(()), // No required params
+            "comm_replay_dead_letter" => validation::validate_replay_dead_letter(params),
+            "comm_clear_dead_letters" => Ok(()), // No required params
+            // Maintenance
+            "comm_expire_messages" => Ok(()), // No required params
+            "comm_compact" => Ok(()), // No required params
+            // Key management
+            "comm_generate_key" => validation::validate_generate_key(params),
+            "comm_list_keys" => Ok(()), // No required params
+            "comm_rotate_key" => validation::validate_key_id(params),
+            "comm_revoke_key" => validation::validate_key_id(params),
+            "comm_export_key" => validation::validate_key_id(params),
+            "comm_get_key" => validation::validate_key_id(params),
+            // Federation zone policy
+            "comm_set_zone_policy" => validation::validate_set_zone_policy(params),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -1502,6 +1914,8 @@ impl ToolRegistry {
             "comm_get_stats" => Self::handle_get_stats(session),
             "comm_send_affect" => Self::handle_send_affect(params, session),
             "comm_ground" => Self::handle_comm_ground(params, session),
+            "comm_evidence" => Self::handle_comm_evidence(params, session),
+            "comm_suggest" => Self::handle_comm_suggest(params, session),
             "comm_list_consent_gates" => Self::handle_list_consent_gates(params, session),
             "comm_list_trust_levels" => Self::handle_list_trust_levels(session),
             "comm_cancel_scheduled" => Self::handle_cancel_scheduled(params, session),
@@ -1545,6 +1959,32 @@ impl ToolRegistry {
             "comm_decrypt_message" => Self::handle_decrypt_message(params, session),
             "comm_verify_signature" => Self::handle_verify_signature(params, session),
             "comm_get_public_key" => Self::handle_get_public_key(session),
+            // Messaging: replies, threads, priority
+            "comm_send_reply" => Self::handle_send_reply(params, session),
+            "comm_get_thread" => Self::handle_get_thread(params, session),
+            "comm_get_replies" => Self::handle_get_replies(params, session),
+            "comm_send_with_priority" => Self::handle_send_with_priority(params, session),
+            // Channel state management
+            "comm_pause_channel" => Self::handle_pause_channel(params, session),
+            "comm_resume_channel" => Self::handle_resume_channel(params, session),
+            "comm_drain_channel" => Self::handle_drain_channel(params, session),
+            "comm_close_channel" => Self::handle_close_channel(params, session),
+            // Dead letter queue
+            "comm_list_dead_letters" => Self::handle_list_dead_letters(session),
+            "comm_replay_dead_letter" => Self::handle_replay_dead_letter(params, session),
+            "comm_clear_dead_letters" => Self::handle_clear_dead_letters(session),
+            // Maintenance
+            "comm_expire_messages" => Self::handle_expire_messages(session),
+            "comm_compact" => Self::handle_compact(session),
+            // Key management
+            "comm_generate_key" => Self::handle_generate_key(params, session),
+            "comm_list_keys" => Self::handle_list_keys(session),
+            "comm_rotate_key" => Self::handle_rotate_key(params, session),
+            "comm_revoke_key" => Self::handle_revoke_key(params, session),
+            "comm_export_key" => Self::handle_export_key(params, session),
+            "comm_get_key" => Self::handle_get_key(params, session),
+            // Federation zone policy
+            "comm_set_zone_policy" => Self::handle_set_zone_policy(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -1876,6 +2316,7 @@ impl ToolRegistry {
             sender,
             message_type: msg_type,
             limit,
+            ..Default::default()
         };
 
         let results = session.store.query_history(channel_id, &filter);
@@ -2323,6 +2764,46 @@ impl ToolRegistry {
         let result = session.store.ground_claim(claim);
         session.record_operation("comm_ground", None);
         Ok(ToolCallResult::json(&result))
+    }
+
+    // -----------------------------------------------------------------------
+    // Evidence search handler
+    // -----------------------------------------------------------------------
+
+    fn handle_comm_evidence(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let query = params
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("query is required".to_string()))?;
+
+        let evidence = session.store.ground_evidence(query);
+        session.record_operation("comm_evidence", None);
+        Ok(ToolCallResult::json(&evidence))
+    }
+
+    // -----------------------------------------------------------------------
+    // Suggestion handler
+    // -----------------------------------------------------------------------
+
+    fn handle_comm_suggest(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let query = params
+            .get("query")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("query is required".to_string()))?;
+        let limit = params
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(10) as usize;
+
+        let suggestions = session.store.ground_suggest(query, limit);
+        session.record_operation("comm_suggest", None);
+        Ok(ToolCallResult::json(&suggestions))
     }
 
     // -----------------------------------------------------------------------
@@ -3223,5 +3704,430 @@ impl ToolRegistry {
                 "message": "No key pair is currently set. Use comm_generate_keypair to create one.",
             }))),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Reply, thread, and priority handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_send_reply(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+        let reply_to_id = params
+            .get("reply_to_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("reply_to_id is required".to_string()))?;
+        let sender = params
+            .get("sender")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("sender is required".to_string()))?;
+        let content = params
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("content is required".to_string()))?;
+        let msg_type_str = params
+            .get("message_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("text");
+        let msg_type: MessageType = msg_type_str
+            .parse()
+            .map_err(|e: String| McpError::InvalidParams(e))?;
+
+        match session.store.send_reply(channel_id, reply_to_id, sender, content, msg_type) {
+            Ok(msg) => {
+                session.record_operation("comm_send_reply", Some(msg.id));
+                Ok(ToolCallResult::json(&msg))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_get_thread(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let thread_id = params
+            .get("thread_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("thread_id is required".to_string()))?;
+
+        let messages = session.store.get_thread(thread_id);
+        session.record_operation("comm_get_thread", None);
+        Ok(ToolCallResult::json(&messages))
+    }
+
+    fn handle_get_replies(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let message_id = params
+            .get("message_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
+
+        let replies = session.store.get_replies(message_id);
+        session.record_operation("comm_get_replies", Some(message_id));
+        Ok(ToolCallResult::json(&replies))
+    }
+
+    fn handle_send_with_priority(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+        let sender = params
+            .get("sender")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("sender is required".to_string()))?;
+        let content = params
+            .get("content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("content is required".to_string()))?;
+        let msg_type_str = params
+            .get("message_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("text");
+        let msg_type: MessageType = msg_type_str
+            .parse()
+            .map_err(|e: String| McpError::InvalidParams(e))?;
+        let priority_str = params
+            .get("priority")
+            .and_then(|v| v.as_str())
+            .unwrap_or("normal");
+        let priority = match priority_str {
+            "low" => MessagePriority::Low,
+            "normal" => MessagePriority::Normal,
+            "high" => MessagePriority::High,
+            "urgent" => MessagePriority::Urgent,
+            "critical" => MessagePriority::Critical,
+            other => return Ok(ToolCallResult::error(format!(
+                "Unknown priority: {other}. Must be: low, normal, high, urgent, critical"
+            ))),
+        };
+
+        match session.store.send_message_with_priority(channel_id, sender, content, msg_type, priority) {
+            Ok(msg) => {
+                session.record_operation("comm_send_with_priority", Some(msg.id));
+                Ok(ToolCallResult::json(&msg))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Channel state management handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_pause_channel(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+
+        match session.store.pause_channel(channel_id) {
+            Ok(()) => {
+                session.record_operation("comm_pause_channel", Some(channel_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "paused",
+                    "channel_id": channel_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_resume_channel(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+
+        match session.store.resume_channel(channel_id) {
+            Ok(()) => {
+                session.record_operation("comm_resume_channel", Some(channel_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "resumed",
+                    "channel_id": channel_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_drain_channel(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+
+        match session.store.drain_channel(channel_id) {
+            Ok(()) => {
+                session.record_operation("comm_drain_channel", Some(channel_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "draining",
+                    "channel_id": channel_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_close_channel(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+
+        match session.store.close_channel(channel_id) {
+            Ok(()) => {
+                session.record_operation("comm_close_channel", Some(channel_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "closed",
+                    "channel_id": channel_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Dead letter queue handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_list_dead_letters(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let dead_letters = session.store.list_dead_letters();
+        session.record_operation("comm_list_dead_letters", None);
+        Ok(ToolCallResult::json(&dead_letters))
+    }
+
+    fn handle_replay_dead_letter(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let index = params
+            .get("index")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("index is required".to_string()))? as usize;
+
+        match session.store.replay_dead_letter(index) {
+            Ok(msg) => {
+                session.record_operation("comm_replay_dead_letter", Some(msg.id));
+                Ok(ToolCallResult::json(&msg))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_clear_dead_letters(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        session.store.clear_dead_letters();
+        session.record_operation("comm_clear_dead_letters", None);
+        Ok(ToolCallResult::json(&json!({
+            "status": "cleared",
+        })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Maintenance handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_expire_messages(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let count = session.store.expire_messages();
+        session.record_operation("comm_expire_messages", None);
+        Ok(ToolCallResult::json(&json!({
+            "status": "expired",
+            "count": count,
+        })))
+    }
+
+    fn handle_compact(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let count = session.store.compact();
+        session.record_operation("comm_compact", None);
+        Ok(ToolCallResult::json(&json!({
+            "status": "compacted",
+            "removed_count": count,
+        })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Key management handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_generate_key(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let algorithm = params
+            .get("algorithm")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("algorithm is required".to_string()))?;
+        let channel_id = params
+            .get("label")
+            .and_then(|v| v.as_u64());
+
+        match session.store.generate_key(algorithm, channel_id) {
+            Ok(entry) => {
+                session.record_operation("comm_generate_key", Some(entry.id));
+                Ok(ToolCallResult::json(&entry))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_list_keys(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let keys: Vec<&KeyEntry> = session.store.list_keys();
+        let keys_owned: Vec<KeyEntry> = keys.into_iter().cloned().collect();
+        session.record_operation("comm_list_keys", None);
+        Ok(ToolCallResult::json(&keys_owned))
+    }
+
+    fn handle_rotate_key(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let key_id = params
+            .get("key_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("key_id is required".to_string()))?;
+
+        match session.store.rotate_key(key_id) {
+            Ok(new_entry) => {
+                session.record_operation("comm_rotate_key", Some(new_entry.id));
+                Ok(ToolCallResult::json(&new_entry))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_revoke_key(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let key_id = params
+            .get("key_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("key_id is required".to_string()))?;
+
+        match session.store.revoke_key(key_id) {
+            Ok(()) => {
+                session.record_operation("comm_revoke_key", Some(key_id));
+                Ok(ToolCallResult::json(&json!({
+                    "status": "revoked",
+                    "key_id": key_id,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_export_key(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let key_id = params
+            .get("key_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("key_id is required".to_string()))?;
+        let _include_private = params
+            .get("include_private")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        match session.store.export_key(key_id) {
+            Ok(fingerprint) => {
+                session.record_operation("comm_export_key", Some(key_id));
+                Ok(ToolCallResult::json(&json!({
+                    "key_id": key_id,
+                    "fingerprint": fingerprint,
+                    "include_private": false,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_get_key(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let key_id = params
+            .get("key_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("key_id is required".to_string()))?;
+
+        session.record_operation("comm_get_key", Some(key_id));
+        match session.store.get_key(key_id) {
+            Ok(entry) => Ok(ToolCallResult::json(&entry)),
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Federation zone policy handler
+    // -----------------------------------------------------------------------
+
+    fn handle_set_zone_policy(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let zone = params
+            .get("zone")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("zone is required".to_string()))?;
+        let allow_semantic = params
+            .get("allow_semantic")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let allow_affect = params
+            .get("allow_affect")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let allow_hive = params
+            .get("allow_hive")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let max_message_size = params
+            .get("max_message_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1_048_576);
+
+        let config = session.store.set_federation_policy(
+            zone,
+            allow_semantic,
+            allow_affect,
+            allow_hive,
+            max_message_size,
+        );
+        session.record_operation("comm_set_zone_policy", None);
+        Ok(ToolCallResult::json(&config))
     }
 }

@@ -217,6 +217,11 @@ enum Commands {
         /// The claim to verify
         claim: String,
     },
+    /// Dead letter management (list, replay, clear)
+    DeadLetters {
+        #[command(subcommand)]
+        action: DeadLetterAction,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -286,6 +291,27 @@ enum MessageAction {
     Delete {
         /// Message ID to delete
         message_id: u64,
+    },
+    /// Reply to a message in a channel
+    Reply {
+        /// Channel ID
+        channel_id: u64,
+        /// Message ID to reply to
+        message_id: u64,
+        /// Reply content
+        #[arg(long)]
+        content: String,
+        /// Message type
+        #[arg(long, default_value = "text")]
+        r#type: String,
+        /// Sender name
+        #[arg(long, default_value = "cli-user")]
+        sender: String,
+    },
+    /// List messages in a thread
+    Thread {
+        /// Thread ID
+        thread_id: String,
     },
 }
 
@@ -418,6 +444,21 @@ enum ChannelAction {
     },
     /// Archive a channel (set state to Archived)
     Archive {
+        /// Channel ID
+        channel_id: u64,
+    },
+    /// Pause a channel (block new sends)
+    Pause {
+        /// Channel ID
+        channel_id: u64,
+    },
+    /// Resume a paused channel
+    Resume {
+        /// Channel ID
+        channel_id: u64,
+    },
+    /// Drain a channel (block sends, allow reads)
+    Drain {
         /// Channel ID
         channel_id: u64,
     },
@@ -868,6 +909,23 @@ fn parse_delivery_mode(s: &str) -> DeliveryMode {
 }
 
 /// Helper: print a value as JSON or pretty-formatted.
+// ---------------------------------------------------------------------------
+// Dead letter subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum DeadLetterAction {
+    /// List all dead letters
+    List,
+    /// Replay a dead letter by index
+    Replay {
+        /// Dead letter index
+        index: usize,
+    },
+    /// Clear all dead letters
+    Clear,
+}
+
 fn output(value: &serde_json::Value, json_mode: bool) {
     if json_mode {
         println!("{}", serde_json::to_string_pretty(value).unwrap());
@@ -1103,6 +1161,47 @@ fn main() {
                         std::process::exit(1);
                     }
                 }
+            }
+            MessageAction::Reply {
+                channel_id,
+                message_id,
+                content,
+                r#type,
+                sender,
+            } => {
+                let msg_type: MessageType = r#type
+                    .parse()
+                    .unwrap_or_else(|e| {
+                        eprintln!("Invalid message type: {e}");
+                        std::process::exit(1);
+                    });
+                let mut store = load_or_create(&store_path);
+                match store.send_reply(channel_id, message_id, &sender, &content, msg_type) {
+                    Ok(msg) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "replied",
+                                "message_id": msg.id,
+                                "channel_id": msg.channel_id,
+                                "reply_to": message_id,
+                                "timestamp": msg.timestamp.to_rfc3339(),
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            MessageAction::Thread { thread_id } => {
+                let store = load_or_create(&store_path);
+                let messages = store.get_thread(&thread_id);
+                output(&serde_json::to_value(&messages).unwrap(), json_mode);
             }
         },
 
@@ -1375,6 +1474,69 @@ fn main() {
                     }
                     None => {
                         eprintln!("Channel {channel_id} not found");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            ChannelAction::Pause { channel_id } => {
+                let mut store = load_or_create(&store_path);
+                match store.pause_channel(channel_id) {
+                    Ok(()) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "paused",
+                                "channel_id": channel_id,
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            ChannelAction::Resume { channel_id } => {
+                let mut store = load_or_create(&store_path);
+                match store.resume_channel(channel_id) {
+                    Ok(()) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "resumed",
+                                "channel_id": channel_id,
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            ChannelAction::Drain { channel_id } => {
+                let mut store = load_or_create(&store_path);
+                match store.drain_channel(channel_id) {
+                    Ok(()) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "draining",
+                                "channel_id": channel_id,
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
                         std::process::exit(1);
                     }
                 }
@@ -2377,6 +2539,53 @@ fn main() {
                     }),
                     json_mode,
                 );
+            }
+        },
+
+        // -----------------------------------------------------------------
+        // Dead letters management
+        // -----------------------------------------------------------------
+        Commands::DeadLetters { action } => match action {
+            DeadLetterAction::List => {
+                let store = load_or_create(&store_path);
+                let dead_letters = store.list_dead_letters();
+                output(&serde_json::to_value(&dead_letters).unwrap(), json_mode);
+            }
+            DeadLetterAction::Replay { index } => {
+                let mut store = load_or_create(&store_path);
+                match store.replay_dead_letter(index) {
+                    Ok(msg) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "replayed",
+                                "message_id": msg.id,
+                                "channel_id": msg.channel_id,
+                                "index": index,
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            DeadLetterAction::Clear => {
+                let mut store = load_or_create(&store_path);
+                store.clear_dead_letters();
+                output(
+                    &serde_json::json!({
+                        "status": "cleared",
+                    }),
+                    json_mode,
+                );
+                if let Err(e) = store.save(&store_path) {
+                    eprintln!("Warning: failed to save store: {e}");
+                }
             }
         },
 

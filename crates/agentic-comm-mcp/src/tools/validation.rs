@@ -1027,6 +1027,128 @@ pub fn validate_verify_signature(params: &Value) -> Result<(), ToolCallResult> {
     Ok(())
 }
 
+
+// ---------------------------------------------------------------------------
+// New tool validators: replies, threads, priority, channel state, dead letters,
+// maintenance, key management, zone policy
+// ---------------------------------------------------------------------------
+
+/// Valid priority levels.
+const VALID_PRIORITIES: &[&str] = &["low", "normal", "high", "urgent", "critical"];
+
+/// Validate send_reply parameters.
+pub fn validate_send_reply(params: &Value) -> ValidationResult {
+    validate_channel_id(params)?;
+    let _reply_to = params
+        .get("reply_to_id")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: reply_to_id is required and must be a positive integer"
+                    .to_string(),
+            )
+        })?;
+    let sender = require_string(params, "sender")?;
+    validate_sender(sender)?;
+    let content = require_string(params, "content")?;
+    validate_content(content)?;
+    Ok(())
+}
+
+/// Validate get_thread parameters.
+pub fn validate_get_thread(params: &Value) -> ValidationResult {
+    let thread_id = require_string(params, "thread_id")?;
+    if thread_id.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: thread_id must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validate get_replies parameters.
+pub fn validate_get_replies(params: &Value) -> ValidationResult {
+    validate_message_id(params)?;
+    Ok(())
+}
+
+/// Validate send_with_priority parameters.
+pub fn validate_send_with_priority(params: &Value) -> ValidationResult {
+    validate_channel_id(params)?;
+    let sender = require_string(params, "sender")?;
+    validate_sender(sender)?;
+    let content = require_string(params, "content")?;
+    validate_content(content)?;
+    // Validate optional priority if present
+    if let Some(priority) = params.get("priority").and_then(|v| v.as_str()) {
+        if !VALID_PRIORITIES.contains(&priority) {
+            return Err(ToolCallResult::error(format!(
+                "Validation error: invalid priority '{}'. Must be one of: {}",
+                priority,
+                VALID_PRIORITIES.join(", ")
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Validate channel state change parameters (pause, resume, drain, close).
+pub fn validate_channel_state_change(params: &Value) -> ValidationResult {
+    validate_channel_id(params)?;
+    Ok(())
+}
+
+/// Validate replay_dead_letter parameters.
+pub fn validate_replay_dead_letter(params: &Value) -> ValidationResult {
+    let _index = params
+        .get("index")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: index is required and must be a non-negative integer"
+                    .to_string(),
+            )
+        })?;
+    Ok(())
+}
+
+/// Validate generate_key parameters.
+pub fn validate_generate_key(params: &Value) -> ValidationResult {
+    let algorithm = require_string(params, "algorithm")?;
+    if algorithm.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: algorithm must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validate a key_id parameter: must be present and non-negative.
+pub fn validate_key_id(params: &Value) -> ValidationResult {
+    params
+        .get("key_id")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: key_id is required and must be a non-negative integer"
+                    .to_string(),
+            )
+        })?;
+    Ok(())
+}
+
+/// Validate set_zone_policy parameters.
+pub fn validate_set_zone_policy(params: &Value) -> ValidationResult {
+    let zone = require_string(params, "zone")?;
+    if zone.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: zone must not be empty".to_string(),
+        ));
+    }
+    // allow_semantic, allow_affect, allow_hive, max_message_size are all optional with defaults
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

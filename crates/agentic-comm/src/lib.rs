@@ -505,6 +505,16 @@ pub enum ChannelType {
     Broadcast,
     /// Publish/subscribe topic.
     PubSub,
+    /// Shared state space channel.
+    Telepathic,
+    /// Hive mind channel.
+    Hive,
+    /// Time-shifted messaging.
+    Temporal,
+    /// Fate-linked communication.
+    Destiny,
+    /// Predictive messaging.
+    Oracle,
 }
 
 impl std::fmt::Display for ChannelType {
@@ -514,6 +524,11 @@ impl std::fmt::Display for ChannelType {
             ChannelType::Group => write!(f, "group"),
             ChannelType::Broadcast => write!(f, "broadcast"),
             ChannelType::PubSub => write!(f, "pubsub"),
+            ChannelType::Telepathic => write!(f, "telepathic"),
+            ChannelType::Hive => write!(f, "hive"),
+            ChannelType::Temporal => write!(f, "temporal"),
+            ChannelType::Destiny => write!(f, "destiny"),
+            ChannelType::Oracle => write!(f, "oracle"),
         }
     }
 }
@@ -526,6 +541,11 @@ impl std::str::FromStr for ChannelType {
             "group" => Ok(ChannelType::Group),
             "broadcast" => Ok(ChannelType::Broadcast),
             "pubsub" => Ok(ChannelType::PubSub),
+            "telepathic" => Ok(ChannelType::Telepathic),
+            "hive" => Ok(ChannelType::Hive),
+            "temporal" => Ok(ChannelType::Temporal),
+            "destiny" => Ok(ChannelType::Destiny),
+            "oracle" => Ok(ChannelType::Oracle),
             other => Err(format!("Unknown channel type: {other}")),
         }
     }
@@ -597,7 +617,7 @@ pub struct Subscription {
 }
 
 /// Filter for querying message history.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MessageFilter {
     /// Only messages after this time.
     pub since: Option<DateTime<Utc>>,
@@ -609,6 +629,15 @@ pub struct MessageFilter {
     pub message_type: Option<MessageType>,
     /// Maximum number of results.
     pub limit: Option<usize>,
+    /// Filter by message priority (numeric: 0=Low, 1=Normal, 2=High, 3=Urgent, 4=Critical).
+    #[serde(default)]
+    pub priority: Option<u32>,
+    /// Filter by thread identifier.
+    #[serde(default)]
+    pub thread_id: Option<u64>,
+    /// Filter by content substring (case-insensitive).
+    #[serde(default)]
+    pub content_contains: Option<String>,
 }
 
 /// File header for .acomm files.
@@ -2022,6 +2051,31 @@ impl CommStore {
                         return false;
                     }
                 }
+                if let Some(priority_val) = filter.priority {
+                    let msg_priority = m.priority as u32;
+                    if msg_priority != priority_val {
+                        return false;
+                    }
+                }
+                if let Some(filter_thread) = filter.thread_id {
+                    match &m.thread_id {
+                        Some(tid) => {
+                            if let Ok(parsed) = tid.parse::<u64>() {
+                                if parsed != filter_thread {
+                                    return false;
+                                }
+                            } else {
+                                return false;
+                            }
+                        }
+                        None => return false,
+                    }
+                }
+                if let Some(ref substr) = filter.content_contains {
+                    if !m.content.to_lowercase().contains(&substr.to_lowercase()) {
+                        return false;
+                    }
+                }
                 true
             })
             .cloned()
@@ -3144,6 +3198,8 @@ impl CommStore {
             if claim_lower.contains(&ch.name.to_lowercase()) {
                 evidence.push(GroundingEvidence {
                     evidence_type: "channel".to_string(),
+                    source: String::new(),
+                    timestamp: 0,
                     content: format!("Channel '{}' (id={}, state={})", ch.name, ch.id, ch.state),
                     relevance: 0.9,
                 });
@@ -3153,6 +3209,8 @@ impl CommStore {
                 if claim_lower.contains(&p.to_lowercase()) {
                     evidence.push(GroundingEvidence {
                         evidence_type: "participant".to_string(),
+                        source: String::new(),
+                        timestamp: 0,
                         content: format!("'{}' is a participant in channel '{}'", p, ch.name),
                         relevance: 0.8,
                     });
@@ -3168,6 +3226,8 @@ impl CommStore {
             {
                 evidence.push(GroundingEvidence {
                     evidence_type: "message".to_string(),
+                    source: String::new(),
+                    timestamp: 0,
                     content: format!(
                         "Message from '{}' in channel {} at {}",
                         msg.sender, msg.channel_id, msg.timestamp
@@ -3185,6 +3245,8 @@ impl CommStore {
             {
                 evidence.push(GroundingEvidence {
                     evidence_type: "consent".to_string(),
+                    source: String::new(),
+                    timestamp: 0,
                     content: format!(
                         "Consent: {} -> {} ({}, status={})",
                         gate.grantor, gate.grantee, gate.scope, gate.status
@@ -3200,6 +3262,8 @@ impl CommStore {
             if claim_lower.contains(&agent.to_lowercase()) {
                 evidence.push(GroundingEvidence {
                     evidence_type: "trust".to_string(),
+                    source: String::new(),
+                    timestamp: 0,
                     content: format!("Trust level for '{}': {}", agent, level),
                     relevance: 0.8,
                 });
@@ -3212,6 +3276,8 @@ impl CommStore {
             if claim_lower.contains(&hive.name.to_lowercase()) {
                 evidence.push(GroundingEvidence {
                     evidence_type: "hive".to_string(),
+                    source: String::new(),
+                    timestamp: 0,
                     content: format!(
                         "Hive '{}' (id={}, members={})",
                         hive.name, hive.id, hive.constituents.len()
@@ -3329,6 +3395,146 @@ impl CommStore {
     pub fn export_key(&self, key_id: u64) -> CommResult<String> {
         let key = self.get_key(key_id)?;
         Ok(key.fingerprint.clone())
+    }
+
+    // -----------------------------------------------------------------------
+    // Grounding: evidence search & fuzzy suggest
+    // -----------------------------------------------------------------------
+
+    /// Search messages, channels, and agents for evidence matching a query.
+    ///
+    /// Returns detailed evidence entries with timestamps and relevance scores.
+    pub fn ground_evidence(&self, query: &str) -> Vec<GroundingEvidence> {
+        let query_lower = query.to_lowercase();
+        let mut evidence = Vec::new();
+
+        // Search messages
+        for msg in self.messages.values() {
+            let content_lower = msg.content.to_lowercase();
+            let sender_lower = msg.sender.to_lowercase();
+            if content_lower.contains(&query_lower) || sender_lower.contains(&query_lower) {
+                let relevance = if content_lower.contains(&query_lower) && sender_lower.contains(&query_lower) {
+                    1.0
+                } else if content_lower.contains(&query_lower) {
+                    0.8
+                } else {
+                    0.6
+                };
+                evidence.push(GroundingEvidence {
+                    evidence_type: format!("message(id={}, ts={})", msg.id, msg.timestamp.timestamp()),
+                    source: "messages".to_string(),
+                    timestamp: msg.timestamp.timestamp() as u64,
+                    content: format!(
+                        "[{}] {}: {}",
+                        msg.timestamp.to_rfc3339(),
+                        msg.sender,
+                        msg.content.chars().take(200).collect::<String>()
+                    ),
+                    relevance,
+                });
+            }
+        }
+
+        // Search channels
+        for ch in self.channels.values() {
+            if ch.name.to_lowercase().contains(&query_lower) {
+                evidence.push(GroundingEvidence {
+                    evidence_type: format!("channel(id={}, created={})", ch.id, ch.created_at.timestamp()),
+                    source: "channels".to_string(),
+                    timestamp: ch.created_at.timestamp() as u64,
+                    content: format!(
+                        "Channel '{}' (type={}, state={}, participants={})",
+                        ch.name, ch.channel_type, ch.state, ch.participants.len()
+                    ),
+                    relevance: 0.9,
+                });
+            }
+            // Search participants
+            for p in &ch.participants {
+                if p.to_lowercase().contains(&query_lower) {
+                    evidence.push(GroundingEvidence {
+                        evidence_type: format!("agent(channel={})", ch.name),
+                        source: "agents".to_string(),
+                        timestamp: 0,
+                        content: format!("Agent '{}' in channel '{}'", p, ch.name),
+                        relevance: 0.7,
+                    });
+                }
+            }
+        }
+
+        // Search hive minds
+        for hive in self.hive_minds.values() {
+            if hive.name.to_lowercase().contains(&query_lower) {
+                evidence.push(GroundingEvidence {
+                    evidence_type: format!("hive(id={})", hive.id),
+                    source: "hives".to_string(),
+                    timestamp: 0,
+                    content: format!(
+                        "Hive '{}' with {} constituents",
+                        hive.name,
+                        hive.constituents.len()
+                    ),
+                    relevance: 0.8,
+                });
+            }
+        }
+
+        // Sort by relevance descending
+        evidence.sort_by(|a, b| b.relevance.partial_cmp(&a.relevance).unwrap_or(std::cmp::Ordering::Equal));
+        evidence
+    }
+
+    /// Return fuzzy/contains suggestions based on agent names, channel names,
+    /// or message content matching the query.
+    pub fn ground_suggest(&self, query: &str, limit: usize) -> Vec<String> {
+        let query_lower = query.to_lowercase();
+        let mut suggestions = Vec::new();
+
+        // Suggest channel names
+        for ch in self.channels.values() {
+            if ch.name.to_lowercase().contains(&query_lower) {
+                suggestions.push(format!("channel:{}", ch.name));
+            }
+        }
+
+        // Suggest agent names from participants
+        let mut seen_agents = std::collections::HashSet::new();
+        for ch in self.channels.values() {
+            for p in &ch.participants {
+                if p.to_lowercase().contains(&query_lower) && seen_agents.insert(p.clone()) {
+                    suggestions.push(format!("agent:{}", p));
+                }
+            }
+        }
+
+        // Suggest from trust levels
+        for agent in self.trust_levels.keys() {
+            if agent.to_lowercase().contains(&query_lower) && seen_agents.insert(agent.clone()) {
+                suggestions.push(format!("agent:{}", agent));
+            }
+        }
+
+        // Suggest hive mind names
+        for hive in self.hive_minds.values() {
+            if hive.name.to_lowercase().contains(&query_lower) {
+                suggestions.push(format!("hive:{}", hive.name));
+            }
+        }
+
+        // Suggest from message content (unique snippets)
+        let mut content_seen = std::collections::HashSet::new();
+        for msg in self.messages.values() {
+            if msg.content.to_lowercase().contains(&query_lower) {
+                let snippet: String = msg.content.chars().take(80).collect();
+                if content_seen.insert(snippet.clone()) {
+                    suggestions.push(format!("message:{}", snippet));
+                }
+            }
+        }
+
+        suggestions.truncate(limit);
+        suggestions
     }
 }
 
