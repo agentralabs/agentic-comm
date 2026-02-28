@@ -195,6 +195,11 @@ enum Commands {
         #[command(subcommand)]
         action: AffectAction,
     },
+    /// Key management (generate, list, show, rotate, revoke, export)
+    Keys {
+        #[command(subcommand)]
+        action: KeyAction,
+    },
     /// Show comprehensive store statistics
     Status,
     /// Ground a claim against the communication store
@@ -702,6 +707,45 @@ enum AffectAction {
         /// Resistance level (0.0 to 1.0)
         #[arg(long)]
         level: f64,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Key management subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum KeyAction {
+    /// Generate a new encryption key
+    Generate {
+        /// Algorithm (e.g. aes-256-gcm, x25519)
+        #[arg(long, default_value = "aes-256-gcm")]
+        algorithm: String,
+        /// Optional channel to bind the key to
+        #[arg(long)]
+        channel: Option<u64>,
+    },
+    /// List all keys
+    List,
+    /// Show details of a specific key
+    Show {
+        /// Key ID
+        id: u64,
+    },
+    /// Rotate a key (mark old as rotated, create new)
+    Rotate {
+        /// Key ID to rotate
+        id: u64,
+    },
+    /// Revoke a key
+    Revoke {
+        /// Key ID to revoke
+        id: u64,
+    },
+    /// Export a key's fingerprint
+    Export {
+        /// Key ID to export
+        id: u64,
     },
 }
 
@@ -2012,6 +2056,117 @@ fn main() {
                 );
                 if let Err(e) = store.save(&store_path) {
                     eprintln!("Warning: failed to save store: {e}");
+                }
+            }
+        },
+
+        // -----------------------------------------------------------------
+        // Key management
+        // -----------------------------------------------------------------
+        Commands::Keys { action } => match action {
+            KeyAction::Generate { algorithm, channel } => {
+                let mut store = load_or_create(&store_path);
+                match store.generate_key(&algorithm, channel) {
+                    Ok(key) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "generated",
+                                "key_id": key.id,
+                                "algorithm": key.algorithm,
+                                "fingerprint": key.fingerprint,
+                                "channel_id": key.channel_id,
+                                "created_at": key.created_at,
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            KeyAction::List => {
+                let store = load_or_create(&store_path);
+                let keys: Vec<_> = store.list_keys();
+                output(&serde_json::to_value(&keys).unwrap(), json_mode);
+            }
+            KeyAction::Show { id } => {
+                let store = load_or_create(&store_path);
+                match store.get_key(id) {
+                    Ok(key) => {
+                        output(&serde_json::to_value(&key).unwrap(), json_mode);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            KeyAction::Rotate { id } => {
+                let mut store = load_or_create(&store_path);
+                match store.rotate_key(id) {
+                    Ok(new_key) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "rotated",
+                                "old_key_id": id,
+                                "new_key_id": new_key.id,
+                                "algorithm": new_key.algorithm,
+                                "fingerprint": new_key.fingerprint,
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            KeyAction::Revoke { id } => {
+                let mut store = load_or_create(&store_path);
+                match store.revoke_key(id) {
+                    Ok(()) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "revoked",
+                                "key_id": id,
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            KeyAction::Export { id } => {
+                let store = load_or_create(&store_path);
+                match store.export_key(id) {
+                    Ok(fingerprint) => {
+                        output(
+                            &serde_json::json!({
+                                "key_id": id,
+                                "fingerprint": fingerprint,
+                            }),
+                            json_mode,
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
                 }
             }
         },

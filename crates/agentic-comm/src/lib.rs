@@ -113,6 +113,10 @@ pub enum CommError {
     /// File locking error.
     #[error("Lock error: {0}")]
     LockError(String),
+
+    /// Key not found.
+    #[error("Key not found: {0}")]
+    KeyNotFound(u64),
 }
 
 /// Convenience result type.
@@ -403,6 +407,27 @@ pub struct DeadLetter {
 }
 
 // ---------------------------------------------------------------------------
+// Key management
+// ---------------------------------------------------------------------------
+
+/// A key entry for channel encryption metadata.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KeyEntry {
+    /// Unique key identifier.
+    pub id: u64,
+    /// Algorithm name (e.g. "aes-256-gcm", "x25519").
+    pub algorithm: String,
+    /// Creation timestamp (seconds since epoch).
+    pub created_at: u64,
+    /// Key status: "active", "rotated", or "revoked".
+    pub status: String,
+    /// Optional channel this key is bound to.
+    pub channel_id: Option<u64>,
+    /// Fingerprint of the key material.
+    pub fingerprint: String,
+}
+
+// ---------------------------------------------------------------------------
 // Message
 // ---------------------------------------------------------------------------
 
@@ -445,6 +470,9 @@ pub struct Message {
     /// Thread grouping identifier.
     #[serde(default)]
     pub thread_id: Option<String>,
+    /// Causal timestamp with Lamport/vector clocks.
+    #[serde(default)]
+    pub comm_timestamp: CommTimestamp,
 }
 
 /// The type of a communication channel.
@@ -790,6 +818,18 @@ pub struct CommStore {
     #[serde(default)]
     pub zone_policies: HashMap<String, ZonePolicyConfig>,
 
+    /// Key metadata for channel encryption.
+    #[serde(default)]
+    pub key_store: Vec<KeyEntry>,
+
+    /// Next key ID.
+    #[serde(default = "default_one")]
+    next_key_id: u64,
+
+    /// Global Lamport counter for causal ordering of messages.
+    #[serde(default)]
+    pub lamport_counter: u64,
+
     /// Per-sender rate tracking (not persisted — rebuilt at runtime).
     #[serde(skip)]
     pub rate_trackers: HashMap<String, RateTracker>,
@@ -839,6 +879,9 @@ impl CommStore {
             pending_consent_requests: Vec::new(),
             meld_sessions: Vec::new(),
             zone_policies: HashMap::new(),
+            key_store: Vec::new(),
+            next_key_id: 1,
+            lamport_counter: 0,
             rate_trackers: HashMap::new(),
         }
     }
@@ -1174,6 +1217,7 @@ impl CommStore {
                 reply_to: None,
                 correlation_id: None,
                 thread_id: None,
+                comm_timestamp: CommTimestamp::default(),
             };
             self.dead_letters.push(DeadLetter {
                 original_message: msg,
@@ -1212,6 +1256,7 @@ impl CommStore {
                 reply_to: None,
                 correlation_id: None,
                 thread_id: None,
+                comm_timestamp: CommTimestamp::default(),
             };
             self.dead_letters.push(DeadLetter {
                 original_message: msg,
@@ -1224,6 +1269,11 @@ impl CommStore {
 
         let id = self.next_message_id;
         self.next_message_id += 1;
+
+        // Increment Lamport counter for causal ordering
+        self.lamport_counter += 1;
+        let mut ts = CommTimestamp::now(sender);
+        ts.lamport = self.lamport_counter;
 
         let message = Message {
             id,
@@ -1241,6 +1291,7 @@ impl CommStore {
             reply_to: None,
             correlation_id: None,
             thread_id: None,
+            comm_timestamp: ts,
         };
 
         self.messages.insert(id, message.clone());
@@ -1369,6 +1420,11 @@ impl CommStore {
             let id = self.next_message_id;
             self.next_message_id += 1;
 
+            // Increment Lamport counter for each broadcast copy
+            self.lamport_counter += 1;
+            let mut ts = CommTimestamp::now(sender);
+            ts.lamport = self.lamport_counter;
+
             let message = Message {
                 id,
                 channel_id,
@@ -1385,6 +1441,7 @@ impl CommStore {
                 reply_to: None,
                 correlation_id: None,
                 thread_id: None,
+                comm_timestamp: ts,
             };
 
             self.messages.insert(id, message.clone());
@@ -1429,6 +1486,11 @@ impl CommStore {
         let id = self.next_message_id;
         self.next_message_id += 1;
 
+        // Increment Lamport counter for causal ordering
+        self.lamport_counter += 1;
+        let mut ts = CommTimestamp::now(sender);
+        ts.lamport = self.lamport_counter;
+
         let message = Message {
             id,
             channel_id,
@@ -1445,6 +1507,7 @@ impl CommStore {
             reply_to: Some(message_id),
             correlation_id: None,
             thread_id: Some(thread_id),
+            comm_timestamp: ts,
         };
 
         self.messages.insert(id, message.clone());
@@ -1661,6 +1724,11 @@ impl CommStore {
             let id = self.next_message_id;
             self.next_message_id += 1;
 
+            // Increment Lamport counter for each pub/sub delivery
+            self.lamport_counter += 1;
+            let mut ts = CommTimestamp::now(sender);
+            ts.lamport = self.lamport_counter;
+
             let message = Message {
                 id,
                 channel_id,
@@ -1677,6 +1745,7 @@ impl CommStore {
                 reply_to: None,
                 correlation_id: None,
                 thread_id: None,
+                comm_timestamp: ts,
             };
 
             self.messages.insert(id, message.clone());
@@ -3075,6 +3144,99 @@ impl CommStore {
             confidence: score,
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Key management
+    // -----------------------------------------------------------------------
+
+    /// Generate a new key entry with metadata.
+    ///
+    /// Creates a key entry with a pseudo-random fingerprint. This is a stub
+    /// that manages key metadata; real cryptographic key material would be
+    /// generated by a dedicated crypto layer.
+    pub fn generate_key(
+        &mut self,
+        algorithm: &str,
+        channel_id: Option<u64>,
+    ) -> CommResult<KeyEntry> {
+        let id = self.next_key_id;
+        self.next_key_id += 1;
+
+        // Generate a pseudo-random fingerprint from id + timestamp
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let fingerprint = format!("{:016x}", now.wrapping_mul(6364136223846793005).wrapping_add(id));
+
+        let entry = KeyEntry {
+            id,
+            algorithm: algorithm.to_string(),
+            created_at: now,
+            status: "active".to_string(),
+            channel_id,
+            fingerprint,
+        };
+
+        self.key_store.push(entry.clone());
+        Ok(entry)
+    }
+
+    /// List all key entries.
+    pub fn list_keys(&self) -> Vec<&KeyEntry> {
+        self.key_store.iter().collect()
+    }
+
+    /// Get a specific key by ID.
+    pub fn get_key(&self, key_id: u64) -> CommResult<&KeyEntry> {
+        self.key_store
+            .iter()
+            .find(|k| k.id == key_id)
+            .ok_or(CommError::KeyNotFound(key_id))
+    }
+
+    /// Rotate a key: mark the old key as "rotated" and create a new key
+    /// with the same algorithm and channel binding.
+    pub fn rotate_key(&mut self, key_id: u64) -> CommResult<KeyEntry> {
+        // Find and mark old key as rotated
+        let (algorithm, channel_id) = {
+            let old_key = self
+                .key_store
+                .iter_mut()
+                .find(|k| k.id == key_id)
+                .ok_or(CommError::KeyNotFound(key_id))?;
+
+            if old_key.status == "revoked" {
+                return Err(CommError::KeyNotFound(key_id));
+            }
+
+            let alg = old_key.algorithm.clone();
+            let ch = old_key.channel_id;
+            old_key.status = "rotated".to_string();
+            (alg, ch)
+        };
+
+        // Generate a new key with the same settings
+        self.generate_key(&algorithm, channel_id)
+    }
+
+    /// Revoke a key by ID.
+    pub fn revoke_key(&mut self, key_id: u64) -> CommResult<()> {
+        let key = self
+            .key_store
+            .iter_mut()
+            .find(|k| k.id == key_id)
+            .ok_or(CommError::KeyNotFound(key_id))?;
+
+        key.status = "revoked".to_string();
+        Ok(())
+    }
+
+    /// Export a key's fingerprint (stub for real key export).
+    pub fn export_key(&self, key_id: u64) -> CommResult<String> {
+        let key = self.get_key(key_id)?;
+        Ok(key.fingerprint.clone())
+    }
 }
 
 /// Summary statistics for a CommStore.
@@ -3757,6 +3919,7 @@ mod tests {
             reply_to: None,
             correlation_id: None,
             thread_id: None,
+            comm_timestamp: CommTimestamp::default(),
         };
         store.messages.insert(id, msg);
 

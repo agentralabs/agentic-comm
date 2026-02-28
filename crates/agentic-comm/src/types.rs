@@ -1205,6 +1205,16 @@ impl CommTimestamp {
     }
 }
 
+impl Default for CommTimestamp {
+    fn default() -> Self {
+        Self {
+            wall_clock: String::new(),
+            lamport: 0,
+            vector_clock: HashMap::new(),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Rate Limiting
 // ---------------------------------------------------------------------------
