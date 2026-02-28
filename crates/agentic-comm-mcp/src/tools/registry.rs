@@ -14,7 +14,7 @@ use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, CommT
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 43 tools.
+    /// Return definitions for all 58 tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
@@ -951,6 +951,344 @@ impl ToolRegistry {
                     }
                 }),
             },
+            // ---------------------------------------------------------------
+            // Semantic tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "send_semantic".to_string(),
+                description: Some(
+                    "Send a structured semantic message to a channel".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Target channel ID"
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Sender agent identity"
+                        },
+                        "topic": {
+                            "type": "string",
+                            "description": "Semantic topic (1-128 chars, alphanumeric + hyphen + underscore + dot)"
+                        },
+                        "focus_nodes": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Semantic focus nodes (default: [])"
+                        },
+                        "depth": {
+                            "type": "integer",
+                            "description": "Semantic depth level (default: 1)"
+                        }
+                    },
+                    "required": ["channel_id", "sender", "topic"]
+                }),
+            },
+            ToolDefinition {
+                name: "extract_semantic".to_string(),
+                description: Some(
+                    "Extract semantic structure from an existing message".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "message_id": {
+                            "type": "integer",
+                            "description": "ID of the message to extract semantics from"
+                        }
+                    },
+                    "required": ["message_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "graft_semantic".to_string(),
+                description: Some(
+                    "Graft (merge) two semantic layers together".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "source_id": {
+                            "type": "integer",
+                            "description": "Source semantic operation ID"
+                        },
+                        "target_id": {
+                            "type": "integer",
+                            "description": "Target semantic operation ID"
+                        },
+                        "strategy": {
+                            "type": "string",
+                            "description": "Merge strategy: union, intersect, override (default: union)"
+                        }
+                    },
+                    "required": ["source_id", "target_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "list_semantic_conflicts".to_string(),
+                description: Some(
+                    "List semantic conflicts, optionally filtered by channel or severity".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Filter by channel ID"
+                        },
+                        "severity": {
+                            "type": "string",
+                            "description": "Filter by severity: low, medium, high, critical"
+                        }
+                    }
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Affect tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "get_affect_state".to_string(),
+                description: Some(
+                    "Get the current affect state for an agent".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent identity to query"
+                        }
+                    },
+                    "required": ["agent_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "set_affect_resistance".to_string(),
+                description: Some(
+                    "Set the affect resistance threshold (0.0-1.0)".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "resistance": {
+                            "type": "number",
+                            "description": "Resistance threshold between 0.0 and 1.0 (default: 0.5)"
+                        }
+                    },
+                    "required": ["resistance"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Hive extension tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "hive_think".to_string(),
+                description: Some(
+                    "Broadcast a question to all hive members and return aggregated response".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "hive_id": {
+                            "type": "integer",
+                            "description": "Hive mind ID"
+                        },
+                        "question": {
+                            "type": "string",
+                            "description": "Question to broadcast to hive members"
+                        },
+                        "timeout_ms": {
+                            "type": "integer",
+                            "description": "Timeout in milliseconds (default: 5000)"
+                        }
+                    },
+                    "required": ["hive_id", "question"]
+                }),
+            },
+            ToolDefinition {
+                name: "initiate_meld".to_string(),
+                description: Some(
+                    "Initiate a deep mind-meld session with a partner agent".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "partner_id": {
+                            "type": "string",
+                            "description": "Partner agent identity to meld with"
+                        },
+                        "depth": {
+                            "type": "string",
+                            "description": "Meld depth: shallow, medium, deep (default: shallow)"
+                        },
+                        "duration_ms": {
+                            "type": "integer",
+                            "description": "Meld duration in milliseconds (default: 10000)"
+                        }
+                    },
+                    "required": ["partner_id"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Consent flow tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "list_pending_consent".to_string(),
+                description: Some(
+                    "List pending consent requests, optionally filtered by agent or type".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Filter by agent identity"
+                        },
+                        "consent_type": {
+                            "type": "string",
+                            "description": "Filter by consent type"
+                        }
+                    }
+                }),
+            },
+            ToolDefinition {
+                name: "respond_consent".to_string(),
+                description: Some(
+                    "Respond to a pending consent request".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "request_id": {
+                            "type": "string",
+                            "description": "Consent request ID to respond to"
+                        },
+                        "response": {
+                            "type": "string",
+                            "description": "Response: approve, deny, defer"
+                        }
+                    },
+                    "required": ["request_id", "response"]
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Query tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "query_relationships".to_string(),
+                description: Some(
+                    "Query relationships between agents (trust, consent, hive membership)".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {
+                            "type": "string",
+                            "description": "Agent identity to query relationships for"
+                        },
+                        "relationship_type": {
+                            "type": "string",
+                            "description": "Filter by type: trust, consent, hive (default: all)"
+                        },
+                        "depth": {
+                            "type": "integer",
+                            "description": "Traversal depth (default: 1)"
+                        }
+                    },
+                    "required": ["agent_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "query_echoes".to_string(),
+                description: Some(
+                    "Query conversation echoes (messages that reference or relate to a message)".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "message_id": {
+                            "type": "integer",
+                            "description": "Source message ID to find echoes for"
+                        },
+                        "depth": {
+                            "type": "integer",
+                            "description": "Echo depth (default: 1)"
+                        }
+                    },
+                    "required": ["message_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "query_conversations".to_string(),
+                description: Some(
+                    "Query conversation summaries, optionally filtered by channel or participant".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Filter by channel ID"
+                        },
+                        "participant": {
+                            "type": "string",
+                            "description": "Filter by participant agent identity"
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "Maximum number of summaries to return (default: 50, range: 1-10000)"
+                        }
+                    }
+                }),
+            },
+            // ---------------------------------------------------------------
+            // Federation extension tools
+            // ---------------------------------------------------------------
+            ToolDefinition {
+                name: "get_federation_status".to_string(),
+                description: Some(
+                    "Get the current federation status and zone information".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            ToolDefinition {
+                name: "set_federation_policy".to_string(),
+                description: Some(
+                    "Set federation policy for a specific zone".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "zone_id": {
+                            "type": "string",
+                            "description": "Zone ID to configure"
+                        },
+                        "allow_semantic": {
+                            "type": "boolean",
+                            "description": "Allow semantic operations in this zone (default: true)"
+                        },
+                        "allow_affect": {
+                            "type": "boolean",
+                            "description": "Allow affect propagation in this zone (default: true)"
+                        },
+                        "allow_hive": {
+                            "type": "boolean",
+                            "description": "Allow hive operations in this zone (default: true)"
+                        },
+                        "max_message_size": {
+                            "type": "integer",
+                            "description": "Maximum message size in bytes (default: 1048576)"
+                        }
+                    },
+                    "required": ["zone_id"]
+                }),
+            },
         ]
     }
 
@@ -1013,6 +1351,27 @@ impl ToolRegistry {
             "log_communication" => validation::validate_log_communication(params),
             "get_comm_log" => validation::validate_get_comm_log(params),
             "get_audit_log" => validation::validate_get_audit_log(params),
+            // Semantic tools
+            "send_semantic" => validation::validate_send_semantic(params),
+            "extract_semantic" => validation::validate_extract_semantic(params),
+            "graft_semantic" => validation::validate_graft_semantic(params),
+            "list_semantic_conflicts" => validation::validate_list_semantic_conflicts(params),
+            // Affect tools
+            "get_affect_state" => validation::validate_get_affect_state(params),
+            "set_affect_resistance" => validation::validate_set_affect_resistance(params),
+            // Hive extension tools
+            "hive_think" => validation::validate_hive_think(params),
+            "initiate_meld" => validation::validate_initiate_meld(params),
+            // Consent flow tools
+            "list_pending_consent" => validation::validate_list_pending_consent(params),
+            "respond_consent" => validation::validate_respond_consent(params),
+            // Query tools
+            "query_relationships" => validation::validate_query_relationships(params),
+            "query_echoes" => validation::validate_query_echoes(params),
+            "query_conversations" => validation::validate_query_conversations(params),
+            // Federation extension tools
+            "get_federation_status" => validation::validate_get_federation_status(params),
+            "set_federation_policy" => validation::validate_set_federation_policy(params),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -1066,6 +1425,27 @@ impl ToolRegistry {
             "log_communication" => Self::handle_log_communication(params, session),
             "get_comm_log" => Self::handle_get_comm_log(params, session),
             "get_audit_log" => Self::handle_get_audit_log(params, session),
+            // Semantic tools
+            "send_semantic" => Self::handle_send_semantic(params, session),
+            "extract_semantic" => Self::handle_extract_semantic(params, session),
+            "graft_semantic" => Self::handle_graft_semantic(params, session),
+            "list_semantic_conflicts" => Self::handle_list_semantic_conflicts(params, session),
+            // Affect tools
+            "get_affect_state" => Self::handle_get_affect_state(params, session),
+            "set_affect_resistance" => Self::handle_set_affect_resistance(params, session),
+            // Hive extension tools
+            "hive_think" => Self::handle_hive_think(params, session),
+            "initiate_meld" => Self::handle_initiate_meld(params, session),
+            // Consent flow tools
+            "list_pending_consent" => Self::handle_list_pending_consent(params, session),
+            "respond_consent" => Self::handle_respond_consent(params, session),
+            // Query tools
+            "query_relationships" => Self::handle_query_relationships(params, session),
+            "query_echoes" => Self::handle_query_echoes(params, session),
+            "query_conversations" => Self::handle_query_conversations(params, session),
+            // Federation extension tools
+            "get_federation_status" => Self::handle_get_federation_status(session),
+            "set_federation_policy" => Self::handle_set_federation_policy(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -2232,5 +2612,381 @@ impl ToolRegistry {
         // NOTE: get_audit_log may not exist yet on CommStore. Return empty array for now.
         session.record_operation("get_audit_log", None);
         Ok(ToolCallResult::json(&json!([])))
+    }
+
+    // -----------------------------------------------------------------------
+    // Semantic tool handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_send_semantic(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+        let sender = params
+            .get("sender")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("sender is required".to_string()))?;
+        let topic = params
+            .get("topic")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("topic is required".to_string()))?;
+        let focus_nodes: Vec<String> = params
+            .get("focus_nodes")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let depth = params
+            .get("depth")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1);
+
+        match session
+            .store
+            .send_semantic(channel_id, sender, topic, focus_nodes, depth)
+        {
+            Ok(op) => {
+                session.record_operation("send_semantic", None);
+                Ok(ToolCallResult::json(&op))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_extract_semantic(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let message_id = params
+            .get("message_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
+
+        match session.store.extract_semantic(message_id) {
+            Ok(op) => {
+                session.record_operation("extract_semantic", None);
+                Ok(ToolCallResult::json(&op))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_graft_semantic(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let source_id = params
+            .get("source_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("source_id is required".to_string()))?;
+        let target_id = params
+            .get("target_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("target_id is required".to_string()))?;
+        let strategy = params
+            .get("strategy")
+            .and_then(|v| v.as_str())
+            .unwrap_or("union");
+
+        match session
+            .store
+            .graft_semantic(source_id, target_id, strategy)
+        {
+            Ok(op) => {
+                session.record_operation("graft_semantic", None);
+                Ok(ToolCallResult::json(&op))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_list_semantic_conflicts(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64());
+        let severity = params
+            .get("severity")
+            .and_then(|v| v.as_str());
+
+        let conflicts = session
+            .store
+            .list_semantic_conflicts(channel_id, severity);
+        let result = ToolCallResult::json(&conflicts);
+        session.record_operation("list_semantic_conflicts", None);
+        Ok(result)
+    }
+
+    // -----------------------------------------------------------------------
+    // Affect tool handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_get_affect_state(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let agent_id = params
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
+
+        let state = session.store.get_affect_state(agent_id).cloned();
+        session.record_operation("get_affect_state", None);
+        match state {
+            Some(ref s) => Ok(ToolCallResult::json(s)),
+            None => Ok(ToolCallResult::json(&json!({
+                "agent_id": agent_id,
+                "state": null,
+                "message": "No affect state recorded for this agent"
+            }))),
+        }
+    }
+
+    fn handle_set_affect_resistance(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let resistance = params
+            .get("resistance")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| McpError::InvalidParams("resistance is required".to_string()))?;
+
+        let actual = session.store.set_affect_resistance(resistance);
+        session.record_operation("set_affect_resistance", None);
+        Ok(ToolCallResult::json(&json!({
+            "resistance": actual,
+            "message": format!("Affect resistance set to {}", actual),
+        })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Hive extension handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_hive_think(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let hive_id = params
+            .get("hive_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("hive_id is required".to_string()))?;
+        let question = params
+            .get("question")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("question is required".to_string()))?;
+        let timeout_ms = params
+            .get("timeout_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(5000);
+
+        match session.store.hive_think(hive_id, question, timeout_ms) {
+            Ok(result) => {
+                session.record_operation("hive_think", None);
+                Ok(ToolCallResult::json(&result))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_initiate_meld(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let partner_id = params
+            .get("partner_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("partner_id is required".to_string()))?;
+        let depth = params
+            .get("depth")
+            .and_then(|v| v.as_str())
+            .unwrap_or("shallow");
+        let duration_ms = params
+            .get("duration_ms")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(10000);
+
+        let meld = session
+            .store
+            .initiate_meld(partner_id, depth, duration_ms);
+        session.record_operation("initiate_meld", None);
+        Ok(ToolCallResult::json(&meld))
+    }
+
+    // -----------------------------------------------------------------------
+    // Consent flow handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_list_pending_consent(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let agent_id = params
+            .get("agent_id")
+            .and_then(|v| v.as_str());
+        let consent_type = params
+            .get("consent_type")
+            .and_then(|v| v.as_str());
+
+        let requests = session
+            .store
+            .list_pending_consent(agent_id, consent_type);
+        let result = ToolCallResult::json(&requests);
+        session.record_operation("list_pending_consent", None);
+        Ok(result)
+    }
+
+    fn handle_respond_consent(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let request_id = params
+            .get("request_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("request_id is required".to_string()))?;
+        let response = params
+            .get("response")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("response is required".to_string()))?;
+
+        match session.store.respond_consent(request_id, response) {
+            Ok(()) => {
+                session.record_operation("respond_consent", None);
+                Ok(ToolCallResult::json(&json!({
+                    "request_id": request_id,
+                    "response": response,
+                    "status": "responded",
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Query tool handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_query_relationships(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let agent_id = params
+            .get("agent_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
+        let relationship_type = params
+            .get("relationship_type")
+            .and_then(|v| v.as_str());
+        let depth = params
+            .get("depth")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1);
+
+        let result = session
+            .store
+            .query_relationships(agent_id, relationship_type, depth);
+        session.record_operation("query_relationships", None);
+        Ok(ToolCallResult::json(&result))
+    }
+
+    fn handle_query_echoes(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let message_id = params
+            .get("message_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
+        let depth = params
+            .get("depth")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1);
+
+        match session.store.query_echoes(message_id, depth) {
+            Ok(result) => {
+                session.record_operation("query_echoes", None);
+                Ok(ToolCallResult::json(&result))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_query_conversations(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64());
+        let participant = params
+            .get("participant")
+            .and_then(|v| v.as_str());
+        let limit = params
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(50);
+
+        let summaries = session
+            .store
+            .query_conversations(channel_id, participant, limit);
+        session.record_operation("query_conversations", None);
+        Ok(ToolCallResult::json(&summaries))
+    }
+
+    // -----------------------------------------------------------------------
+    // Federation extension handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_get_federation_status(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let status = session.store.get_federation_status();
+        session.record_operation("get_federation_status", None);
+        Ok(ToolCallResult::json(&status))
+    }
+
+    fn handle_set_federation_policy(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let zone_id = params
+            .get("zone_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("zone_id is required".to_string()))?;
+        let allow_semantic = params
+            .get("allow_semantic")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let allow_affect = params
+            .get("allow_affect")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let allow_hive = params
+            .get("allow_hive")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+        let max_message_size = params
+            .get("max_message_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(1_048_576);
+
+        let config = session.store.set_federation_policy(
+            zone_id,
+            allow_semantic,
+            allow_affect,
+            allow_hive,
+            max_message_size,
+        );
+        session.record_operation("set_federation_policy", None);
+        Ok(ToolCallResult::json(&config))
     }
 }

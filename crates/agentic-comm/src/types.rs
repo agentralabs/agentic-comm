@@ -1216,7 +1216,7 @@ impl Default for RateLimitConfig {
 // ---------------------------------------------------------------------------
 
 /// Audit event types for security logging.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditEventType {
     MessageSent,
@@ -1227,12 +1227,16 @@ pub enum AuditEventType {
     ConsentRevoked,
     ConsentDenied,
     TrustChanged,
+    TrustUpdated,
     HiveFormed,
     HiveDissolved,
     FederationMessage,
+    FederationConfigured,
+    ScheduledMessage,
     KeyRotated,
     AuthFailure,
     RateLimitExceeded,
+    SignatureWarning,
 }
 
 /// An audit log entry.
@@ -1249,6 +1253,127 @@ pub struct AuditEntry {
     /// Optional related entity ID.
     #[serde(default)]
     pub related_id: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Extended types for MCP tools (semantic, consent flow, meld, conversations)
+// ---------------------------------------------------------------------------
+
+/// A semantic operation record (send/extract/graft).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SemanticOperation {
+    /// Unique ID.
+    pub id: u64,
+    /// Topic or context.
+    pub topic: String,
+    /// Focus nodes in the semantic graph.
+    #[serde(default)]
+    pub focus_nodes: Vec<String>,
+    /// Depth of the operation.
+    #[serde(default)]
+    pub depth: u64,
+    /// Timestamp (epoch seconds).
+    pub timestamp: u64,
+    /// Operation kind: send, extract, graft.
+    #[serde(default)]
+    pub operation: String,
+    /// Optional channel association.
+    #[serde(default)]
+    pub channel_id: Option<u64>,
+    /// Sender identity.
+    #[serde(default)]
+    pub sender: Option<String>,
+}
+
+/// A conflict from semantic operations.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SemanticConflict {
+    /// Unique ID.
+    pub id: u64,
+    /// Description of the conflict.
+    pub description: String,
+    /// Severity: low, medium, high.
+    #[serde(default)]
+    pub severity: String,
+    /// Optional channel ID.
+    #[serde(default)]
+    pub channel_id: Option<u64>,
+}
+
+/// A pending consent request (for the consent flow tools).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConsentRequest {
+    /// Unique request ID.
+    pub id: String,
+    /// Requesting agent.
+    pub from: String,
+    /// Target agent.
+    pub to: String,
+    /// Type of consent requested.
+    pub consent_type: String,
+    /// Timestamp (epoch seconds).
+    pub timestamp: u64,
+    /// Optional reason for the request.
+    #[serde(default)]
+    pub reason: Option<String>,
+    /// Whether this has been responded to.
+    #[serde(default)]
+    pub responded: bool,
+    /// Response if given: "grant" or "deny".
+    #[serde(default)]
+    pub response: Option<String>,
+}
+
+/// A temporary mind meld session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeldSession {
+    /// Unique session ID.
+    pub id: String,
+    /// Partner agent ID.
+    pub partner_id: String,
+    /// Depth: shallow, deep, full.
+    #[serde(default)]
+    pub depth: String,
+    /// Start time (epoch seconds).
+    pub start_time: u64,
+    /// Duration in milliseconds.
+    pub duration_ms: u64,
+    /// Whether the session is currently active.
+    #[serde(default)]
+    pub active: bool,
+}
+
+/// Summary of a conversation thread.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationSummary {
+    /// Channel ID.
+    pub channel_id: u64,
+    /// Participants involved.
+    #[serde(default)]
+    pub participants: Vec<String>,
+    /// Number of messages.
+    pub message_count: u64,
+    /// Last activity timestamp (epoch seconds).
+    pub last_activity: u64,
+}
+
+/// Per-zone federation policy configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ZonePolicyConfig {
+    /// Zone identifier.
+    pub zone_id: String,
+    /// Allow semantic operations through this zone.
+    #[serde(default = "default_true")]
+    pub allow_semantic: bool,
+    /// Allow affect propagation through this zone.
+    #[serde(default = "default_true")]
+    pub allow_affect: bool,
+    /// Allow hive operations through this zone.
+    #[serde(default = "default_true")]
+    pub allow_hive: bool,
+    /// Maximum message size in bytes (0 = unlimited).
+    #[serde(default)]
+    pub max_message_size: u64,
 }
 
 #[cfg(test)]

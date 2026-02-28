@@ -716,6 +716,8 @@ fn test_channel_state_transitions() {
 #[test]
 fn test_many_channels_interleaved_messages() {
     let mut store = CommStore::new();
+    // Raise rate limit to accommodate 200 messages in this test
+    store.rate_limit_config.messages_per_minute = 1000;
 
     // Create 20 channels
     let mut channel_ids = Vec::new();

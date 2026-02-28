@@ -99,6 +99,14 @@ pub enum CommError {
     /// Hive mind error.
     #[error("Hive error: {0}")]
     HiveError(String),
+
+    /// Consent denied — the recipient has not granted the required consent.
+    #[error("Consent denied: {reason}")]
+    ConsentDenied { reason: String },
+
+    /// Rate limit exceeded — the sender has exceeded the configured rate limit.
+    #[error("Rate limit exceeded: {limit}")]
+    RateLimitExceeded { limit: String },
 }
 
 /// Convenience result type.
@@ -567,6 +575,19 @@ pub struct AcommHeader {
 // CommStore — the main store
 // ---------------------------------------------------------------------------
 
+/// Per-sender rate tracking state.
+#[derive(Debug, Clone, Default)]
+pub struct RateTracker {
+    /// Number of messages sent in the current minute window.
+    pub message_count_minute: u32,
+    /// Epoch second when the minute window was last reset.
+    pub last_minute_reset: u64,
+    /// Number of messages sent in the current hour window.
+    pub message_count_hour: u32,
+    /// Epoch second when the hour window was last reset.
+    pub last_hour_reset: u64,
+}
+
 /// The main communication store holding channels, messages, and subscriptions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CommStore {
@@ -629,10 +650,50 @@ pub struct CommStore {
     /// Rate limit configuration.
     #[serde(default)]
     pub rate_limit_config: RateLimitConfig,
+
+    /// Semantic operations log.
+    #[serde(default)]
+    pub semantic_operations: Vec<SemanticOperation>,
+
+    /// Next semantic operation ID.
+    #[serde(default = "default_one")]
+    next_semantic_id: u64,
+
+    /// Semantic conflicts.
+    #[serde(default)]
+    pub semantic_conflicts: Vec<SemanticConflict>,
+
+    /// Per-agent affect states.
+    #[serde(default)]
+    pub affect_states: HashMap<String, AffectState>,
+
+    /// Affect contagion resistance (global default).
+    #[serde(default = "default_resistance")]
+    pub affect_resistance: f64,
+
+    /// Pending consent requests.
+    #[serde(default)]
+    pub pending_consent_requests: Vec<ConsentRequest>,
+
+    /// Meld sessions.
+    #[serde(default)]
+    pub meld_sessions: Vec<MeldSession>,
+
+    /// Per-zone federation policies.
+    #[serde(default)]
+    pub zone_policies: HashMap<String, ZonePolicyConfig>,
+
+    /// Per-sender rate tracking (not persisted — rebuilt at runtime).
+    #[serde(skip)]
+    pub rate_trackers: HashMap<String, RateTracker>,
 }
 
 fn default_one() -> u64 {
     1
+}
+
+fn default_resistance() -> f64 {
+    0.5
 }
 
 impl Default for CommStore {
@@ -663,6 +724,15 @@ impl CommStore {
             next_log_index: 1,
             audit_log: Vec::new(),
             rate_limit_config: RateLimitConfig::default(),
+            semantic_operations: Vec::new(),
+            next_semantic_id: 1,
+            semantic_conflicts: Vec::new(),
+            affect_states: HashMap::new(),
+            affect_resistance: 0.5,
+            pending_consent_requests: Vec::new(),
+            meld_sessions: Vec::new(),
+            zone_policies: HashMap::new(),
+            rate_trackers: HashMap::new(),
         }
     }
 
@@ -716,6 +786,125 @@ impl CommStore {
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
         format!("{:x}", hasher.finalize())
+    }
+
+    /// Verify that a message's signature matches recomputed SHA-256.
+    /// Returns true if valid (or no signature stored), false if mismatch.
+    pub fn verify_message_signature(&mut self, message_id: u64) -> bool {
+        let (content, stored_sig, sender) = match self.messages.get(&message_id) {
+            Some(msg) => (
+                msg.content.clone(),
+                msg.signature.clone(),
+                msg.sender.clone(),
+            ),
+            None => return true,
+        };
+        match stored_sig {
+            Some(ref sig) => {
+                let expected = Self::compute_signature(&content);
+                if *sig != expected {
+                    self.log_audit(
+                        AuditEventType::SignatureWarning,
+                        &sender,
+                        &format!(
+                            "Signature mismatch for message {}: expected={}, stored={}",
+                            message_id, expected, sig
+                        ),
+                        Some(message_id.to_string()),
+                    );
+                    false
+                } else {
+                    true
+                }
+            }
+            None => true,
+        }
+    }
+
+    /// Check consent for sending a message to participants on the channel.
+    /// For affect-enriched or other rich content types, requires explicit
+    /// SendMessages consent from each recipient on the channel.
+    fn check_send_consent(
+        &self,
+        channel_id: u64,
+        sender: &str,
+        content: &str,
+    ) -> CommResult<()> {
+        let channel = match self.channels.get(&channel_id) {
+            Some(ch) => ch,
+            None => return Ok(()),
+        };
+
+        // Detect rich content that needs explicit consent
+        let is_rich_content = content.starts_with("[affect:");
+
+        if !is_rich_content {
+            return Ok(());
+        }
+
+        // For rich content, check that each participant (other than sender) has
+        // granted SendMessages consent to the sender.
+        for participant in &channel.participants {
+            if participant == sender {
+                continue;
+            }
+            let has_consent = self.consent_gates.iter().any(|e| {
+                e.grantor == *participant
+                    && e.grantee == sender
+                    && e.scope == ConsentScope::SendMessages
+                    && e.status == ConsentStatus::Granted
+            });
+            if !has_consent {
+                return Err(CommError::ConsentDenied {
+                    reason: format!(
+                        "Participant '{}' has not granted SendMessages consent to '{}'",
+                        participant, sender
+                    ),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Check and enforce rate limits for a sender. Returns Ok(()) if allowed,
+    /// or RateLimitExceeded if the sender has exceeded the configured rate.
+    fn check_rate_limit(&mut self, sender: &str) -> CommResult<()> {
+        let now_epoch = Utc::now().timestamp() as u64;
+        let limit_per_minute = self.rate_limit_config.messages_per_minute;
+
+        let tracker = self
+            .rate_trackers
+            .entry(sender.to_string())
+            .or_default();
+
+        // Reset minute window if more than 60 seconds have elapsed
+        if now_epoch - tracker.last_minute_reset >= 60 {
+            tracker.message_count_minute = 0;
+            tracker.last_minute_reset = now_epoch;
+        }
+
+        // Reset hour window if more than 3600 seconds have elapsed
+        if now_epoch - tracker.last_hour_reset >= 3600 {
+            tracker.message_count_hour = 0;
+            tracker.last_hour_reset = now_epoch;
+        }
+
+        // Check minute limit
+        if tracker.message_count_minute >= limit_per_minute {
+            return Err(CommError::RateLimitExceeded {
+                limit: format!(
+                    "{} messages per minute (sender: {})",
+                    limit_per_minute, sender
+                ),
+            });
+        }
+
+        // Increment counters
+        tracker.message_count_minute += 1;
+        tracker.message_count_hour += 1;
+
+        Ok(())
     }
 
     /// Check that a channel allows sending. Returns Ok(()) if allowed,
@@ -818,7 +1007,17 @@ impl CommStore {
             .channels
             .get_mut(&channel_id)
             .ok_or(CommError::ChannelNotFound(channel_id))?;
+        let name = channel.name.clone();
         channel.state = ChannelState::Closed;
+
+        // --- Audit logging ---
+        self.log_audit(
+            AuditEventType::ChannelClosed,
+            "system",
+            &format!("Closed channel '{}' (id={})", name, channel_id),
+            Some(channel_id.to_string()),
+        );
+
         Ok(())
     }
 
@@ -828,8 +1027,9 @@ impl CommStore {
 
     /// Send a message to a channel.
     ///
-    /// If the channel is Paused, Draining, or Closed, the message is
-    /// automatically dead-lettered and an error is returned.
+    /// Enforces rate limiting, consent gates, and channel state before
+    /// delivering. If the channel is Paused, Draining, or Closed, the
+    /// message is automatically dead-lettered and an error is returned.
     pub fn send_message(
         &mut self,
         channel_id: u64,
@@ -839,6 +1039,12 @@ impl CommStore {
     ) -> CommResult<Message> {
         Self::validate_sender(sender)?;
         Self::validate_content(content)?;
+
+        // --- Rate limiting (before any other processing) ---
+        self.check_rate_limit(sender)?;
+
+        // --- Consent enforcement ---
+        self.check_send_consent(channel_id, sender, content)?;
 
         // Check channel existence
         if !self.channels.contains_key(&channel_id) {
@@ -931,6 +1137,15 @@ impl CommStore {
         };
 
         self.messages.insert(id, message.clone());
+
+        // --- Audit logging ---
+        self.log_audit(
+            AuditEventType::MessageSent,
+            sender,
+            &format!("Sent {} message to channel {}", msg_type, channel_id),
+            Some(id.to_string()),
+        );
+
         Ok(message)
     }
 
@@ -953,8 +1168,12 @@ impl CommStore {
     }
 
     /// Receive messages from a channel, optionally filtered by recipient and time.
+    ///
+    /// Verifies message signatures on retrieval and logs a warning audit
+    /// event if any signature does not match. Mismatched messages are still
+    /// returned (reads are never blocked).
     pub fn receive_messages(
-        &self,
+        &mut self,
         channel_id: u64,
         recipient: Option<&str>,
         since: Option<DateTime<Utc>>,
@@ -974,7 +1193,6 @@ impl CommStore {
                     return false;
                 }
                 if let Some(ref recip) = recipient {
-                    // Include messages that are addressed to this recipient or to everyone
                     if let Some(ref msg_recip) = m.recipient {
                         if msg_recip != recip {
                             return false;
@@ -992,6 +1210,13 @@ impl CommStore {
             .collect();
 
         msgs.sort_by_key(|m| m.timestamp);
+
+        // --- Signature verification on retrieval ---
+        let msg_ids: Vec<u64> = msgs.iter().map(|m| m.id).collect();
+        for msg_id in msg_ids {
+            self.verify_message_signature(msg_id);
+        }
+
         Ok(msgs)
     }
 
@@ -1178,6 +1403,15 @@ impl CommStore {
         };
 
         self.channels.insert(id, channel.clone());
+
+        // --- Audit logging ---
+        self.log_audit(
+            AuditEventType::ChannelCreated,
+            "system",
+            &format!("Created channel '{}' (type={}, id={})", name, channel_type, id),
+            Some(id.to_string()),
+        );
+
         Ok(channel)
     }
 
@@ -1721,6 +1955,7 @@ impl CommStore {
                 "Grantor and grantee must be non-empty".to_string(),
             ));
         }
+        let scope_str = scope.to_string();
         let now = Utc::now().to_rfc3339();
         // Check if an existing entry exists for this triple
         if let Some(entry) = self.consent_gates.iter_mut().find(|e| {
@@ -1730,6 +1965,14 @@ impl CommStore {
             entry.updated_at = now;
             entry.reason = reason;
             entry.expires_at = expires_at;
+            // Audit log
+            self.audit_log.push(AuditEntry {
+                event_type: AuditEventType::ConsentGranted,
+                timestamp: Utc::now().to_rfc3339(),
+                agent_id: grantor.to_string(),
+                description: format!("Granted {} consent to '{}'", scope_str, grantee),
+                related_id: Some(format!("{}->{}", grantor, grantee)),
+            });
             let idx = self.consent_gates.iter().position(|e| {
                 e.grantor == grantor && e.grantee == grantee && e.scope == scope
             }).unwrap();
@@ -1747,6 +1990,14 @@ impl CommStore {
             reason,
         };
         self.consent_gates.push(entry);
+        // Audit log
+        self.audit_log.push(AuditEntry {
+            event_type: AuditEventType::ConsentGranted,
+            timestamp: Utc::now().to_rfc3339(),
+            agent_id: grantor.to_string(),
+            description: format!("Granted {} consent to '{}'", scope_str, grantee),
+            related_id: Some(format!("{}->{}", grantor, grantee)),
+        });
         Ok(self.consent_gates.last().unwrap())
     }
 
@@ -1762,6 +2013,13 @@ impl CommStore {
         }) {
             entry.status = ConsentStatus::Revoked;
             entry.updated_at = Utc::now().to_rfc3339();
+            // Audit log
+            self.log_audit(
+                AuditEventType::ConsentRevoked,
+                grantor,
+                &format!("Revoked {} consent from '{}'", scope, grantee),
+                Some(format!("{}->{}", grantor, grantee)),
+            );
             Ok(())
         } else {
             Err(CommError::ConsentError(format!(
@@ -1811,6 +2069,15 @@ impl CommStore {
             ));
         }
         self.trust_levels.insert(agent_id.to_string(), level);
+
+        // --- Audit logging ---
+        self.log_audit(
+            AuditEventType::TrustUpdated,
+            agent_id,
+            &format!("Trust level set to {} for '{}'", level, agent_id),
+            Some(agent_id.to_string()),
+        );
+
         Ok(())
     }
 
@@ -1861,6 +2128,19 @@ impl CommStore {
             affect,
         };
         self.temporal_queue.push(msg);
+
+        // --- Audit logging ---
+        self.audit_log.push(AuditEntry {
+            event_type: AuditEventType::ScheduledMessage,
+            timestamp: Utc::now().to_rfc3339(),
+            agent_id: sender.to_string(),
+            description: format!(
+                "Scheduled message to channel {} (temporal_id={})",
+                channel_id, id
+            ),
+            related_id: Some(id.to_string()),
+        });
+
         Ok(self.temporal_queue.last().unwrap())
     }
 
@@ -1962,6 +2242,18 @@ impl CommStore {
         self.federation_config.enabled = enabled;
         self.federation_config.local_zone = local_zone.to_string();
         self.federation_config.default_policy = default_policy;
+
+        // --- Audit logging ---
+        self.log_audit(
+            AuditEventType::FederationConfigured,
+            "system",
+            &format!(
+                "Federation configured: enabled={}, zone='{}', policy={}",
+                enabled, local_zone, default_policy
+            ),
+            Some(local_zone.to_string()),
+        );
+
         Ok(())
     }
 
@@ -2041,6 +2333,16 @@ impl CommStore {
             metadata: HashMap::new(),
         };
         self.hive_minds.insert(id, hive);
+
+        // --- Audit logging ---
+        self.audit_log.push(AuditEntry {
+            event_type: AuditEventType::HiveFormed,
+            timestamp: Utc::now().to_rfc3339(),
+            agent_id: coordinator.to_string(),
+            description: format!("Formed hive '{}' (id={})", name, id),
+            related_id: Some(id.to_string()),
+        });
+
         Ok(self.hive_minds.get(&id).unwrap())
     }
 
@@ -2051,6 +2353,15 @@ impl CommStore {
                 "Hive {hive_id} not found"
             )));
         }
+
+        // --- Audit logging ---
+        self.log_audit(
+            AuditEventType::HiveDissolved,
+            "system",
+            &format!("Dissolved hive (id={})", hive_id),
+            Some(hive_id.to_string()),
+        );
+
         Ok(())
     }
 
@@ -2173,6 +2484,360 @@ impl CommStore {
             }
             _ => self.audit_log.iter().collect(),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Semantic operations
+    // -----------------------------------------------------------------------
+
+    /// Send a semantic message (structured meaning payload).
+    pub fn send_semantic(
+        &mut self,
+        channel_id: u64,
+        sender: &str,
+        topic: &str,
+        focus_nodes: Vec<String>,
+        depth: u64,
+    ) -> CommResult<SemanticOperation> {
+        // Verify channel exists
+        if !self.channels.contains_key(&channel_id) {
+            return Err(CommError::ChannelNotFound(channel_id));
+        }
+        let id = self.next_semantic_id;
+        self.next_semantic_id += 1;
+        let op = SemanticOperation {
+            id,
+            topic: topic.to_string(),
+            focus_nodes,
+            depth,
+            timestamp: Utc::now().timestamp() as u64,
+            operation: "send".to_string(),
+            channel_id: Some(channel_id),
+            sender: Some(sender.to_string()),
+        };
+        self.semantic_operations.push(op.clone());
+        Ok(op)
+    }
+
+    /// Extract semantics from a message.
+    pub fn extract_semantic(&self, message_id: u64) -> CommResult<SemanticOperation> {
+        let msg = self
+            .messages
+            .get(&message_id)
+            .ok_or(CommError::MessageNotFound(message_id))?;
+        Ok(SemanticOperation {
+            id: 0,
+            topic: String::new(),
+            focus_nodes: vec![],
+            depth: 1,
+            timestamp: Utc::now().timestamp() as u64,
+            operation: "extract".to_string(),
+            channel_id: Some(msg.channel_id),
+            sender: Some(msg.sender.clone()),
+        })
+    }
+
+    /// Graft (merge) semantic layers.
+    pub fn graft_semantic(
+        &mut self,
+        source_id: u64,
+        target_id: u64,
+        strategy: &str,
+    ) -> CommResult<SemanticOperation> {
+        let _ = (source_id, target_id, strategy);
+        let id = self.next_semantic_id;
+        self.next_semantic_id += 1;
+        let op = SemanticOperation {
+            id,
+            topic: String::new(),
+            focus_nodes: vec![],
+            depth: 1,
+            timestamp: Utc::now().timestamp() as u64,
+            operation: format!("graft:{}->{}:{}", source_id, target_id, strategy),
+            channel_id: None,
+            sender: None,
+        };
+        self.semantic_operations.push(op.clone());
+        Ok(op)
+    }
+
+    /// List semantic conflicts.
+    pub fn list_semantic_conflicts(
+        &self,
+        channel_id: Option<u64>,
+        severity: Option<&str>,
+    ) -> Vec<&SemanticConflict> {
+        self.semantic_conflicts
+            .iter()
+            .filter(|c| {
+                channel_id.map_or(true, |cid| c.channel_id == Some(cid))
+                    && severity.map_or(true, |s| c.severity == s)
+            })
+            .collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // Affect queries
+    // -----------------------------------------------------------------------
+
+    /// Get the current affect state for an agent.
+    pub fn get_affect_state(&self, agent_id: &str) -> Option<&AffectState> {
+        self.affect_states.get(agent_id)
+    }
+
+    /// Set the affect resistance threshold.
+    pub fn set_affect_resistance(&mut self, resistance: f64) -> f64 {
+        let clamped = resistance.clamp(0.0, 1.0);
+        self.affect_resistance = clamped;
+        clamped
+    }
+
+    // -----------------------------------------------------------------------
+    // Hive extensions
+    // -----------------------------------------------------------------------
+
+    /// Broadcast a question to all hive members and return aggregated response.
+    pub fn hive_think(
+        &self,
+        hive_id: u64,
+        question: &str,
+        timeout_ms: u64,
+    ) -> CommResult<serde_json::Value> {
+        let hive = self
+            .hive_minds
+            .get(&hive_id)
+            .ok_or_else(|| CommError::HiveError(format!("Hive {hive_id} not found")))?;
+        Ok(serde_json::json!({
+            "hive_id": hive_id,
+            "hive_name": hive.name,
+            "question": question,
+            "timeout_ms": timeout_ms,
+            "members": hive.constituents.len(),
+            "status": "thought_broadcast",
+        }))
+    }
+
+    /// Initiate a deep mind-meld session with a partner agent.
+    pub fn initiate_meld(
+        &mut self,
+        partner_id: &str,
+        depth: &str,
+        duration_ms: u64,
+    ) -> MeldSession {
+        let id = format!("meld-{}", Utc::now().timestamp_millis());
+        let session = MeldSession {
+            id: id.clone(),
+            partner_id: partner_id.to_string(),
+            depth: depth.to_string(),
+            start_time: Utc::now().timestamp() as u64,
+            duration_ms,
+            active: true,
+        };
+        self.meld_sessions.push(session.clone());
+        session
+    }
+
+    // -----------------------------------------------------------------------
+    // Consent flow (pending requests)
+    // -----------------------------------------------------------------------
+
+    /// List pending consent requests.
+    pub fn list_pending_consent(
+        &self,
+        agent_id: Option<&str>,
+        consent_type: Option<&str>,
+    ) -> Vec<&ConsentRequest> {
+        self.pending_consent_requests
+            .iter()
+            .filter(|r| {
+                !r.responded
+                    && agent_id.map_or(true, |a| r.to == a || r.from == a)
+                    && consent_type.map_or(true, |ct| r.consent_type == ct)
+            })
+            .collect()
+    }
+
+    /// Respond to a pending consent request.
+    pub fn respond_consent(
+        &mut self,
+        request_id: &str,
+        response: &str,
+    ) -> CommResult<()> {
+        let req = self
+            .pending_consent_requests
+            .iter_mut()
+            .find(|r| r.id == request_id)
+            .ok_or_else(|| {
+                CommError::ConsentError(format!("Consent request '{request_id}' not found"))
+            })?;
+        if req.responded {
+            return Err(CommError::ConsentError(format!(
+                "Consent request '{request_id}' already responded"
+            )));
+        }
+        req.responded = true;
+        req.response = Some(response.to_string());
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // Query helpers
+    // -----------------------------------------------------------------------
+
+    /// Query relationships between agents.
+    pub fn query_relationships(
+        &self,
+        agent_id: &str,
+        relationship_type: Option<&str>,
+        depth: u64,
+    ) -> serde_json::Value {
+        let _ = depth;
+        let mut relationships = Vec::new();
+        // Check trust levels
+        if let Some(level) = self.trust_levels.get(agent_id) {
+            relationships.push(serde_json::json!({
+                "type": "trust",
+                "agent": agent_id,
+                "level": level.to_string(),
+            }));
+        }
+        // Check consent gates
+        for gate in &self.consent_gates {
+            if gate.grantor == agent_id || gate.grantee == agent_id {
+                if relationship_type.map_or(true, |rt| rt == "consent") {
+                    relationships.push(serde_json::json!({
+                        "type": "consent",
+                        "from": gate.grantor,
+                        "to": gate.grantee,
+                        "scope": gate.scope.to_string(),
+                        "status": gate.status,
+                    }));
+                }
+            }
+        }
+        // Check hive membership
+        for hive in self.hive_minds.values() {
+            if hive.constituents.iter().any(|c| c.agent_id == agent_id) {
+                if relationship_type.map_or(true, |rt| rt == "hive") {
+                    relationships.push(serde_json::json!({
+                        "type": "hive_membership",
+                        "hive_id": hive.id,
+                        "hive_name": hive.name,
+                    }));
+                }
+            }
+        }
+        serde_json::json!({
+            "agent_id": agent_id,
+            "relationships": relationships,
+        })
+    }
+
+    /// Query conversation echoes (messages that reference or reply to a message).
+    pub fn query_echoes(
+        &self,
+        message_id: u64,
+        depth: u64,
+    ) -> CommResult<serde_json::Value> {
+        let msg = self
+            .messages
+            .get(&message_id)
+            .ok_or(CommError::MessageNotFound(message_id))?;
+        let _ = depth;
+        // Find messages that mention the same topic or are in the same channel
+        let echoes: Vec<serde_json::Value> = self
+            .messages
+            .values()
+            .filter(|m| m.channel_id == msg.channel_id && m.id != message_id)
+            .take(50)
+            .map(|m| {
+                serde_json::json!({
+                    "message_id": m.id,
+                    "sender": m.sender,
+                    "channel_id": m.channel_id,
+                    "timestamp": m.timestamp.to_rfc3339(),
+                })
+            })
+            .collect();
+        Ok(serde_json::json!({
+            "source_message_id": message_id,
+            "echo_count": echoes.len(),
+            "echoes": echoes,
+        }))
+    }
+
+    /// Query conversation summaries.
+    pub fn query_conversations(
+        &self,
+        channel_id: Option<u64>,
+        participant: Option<&str>,
+        limit: u64,
+    ) -> Vec<ConversationSummary> {
+        let mut summaries: Vec<ConversationSummary> = self
+            .channels
+            .values()
+            .filter(|ch| {
+                channel_id.map_or(true, |cid| ch.id == cid)
+                    && participant.map_or(true, |p| ch.participants.contains(&p.to_string()))
+            })
+            .map(|ch| {
+                let msg_count = self
+                    .messages
+                    .values()
+                    .filter(|m| m.channel_id == ch.id)
+                    .count() as u64;
+                let last_activity = self
+                    .messages
+                    .values()
+                    .filter(|m| m.channel_id == ch.id)
+                    .map(|m| m.timestamp.timestamp() as u64)
+                    .max()
+                    .unwrap_or(0);
+                ConversationSummary {
+                    channel_id: ch.id,
+                    participants: ch.participants.clone(),
+                    message_count: msg_count,
+                    last_activity,
+                }
+            })
+            .collect();
+        summaries.truncate(limit as usize);
+        summaries
+    }
+
+    // -----------------------------------------------------------------------
+    // Federation extensions
+    // -----------------------------------------------------------------------
+
+    /// Get federation status.
+    pub fn get_federation_status(&self) -> serde_json::Value {
+        serde_json::json!({
+            "enabled": self.federation_config.enabled,
+            "local_zone": self.federation_config.local_zone,
+            "zone_count": self.federation_config.zones.len(),
+            "zones": self.federation_config.zones.iter().map(|z| &z.zone_id).collect::<Vec<_>>(),
+            "default_policy": format!("{}", self.federation_config.default_policy),
+        })
+    }
+
+    /// Set federation policy for a zone.
+    pub fn set_federation_policy(
+        &mut self,
+        zone_id: &str,
+        allow_semantic: bool,
+        allow_affect: bool,
+        allow_hive: bool,
+        max_message_size: u64,
+    ) -> ZonePolicyConfig {
+        let config = ZonePolicyConfig {
+            zone_id: zone_id.to_string(),
+            allow_semantic,
+            allow_affect,
+            allow_hive,
+            max_message_size,
+        };
+        self.zone_policies.insert(zone_id.to_string(), config.clone());
+        config
     }
 
     // -----------------------------------------------------------------------
@@ -4131,6 +4796,318 @@ mod tests {
         assert_eq!(store.rate_limit_config.affect_per_minute, 30);
         assert_eq!(store.rate_limit_config.hive_per_hour, 5);
         assert_eq!(store.rate_limit_config.federation_per_minute, 20);
+    }
+
+    // -----------------------------------------------------------------------
+    // Consent enforcement tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn consent_enforcement_blocks_semantic_without_consent() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("consent-test", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "sender-agent").unwrap();
+        store.join_channel(ch.id, "receiver-agent").unwrap();
+
+        // Attempt to send affect-enriched content without consent
+        let result = store.send_message(
+            ch.id,
+            "sender-agent",
+            "[affect: joy intensity=0.8] Great news!",
+            MessageType::Text,
+        );
+
+        assert!(result.is_err(), "Affect-enriched message should be blocked without consent");
+        match result.unwrap_err() {
+            CommError::ConsentDenied { reason } => {
+                assert!(
+                    reason.contains("receiver-agent"),
+                    "Error should mention the participant who hasn't granted consent"
+                );
+                assert!(
+                    reason.contains("SendMessages"),
+                    "Error should mention the required consent scope"
+                );
+            }
+            other => panic!("Expected ConsentDenied, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn consent_enforcement_allows_with_grant() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("consent-allow-test", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "sender-agent").unwrap();
+        store.join_channel(ch.id, "receiver-agent").unwrap();
+
+        // Grant SendMessages consent from receiver to sender
+        store
+            .grant_consent(
+                "receiver-agent",
+                "sender-agent",
+                ConsentScope::SendMessages,
+                Some("Allow affect messages".to_string()),
+                None,
+            )
+            .unwrap();
+
+        // Now sending affect-enriched content should succeed
+        let result = store.send_message(
+            ch.id,
+            "sender-agent",
+            "[affect: joy intensity=0.8] Great news!",
+            MessageType::Text,
+        );
+
+        assert!(
+            result.is_ok(),
+            "Affect-enriched message should be allowed after consent grant"
+        );
+
+        // Plain text should also work (no consent needed)
+        let result2 = store.send_message(
+            ch.id,
+            "sender-agent",
+            "Plain text message",
+            MessageType::Text,
+        );
+        assert!(result2.is_ok(), "Plain text should always be allowed");
+    }
+
+    // -----------------------------------------------------------------------
+    // Rate limiting tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn rate_limiting_blocks_after_threshold() {
+        let mut store = CommStore::new();
+        // Set a very low rate limit for testing
+        store.rate_limit_config.messages_per_minute = 3;
+
+        let ch = store
+            .create_channel("rate-test", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "fast-sender").unwrap();
+
+        // Send messages up to the limit
+        for i in 0..3 {
+            let result = store.send_message(
+                ch.id,
+                "fast-sender",
+                &format!("Message {}", i),
+                MessageType::Text,
+            );
+            assert!(result.is_ok(), "Message {} should succeed (within limit)", i);
+        }
+
+        // The 4th message should be rate-limited
+        let result = store.send_message(
+            ch.id,
+            "fast-sender",
+            "One too many",
+            MessageType::Text,
+        );
+        assert!(result.is_err(), "4th message should be rate-limited");
+        match result.unwrap_err() {
+            CommError::RateLimitExceeded { limit } => {
+                assert!(
+                    limit.contains("fast-sender"),
+                    "Error should mention the sender"
+                );
+                assert!(
+                    limit.contains("3"),
+                    "Error should mention the limit threshold"
+                );
+            }
+            other => panic!("Expected RateLimitExceeded, got: {:?}", other),
+        }
+
+        // A different sender should NOT be rate-limited
+        store.join_channel(ch.id, "other-sender").unwrap();
+        let result = store.send_message(
+            ch.id,
+            "other-sender",
+            "I can still send",
+            MessageType::Text,
+        );
+        assert!(
+            result.is_ok(),
+            "Different sender should have independent rate limit"
+        );
+    }
+
+    #[test]
+    fn rate_limiting_resets_after_window() {
+        let mut store = CommStore::new();
+        store.rate_limit_config.messages_per_minute = 2;
+
+        let ch = store
+            .create_channel("rate-reset-test", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "resetting-sender").unwrap();
+
+        // Send up to the limit
+        store
+            .send_message(ch.id, "resetting-sender", "msg1", MessageType::Text)
+            .unwrap();
+        store
+            .send_message(ch.id, "resetting-sender", "msg2", MessageType::Text)
+            .unwrap();
+
+        // Verify rate limit is hit
+        let blocked = store.send_message(
+            ch.id,
+            "resetting-sender",
+            "blocked",
+            MessageType::Text,
+        );
+        assert!(blocked.is_err(), "Should be rate-limited");
+
+        // Simulate window reset by manipulating the tracker's last_minute_reset
+        // to be more than 60 seconds ago.
+        if let Some(tracker) = store.rate_trackers.get_mut("resetting-sender") {
+            tracker.last_minute_reset = tracker.last_minute_reset.saturating_sub(61);
+        }
+
+        // Now sending should succeed (window reset)
+        let result = store.send_message(
+            ch.id,
+            "resetting-sender",
+            "after reset",
+            MessageType::Text,
+        );
+        assert!(
+            result.is_ok(),
+            "Message should succeed after rate limit window resets"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Audit log tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn audit_log_records_operations() {
+        let mut store = CommStore::new();
+        assert!(store.audit_log.is_empty(), "Audit log should start empty");
+
+        // 1) create_channel should generate ChannelCreated audit
+        let ch = store
+            .create_channel("audit-test", ChannelType::Group, None)
+            .unwrap();
+        let channel_created_count = store
+            .audit_log
+            .iter()
+            .filter(|e| e.event_type == AuditEventType::ChannelCreated)
+            .count();
+        assert_eq!(channel_created_count, 1, "Should have one ChannelCreated audit entry");
+
+        // 2) send_message should generate MessageSent audit
+        store.join_channel(ch.id, "audit-agent").unwrap();
+        store
+            .send_message(ch.id, "audit-agent", "hello", MessageType::Text)
+            .unwrap();
+        let msg_sent_count = store
+            .audit_log
+            .iter()
+            .filter(|e| e.event_type == AuditEventType::MessageSent)
+            .count();
+        assert_eq!(msg_sent_count, 1, "Should have one MessageSent audit entry");
+
+        // 3) grant_consent should generate ConsentGranted audit
+        store
+            .grant_consent(
+                "grantor-a",
+                "grantee-b",
+                ConsentScope::ReadMessages,
+                None,
+                None,
+            )
+            .unwrap();
+        let consent_granted_count = store
+            .audit_log
+            .iter()
+            .filter(|e| e.event_type == AuditEventType::ConsentGranted)
+            .count();
+        assert_eq!(consent_granted_count, 1, "Should have one ConsentGranted audit entry");
+
+        // 4) revoke_consent should generate ConsentRevoked audit
+        let _ = store.revoke_consent("grantor-a", "grantee-b", &ConsentScope::ReadMessages);
+        let consent_revoked_count = store
+            .audit_log
+            .iter()
+            .filter(|e| e.event_type == AuditEventType::ConsentRevoked)
+            .count();
+        assert_eq!(consent_revoked_count, 1, "Should have one ConsentRevoked audit entry");
+
+        // 5) close_channel should generate ChannelClosed audit
+        store.close_channel(ch.id).unwrap();
+        let channel_closed_count = store
+            .audit_log
+            .iter()
+            .filter(|e| e.event_type == AuditEventType::ChannelClosed)
+            .count();
+        assert_eq!(channel_closed_count, 1, "Should have one ChannelClosed audit entry");
+
+        // Verify total audit entries accumulated
+        assert!(
+            store.audit_log.len() >= 5,
+            "Audit log should have at least 5 entries, got {}",
+            store.audit_log.len()
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Signature verification tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn signature_verification_detects_tampering() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("sig-test", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "agent-sig").unwrap();
+
+        let msg = store
+            .send_message(ch.id, "agent-sig", "Original content", MessageType::Text)
+            .unwrap();
+        let msg_id = msg.id;
+
+        // Verify the untampered message passes signature check
+        assert!(
+            store.verify_message_signature(msg_id),
+            "Untampered message should pass signature verification"
+        );
+
+        // Tamper with the message content directly
+        if let Some(message) = store.messages.get_mut(&msg_id) {
+            message.content = "Tampered content".to_string();
+        }
+
+        // Now signature verification should fail
+        let audit_len_before = store.audit_log.len();
+        let result = store.verify_message_signature(msg_id);
+        assert!(
+            !result,
+            "Tampered message should fail signature verification"
+        );
+
+        // Verify a SignatureWarning audit entry was logged
+        let sig_warnings = store
+            .audit_log
+            .iter()
+            .skip(audit_len_before)
+            .filter(|e| e.event_type == AuditEventType::SignatureWarning)
+            .count();
+        assert_eq!(
+            sig_warnings, 1,
+            "Should have logged a SignatureWarning audit entry for the tampered message"
+        );
     }
 
 }

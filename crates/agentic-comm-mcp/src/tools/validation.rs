@@ -773,6 +773,201 @@ pub fn validate_get_audit_log(params: &Value) -> Result<(), ToolCallResult> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Semantic tool validators
+// ---------------------------------------------------------------------------
+
+/// Validate send_semantic parameters.
+pub fn validate_send_semantic(params: &Value) -> ValidationResult {
+    validate_channel_id(params)?;
+    let sender = require_string(params, "sender")?;
+    validate_sender(sender)?;
+    let topic = require_string(params, "topic")?;
+    validate_topic(topic)?;
+    // focus_nodes is optional array, depth is optional integer — no strict validation needed
+    Ok(())
+}
+
+/// Validate extract_semantic parameters.
+pub fn validate_extract_semantic(params: &Value) -> ValidationResult {
+    validate_message_id(params)?;
+    Ok(())
+}
+
+/// Validate graft_semantic parameters.
+pub fn validate_graft_semantic(params: &Value) -> ValidationResult {
+    let source_id = params
+        .get("source_id")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: source_id is required and must be a positive integer"
+                    .to_string(),
+            )
+        })?;
+    if source_id == 0 {
+        return Err(ToolCallResult::error(
+            "Validation error: source_id must be a positive integer (got 0)".to_string(),
+        ));
+    }
+    let target_id = params
+        .get("target_id")
+        .and_then(|v| v.as_u64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: target_id is required and must be a positive integer"
+                    .to_string(),
+            )
+        })?;
+    if target_id == 0 {
+        return Err(ToolCallResult::error(
+            "Validation error: target_id must be a positive integer (got 0)".to_string(),
+        ));
+    }
+    // strategy is optional string, no strict validation needed
+    Ok(())
+}
+
+/// Validate list_semantic_conflicts parameters.
+pub fn validate_list_semantic_conflicts(params: &Value) -> ValidationResult {
+    // channel_id and severity are both optional
+    if params.get("channel_id").is_some() {
+        validate_channel_id(params)?;
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Affect tool validators
+// ---------------------------------------------------------------------------
+
+/// Validate get_affect_state parameters.
+pub fn validate_get_affect_state(params: &Value) -> ValidationResult {
+    let agent_id = require_string(params, "agent_id")?;
+    validate_agent_id(agent_id)?;
+    Ok(())
+}
+
+/// Validate set_affect_resistance parameters.
+pub fn validate_set_affect_resistance(params: &Value) -> ValidationResult {
+    let resistance = params
+        .get("resistance")
+        .and_then(|v| v.as_f64())
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: resistance is required and must be a number".to_string(),
+            )
+        })?;
+    if !(0.0..=1.0).contains(&resistance) {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: resistance must be between 0.0 and 1.0 (got {resistance})"
+        )));
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Hive extension validators
+// ---------------------------------------------------------------------------
+
+/// Validate hive_think parameters.
+pub fn validate_hive_think(params: &Value) -> ValidationResult {
+    validate_hive_id(params)?;
+    let question = require_string(params, "question")?;
+    validate_content(question)?;
+    // timeout_ms is optional
+    Ok(())
+}
+
+/// Validate initiate_meld parameters.
+pub fn validate_initiate_meld(params: &Value) -> ValidationResult {
+    let partner_id = require_string(params, "partner_id")?;
+    validate_agent_id(partner_id)?;
+    // depth and duration_ms are optional
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Consent flow validators
+// ---------------------------------------------------------------------------
+
+/// Validate list_pending_consent parameters.
+pub fn validate_list_pending_consent(params: &Value) -> ValidationResult {
+    // agent_id and consent_type are both optional
+    if let Some(agent_id) = params.get("agent_id").and_then(|v| v.as_str()) {
+        validate_agent_id(agent_id)?;
+    }
+    Ok(())
+}
+
+/// Validate respond_consent parameters.
+pub fn validate_respond_consent(params: &Value) -> ValidationResult {
+    let request_id = require_string(params, "request_id")?;
+    if request_id.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: request_id must not be empty".to_string(),
+        ));
+    }
+    let response = require_string(params, "response")?;
+    if response.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: response must not be empty".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Query tool validators
+// ---------------------------------------------------------------------------
+
+/// Validate query_relationships parameters.
+pub fn validate_query_relationships(params: &Value) -> ValidationResult {
+    let agent_id = require_string(params, "agent_id")?;
+    validate_agent_id(agent_id)?;
+    // relationship_type and depth are optional
+    Ok(())
+}
+
+/// Validate query_echoes parameters.
+pub fn validate_query_echoes(params: &Value) -> ValidationResult {
+    validate_message_id(params)?;
+    // depth is optional
+    Ok(())
+}
+
+/// Validate query_conversations parameters.
+pub fn validate_query_conversations(params: &Value) -> ValidationResult {
+    // All parameters are optional
+    if params.get("channel_id").is_some() {
+        validate_channel_id(params)?;
+    }
+    validate_limit(params, "limit")?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Federation extension validators
+// ---------------------------------------------------------------------------
+
+/// Validate get_federation_status parameters.
+pub fn validate_get_federation_status(_params: &Value) -> ValidationResult {
+    // No required params
+    Ok(())
+}
+
+/// Validate set_federation_policy parameters.
+pub fn validate_set_federation_policy(params: &Value) -> ValidationResult {
+    let zone_id = require_string(params, "zone_id")?;
+    if zone_id.is_empty() {
+        return Err(ToolCallResult::error(
+            "Validation error: zone_id must not be empty".to_string(),
+        ));
+    }
+    // allow_semantic, allow_affect, allow_hive, max_message_size are all optional with defaults
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

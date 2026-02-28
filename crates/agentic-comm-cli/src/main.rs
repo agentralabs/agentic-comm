@@ -460,7 +460,7 @@ fn main() {
             since,
             recipient,
         } => {
-            let store = load_or_create(&store_path);
+            let mut store = load_or_create(&store_path);
             let since_dt = since.and_then(|s| {
                 chrono::DateTime::parse_from_rfc3339(&s)
                     .ok()

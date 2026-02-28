@@ -126,7 +126,7 @@ impl ResourceRegistry {
         channel_id: u64,
         session: &Arc<Mutex<SessionManager>>,
     ) -> McpResult<ReadResourceResult> {
-        let session = session.lock().await;
+        let mut session = session.lock().await;
         let messages = session
             .store
             .receive_messages(channel_id, None, None)

@@ -119,7 +119,7 @@ pub unsafe extern "C" fn acomm_receive_messages(
         return std::ptr::null_mut();
     }
 
-    let store = &*store;
+    let store = &mut *store;
 
     match store.receive_messages(channel_id, None, None) {
         Ok(msgs) => match serde_json::to_string(&msgs) {
