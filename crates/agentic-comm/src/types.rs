@@ -117,6 +117,10 @@ pub enum ConsentScope {
     Federate,
     /// Can include in hive-mind groups.
     HiveParticipation,
+    /// Can read/share affect (emotional state) information.
+    Affect,
+    /// Can participate in hive-mind operations (broader than HiveParticipation).
+    Hive,
 }
 
 impl std::fmt::Display for ConsentScope {
@@ -130,6 +134,8 @@ impl std::fmt::Display for ConsentScope {
             Self::ScheduleMessages => write!(f, "schedule_messages"),
             Self::Federate => write!(f, "federate"),
             Self::HiveParticipation => write!(f, "hive_participation"),
+            Self::Affect => write!(f, "affect"),
+            Self::Hive => write!(f, "hive"),
         }
     }
 }
@@ -146,6 +152,8 @@ impl std::str::FromStr for ConsentScope {
             "schedule_messages" => Ok(Self::ScheduleMessages),
             "federate" => Ok(Self::Federate),
             "hive_participation" => Ok(Self::HiveParticipation),
+            "affect" => Ok(Self::Affect),
+            "hive" => Ok(Self::Hive),
             other => Err(format!("Unknown consent scope: {other}")),
         }
     }
@@ -491,6 +499,16 @@ impl std::str::FromStr for FederationPolicy {
 // Hive Mind
 // ---------------------------------------------------------------------------
 
+/// Default coherence level for a hive mind (0.5).
+fn default_coherence_level() -> f64 {
+    0.5
+}
+
+/// Default separation policy: graceful.
+fn default_separation_policy() -> String {
+    "graceful".to_string()
+}
+
 /// A hive-mind group: multiple agents sharing a communication context.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HiveMind {
@@ -508,6 +526,12 @@ pub struct HiveMind {
     /// Optional metadata.
     #[serde(default)]
     pub metadata: HashMap<String, String>,
+    /// Coherence score (0.0-1.0) — how aligned the hive members are.
+    #[serde(default = "default_coherence_level")]
+    pub coherence_level: f64,
+    /// What happens when the hive separates (e.g. "graceful", "immediate", "consensus").
+    #[serde(default = "default_separation_policy")]
+    pub separation_policy: String,
 }
 
 /// A member of a hive mind.
@@ -532,6 +556,8 @@ pub enum HiveRole {
     Member,
     /// Observer only (read access).
     Observer,
+    /// Mediator — facilitates consensus and resolves conflicts.
+    Mediator,
 }
 
 impl Default for HiveRole {
@@ -546,6 +572,7 @@ impl std::fmt::Display for HiveRole {
             Self::Coordinator => write!(f, "coordinator"),
             Self::Member => write!(f, "member"),
             Self::Observer => write!(f, "observer"),
+            Self::Mediator => write!(f, "mediator"),
         }
     }
 }
@@ -783,6 +810,15 @@ pub struct SemanticFragment {
     /// Edges between nodes.
     #[serde(default)]
     pub edges: Vec<CognitiveEdge>,
+    /// Points where this fragment can attach to another cognitive graph.
+    #[serde(default)]
+    pub graft_points: Vec<String>,
+    /// The context in which this fragment was extracted.
+    #[serde(default)]
+    pub context: String,
+    /// The cognitive perspective of the agent that created this fragment.
+    #[serde(default)]
+    pub perspective: String,
 }
 
 /// A node in a cognitive graph attached to communication.
@@ -1418,6 +1454,8 @@ mod tests {
             ConsentScope::ScheduleMessages,
             ConsentScope::Federate,
             ConsentScope::HiveParticipation,
+            ConsentScope::Affect,
+            ConsentScope::Hive,
         ] {
             let s = scope.to_string();
             let parsed: ConsentScope = s.parse().unwrap();
@@ -1508,11 +1546,15 @@ mod tests {
             decision_mode: CollectiveDecisionMode::Majority,
             formed_at: "2025-01-01T00:00:00Z".to_string(),
             metadata: HashMap::new(),
+            coherence_level: 0.85,
+            separation_policy: "immediate".to_string(),
         };
         let json = serde_json::to_string(&hive).unwrap();
         let parsed: HiveMind = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.name, "test-hive");
         assert_eq!(parsed.constituents.len(), 1);
+        assert!((parsed.coherence_level - 0.85).abs() < f64::EPSILON);
+        assert_eq!(parsed.separation_policy, "immediate");
     }
 
     #[test]
@@ -1612,6 +1654,9 @@ mod tests {
                 edge_type: CognitiveEdgeType::RelatedTo,
                 weight: 0.8,
             }],
+            graft_points: Vec::new(),
+            context: String::new(),
+            perspective: String::new(),
         };
         let json = serde_json::to_string(&frag).unwrap();
         let parsed: SemanticFragment = serde_json::from_str(&json).unwrap();
@@ -1791,6 +1836,110 @@ mod tests {
         let parsed: AuditEntry = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.agent_id, "agent-x");
         assert_eq!(parsed.related_id, Some("42".to_string()));
+    }
+
+    #[test]
+    fn semantic_fragment_new_fields_serde() {
+        let frag = SemanticFragment {
+            content: "test".to_string(),
+            role: "topic".to_string(),
+            confidence: 0.9,
+            nodes: vec![],
+            edges: vec![],
+            graft_points: vec!["node-42".to_string(), "node-99".to_string()],
+            context: "debugging session".to_string(),
+            perspective: "developer-agent".to_string(),
+        };
+        let json = serde_json::to_string(&frag).unwrap();
+        let parsed: SemanticFragment = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.graft_points, vec!["node-42", "node-99"]);
+        assert_eq!(parsed.context, "debugging session");
+        assert_eq!(parsed.perspective, "developer-agent");
+    }
+
+    #[test]
+    fn semantic_fragment_new_fields_default_on_missing() {
+        // Old-format JSON without the new fields should deserialize with defaults.
+        let json = r#"{"content":"test","role":"topic","confidence":0.9,"nodes":[],"edges":[]}"#;
+        let parsed: SemanticFragment = serde_json::from_str(json).unwrap();
+        assert!(parsed.graft_points.is_empty());
+        assert_eq!(parsed.context, "");
+        assert_eq!(parsed.perspective, "");
+    }
+
+    #[test]
+    fn hive_mind_new_fields_default_on_missing() {
+        // Old-format JSON without coherence_level/separation_policy should use defaults.
+        let json = r#"{
+            "id": 1,
+            "name": "legacy-hive",
+            "constituents": [],
+            "decision_mode": "majority",
+            "formed_at": "2025-01-01T00:00:00Z"
+        }"#;
+        let parsed: HiveMind = serde_json::from_str(json).unwrap();
+        assert!((parsed.coherence_level - 0.5).abs() < f64::EPSILON);
+        assert_eq!(parsed.separation_policy, "graceful");
+    }
+
+    #[test]
+    fn hive_mind_custom_coherence_and_policy() {
+        let hive = HiveMind {
+            id: 2,
+            name: "tight-hive".to_string(),
+            constituents: vec![],
+            decision_mode: CollectiveDecisionMode::Unanimous,
+            formed_at: "2026-01-01T00:00:00Z".to_string(),
+            metadata: HashMap::new(),
+            coherence_level: 0.95,
+            separation_policy: "consensus".to_string(),
+        };
+        let json = serde_json::to_string(&hive).unwrap();
+        let parsed: HiveMind = serde_json::from_str(&json).unwrap();
+        assert!((parsed.coherence_level - 0.95).abs() < f64::EPSILON);
+        assert_eq!(parsed.separation_policy, "consensus");
+    }
+
+    #[test]
+    fn consent_scope_affect_and_hive_roundtrip() {
+        // Verify Affect variant
+        let affect = ConsentScope::Affect;
+        let s = affect.to_string();
+        assert_eq!(s, "affect");
+        let parsed: ConsentScope = s.parse().unwrap();
+        assert_eq!(parsed, ConsentScope::Affect);
+
+        // Verify Hive variant
+        let hive = ConsentScope::Hive;
+        let s = hive.to_string();
+        assert_eq!(s, "hive");
+        let parsed: ConsentScope = s.parse().unwrap();
+        assert_eq!(parsed, ConsentScope::Hive);
+    }
+
+    #[test]
+    fn consent_scope_affect_and_hive_json_serde() {
+        let affect = ConsentScope::Affect;
+        let json = serde_json::to_string(&affect).unwrap();
+        assert_eq!(json, r#""affect""#);
+        let parsed: ConsentScope = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, ConsentScope::Affect);
+
+        let hive = ConsentScope::Hive;
+        let json = serde_json::to_string(&hive).unwrap();
+        assert_eq!(json, r#""hive""#);
+        let parsed: ConsentScope = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, ConsentScope::Hive);
+    }
+
+    #[test]
+    fn hive_role_mediator_serde() {
+        let role = HiveRole::Mediator;
+        let json = serde_json::to_string(&role).unwrap();
+        assert_eq!(json, r#""mediator""#);
+        let parsed: HiveRole = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, HiveRole::Mediator);
+        assert_eq!(role.to_string(), "mediator");
     }
 
 }

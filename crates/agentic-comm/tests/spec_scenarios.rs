@@ -107,6 +107,9 @@ fn scenario_03_semantic_fragment_transfer() {
             edge_type: CognitiveEdgeType::RelatedTo,
             weight: 0.8,
         }],
+        graft_points: Vec::new(),
+        context: String::new(),
+        perspective: String::new(),
     };
 
     // Serialize the semantic content into the message body

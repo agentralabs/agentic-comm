@@ -18,7 +18,7 @@ impl ToolRegistry {
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
-                name: "send_message".to_string(),
+                name: "comm_send_message".to_string(),
                 description: Some("Send a message to a channel or specific recipient".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -45,7 +45,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "receive_messages".to_string(),
+                name: "comm_receive_messages".to_string(),
                 description: Some(
                     "Retrieve pending or recent messages from a channel".to_string(),
                 ),
@@ -69,7 +69,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "create_channel".to_string(),
+                name: "comm_create_channel".to_string(),
                 description: Some("Create a new communication channel".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -108,7 +108,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "list_channels".to_string(),
+                name: "comm_list_channels".to_string(),
                 description: Some("List all available communication channels".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -116,7 +116,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "join_channel".to_string(),
+                name: "comm_join_channel".to_string(),
                 description: Some("Join an existing communication channel".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -134,7 +134,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "leave_channel".to_string(),
+                name: "comm_leave_channel".to_string(),
                 description: Some("Leave a communication channel".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -152,7 +152,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "get_channel_info".to_string(),
+                name: "comm_get_channel_info".to_string(),
                 description: Some("Get detailed information about a channel".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -166,7 +166,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "subscribe".to_string(),
+                name: "comm_subscribe".to_string(),
                 description: Some(
                     "Subscribe to a pub/sub topic for message delivery".to_string(),
                 ),
@@ -186,7 +186,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "unsubscribe".to_string(),
+                name: "comm_unsubscribe".to_string(),
                 description: Some("Remove a subscription from a pub/sub topic".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -200,7 +200,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "publish".to_string(),
+                name: "comm_publish".to_string(),
                 description: Some(
                     "Publish a message to all subscribers of a topic".to_string(),
                 ),
@@ -224,7 +224,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "broadcast".to_string(),
+                name: "comm_broadcast".to_string(),
                 description: Some(
                     "Send a message to all participants in a broadcast channel".to_string(),
                 ),
@@ -248,7 +248,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "query_history".to_string(),
+                name: "comm_query_history".to_string(),
                 description: Some("Search message history with filters".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -283,7 +283,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "search_messages".to_string(),
+                name: "comm_search_messages".to_string(),
                 description: Some("Full-text search across all messages".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -302,7 +302,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "get_message".to_string(),
+                name: "comm_get_message".to_string(),
                 description: Some("Retrieve a specific message by ID".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -316,7 +316,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "acknowledge_message".to_string(),
+                name: "comm_acknowledge_message".to_string(),
                 description: Some(
                     "Mark a message as received and acknowledged".to_string(),
                 ),
@@ -336,7 +336,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "set_channel_config".to_string(),
+                name: "comm_set_channel_config".to_string(),
                 description: Some(
                     "Update configuration for a communication channel".to_string(),
                 ),
@@ -368,7 +368,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "communication_log".to_string(),
+                name: "comm_communication_log".to_string(),
                 description: Some(
                     "Log intent and context behind communication actions (20-Year Clock)".to_string(),
                 ),
@@ -399,7 +399,7 @@ impl ToolRegistry {
             // Consent tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "manage_consent".to_string(),
+                name: "comm_manage_consent".to_string(),
                 description: Some(
                     "Manage consent between agents (grant or revoke)".to_string(),
                 ),
@@ -428,7 +428,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "check_consent".to_string(),
+                name: "comm_check_consent".to_string(),
                 description: Some(
                     "Check if consent is granted between agents for a scope".to_string(),
                 ),
@@ -455,7 +455,7 @@ impl ToolRegistry {
             // Trust tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "set_trust_level".to_string(),
+                name: "comm_set_trust_level".to_string(),
                 description: Some("Set trust level for an agent".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -474,7 +474,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "get_trust_level".to_string(),
+                name: "comm_get_trust_level".to_string(),
                 description: Some("Get trust level for an agent".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -491,7 +491,7 @@ impl ToolRegistry {
             // Temporal messaging tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "schedule_message".to_string(),
+                name: "comm_schedule_message".to_string(),
                 description: Some(
                     "Schedule a message for future delivery".to_string(),
                 ),
@@ -523,7 +523,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "list_scheduled".to_string(),
+                name: "comm_list_scheduled".to_string(),
                 description: Some(
                     "List all scheduled temporal messages".to_string(),
                 ),
@@ -536,7 +536,7 @@ impl ToolRegistry {
             // Hive mind tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "form_hive".to_string(),
+                name: "comm_form_hive".to_string(),
                 description: Some("Form a new hive mind group".to_string()),
                 input_schema: json!({
                     "type": "object",
@@ -562,7 +562,7 @@ impl ToolRegistry {
             // Stats tool
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "get_stats".to_string(),
+                name: "comm_get_stats".to_string(),
                 description: Some(
                     "Get comprehensive communication store statistics".to_string(),
                 ),
@@ -575,7 +575,7 @@ impl ToolRegistry {
             // Affect tool
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "send_affect".to_string(),
+                name: "comm_send_affect".to_string(),
                 description: Some(
                     "Send a message with emotional/affect context".to_string(),
                 ),
@@ -634,7 +634,7 @@ impl ToolRegistry {
             // Consent listing tool
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "list_consent_gates".to_string(),
+                name: "comm_list_consent_gates".to_string(),
                 description: Some(
                     "List all consent gates, optionally filtered by agent".to_string(),
                 ),
@@ -652,7 +652,7 @@ impl ToolRegistry {
             // Trust listing tool
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "list_trust_levels".to_string(),
+                name: "comm_list_trust_levels".to_string(),
                 description: Some(
                     "List all trust level overrides".to_string(),
                 ),
@@ -665,7 +665,7 @@ impl ToolRegistry {
             // Temporal management tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "cancel_scheduled".to_string(),
+                name: "comm_cancel_scheduled".to_string(),
                 description: Some(
                     "Cancel a scheduled temporal message".to_string(),
                 ),
@@ -681,7 +681,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "deliver_pending".to_string(),
+                name: "comm_deliver_pending".to_string(),
                 description: Some(
                     "Deliver all pending temporal messages that are due".to_string(),
                 ),
@@ -694,7 +694,7 @@ impl ToolRegistry {
             // Federation tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "configure_federation".to_string(),
+                name: "comm_configure_federation".to_string(),
                 description: Some(
                     "Configure federation settings".to_string(),
                 ),
@@ -719,7 +719,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "add_federated_zone".to_string(),
+                name: "comm_add_federated_zone".to_string(),
                 description: Some(
                     "Add a federated zone".to_string(),
                 ),
@@ -753,7 +753,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "remove_federated_zone".to_string(),
+                name: "comm_remove_federated_zone".to_string(),
                 description: Some(
                     "Remove a federated zone".to_string(),
                 ),
@@ -769,7 +769,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "list_federated_zones".to_string(),
+                name: "comm_list_federated_zones".to_string(),
                 description: Some(
                     "List all federated zones".to_string(),
                 ),
@@ -782,7 +782,7 @@ impl ToolRegistry {
             // Hive mind management tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "dissolve_hive".to_string(),
+                name: "comm_dissolve_hive".to_string(),
                 description: Some(
                     "Dissolve a hive mind".to_string(),
                 ),
@@ -798,7 +798,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "join_hive".to_string(),
+                name: "comm_join_hive".to_string(),
                 description: Some(
                     "Join a hive mind".to_string(),
                 ),
@@ -824,7 +824,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "leave_hive".to_string(),
+                name: "comm_leave_hive".to_string(),
                 description: Some(
                     "Leave a hive mind".to_string(),
                 ),
@@ -844,7 +844,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "list_hives".to_string(),
+                name: "comm_list_hives".to_string(),
                 description: Some(
                     "List all hive minds".to_string(),
                 ),
@@ -854,7 +854,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "get_hive".to_string(),
+                name: "comm_get_hive".to_string(),
                 description: Some(
                     "Get hive mind details".to_string(),
                 ),
@@ -873,7 +873,7 @@ impl ToolRegistry {
             // Communication log tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "log_communication".to_string(),
+                name: "comm_log_communication".to_string(),
                 description: Some(
                     "Log a communication entry".to_string(),
                 ),
@@ -919,7 +919,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "get_comm_log".to_string(),
+                name: "comm_get_comm_log".to_string(),
                 description: Some(
                     "Get communication log entries".to_string(),
                 ),
@@ -937,7 +937,7 @@ impl ToolRegistry {
             // Audit log tool
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "get_audit_log".to_string(),
+                name: "comm_get_audit_log".to_string(),
                 description: Some(
                     "Get audit log entries".to_string(),
                 ),
@@ -955,7 +955,7 @@ impl ToolRegistry {
             // Semantic tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "send_semantic".to_string(),
+                name: "comm_send_semantic".to_string(),
                 description: Some(
                     "Send a structured semantic message to a channel".to_string(),
                 ),
@@ -988,7 +988,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "extract_semantic".to_string(),
+                name: "comm_extract_semantic".to_string(),
                 description: Some(
                     "Extract semantic structure from an existing message".to_string(),
                 ),
@@ -1004,7 +1004,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "graft_semantic".to_string(),
+                name: "comm_graft_semantic".to_string(),
                 description: Some(
                     "Graft (merge) two semantic layers together".to_string(),
                 ),
@@ -1028,7 +1028,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "list_semantic_conflicts".to_string(),
+                name: "comm_list_semantic_conflicts".to_string(),
                 description: Some(
                     "List semantic conflicts, optionally filtered by channel or severity".to_string(),
                 ),
@@ -1050,7 +1050,7 @@ impl ToolRegistry {
             // Affect tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "get_affect_state".to_string(),
+                name: "comm_get_affect_state".to_string(),
                 description: Some(
                     "Get the current affect state for an agent".to_string(),
                 ),
@@ -1066,7 +1066,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "set_affect_resistance".to_string(),
+                name: "comm_set_affect_resistance".to_string(),
                 description: Some(
                     "Set the affect resistance threshold (0.0-1.0)".to_string(),
                 ),
@@ -1085,7 +1085,7 @@ impl ToolRegistry {
             // Hive extension tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "hive_think".to_string(),
+                name: "comm_hive_think".to_string(),
                 description: Some(
                     "Broadcast a question to all hive members and return aggregated response".to_string(),
                 ),
@@ -1109,7 +1109,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "initiate_meld".to_string(),
+                name: "comm_initiate_meld".to_string(),
                 description: Some(
                     "Initiate a deep mind-meld session with a partner agent".to_string(),
                 ),
@@ -1136,7 +1136,7 @@ impl ToolRegistry {
             // Consent flow tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "list_pending_consent".to_string(),
+                name: "comm_list_pending_consent".to_string(),
                 description: Some(
                     "List pending consent requests, optionally filtered by agent or type".to_string(),
                 ),
@@ -1155,7 +1155,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "respond_consent".to_string(),
+                name: "comm_respond_consent".to_string(),
                 description: Some(
                     "Respond to a pending consent request".to_string(),
                 ),
@@ -1178,7 +1178,7 @@ impl ToolRegistry {
             // Query tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "query_relationships".to_string(),
+                name: "comm_query_relationships".to_string(),
                 description: Some(
                     "Query relationships between agents (trust, consent, hive membership)".to_string(),
                 ),
@@ -1202,7 +1202,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "query_echoes".to_string(),
+                name: "comm_query_echoes".to_string(),
                 description: Some(
                     "Query conversation echoes (messages that reference or relate to a message)".to_string(),
                 ),
@@ -1222,7 +1222,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "query_conversations".to_string(),
+                name: "comm_query_conversations".to_string(),
                 description: Some(
                     "Query conversation summaries, optionally filtered by channel or participant".to_string(),
                 ),
@@ -1248,7 +1248,7 @@ impl ToolRegistry {
             // Federation extension tools
             // ---------------------------------------------------------------
             ToolDefinition {
-                name: "get_federation_status".to_string(),
+                name: "comm_get_federation_status".to_string(),
                 description: Some(
                     "Get the current federation status and zone information".to_string(),
                 ),
@@ -1258,7 +1258,7 @@ impl ToolRegistry {
                 }),
             },
             ToolDefinition {
-                name: "set_federation_policy".to_string(),
+                name: "comm_set_federation_policy".to_string(),
                 description: Some(
                     "Set federation policy for a specific zone".to_string(),
                 ),
@@ -1304,74 +1304,74 @@ impl ToolRegistry {
         // Run validation before dispatch. Validation errors become tool-level
         // errors with isError: true, not protocol-level JSON-RPC errors.
         let validation_result = match tool_name {
-            "send_message" => validation::validate_send_message(params),
-            "receive_messages" => validation::validate_receive_messages(params),
-            "create_channel" => validation::validate_create_channel(params),
-            "list_channels" => Ok(()), // No required params
-            "join_channel" => validation::validate_join_channel(params),
-            "leave_channel" => validation::validate_leave_channel(params),
-            "get_channel_info" => validation::validate_get_channel_info(params),
-            "subscribe" => validation::validate_subscribe(params),
-            "unsubscribe" => validation::validate_unsubscribe(params),
-            "publish" => validation::validate_publish(params),
-            "broadcast" => validation::validate_broadcast(params),
-            "query_history" => validation::validate_query_history(params),
-            "search_messages" => validation::validate_search_messages(params),
-            "get_message" => validation::validate_get_message(params),
-            "acknowledge_message" => validation::validate_acknowledge_message(params),
-            "set_channel_config" => validation::validate_set_channel_config(params),
-            "communication_log" => validation::validate_communication_log(params),
-            "manage_consent" => validation::validate_manage_consent(params),
-            "check_consent" => validation::validate_check_consent(params),
-            "set_trust_level" => validation::validate_set_trust_level(params),
-            "get_trust_level" => validation::validate_get_trust_level(params),
-            "schedule_message" => validation::validate_schedule_message(params),
-            "list_scheduled" => validation::validate_list_scheduled(params),
-            "form_hive" => validation::validate_form_hive(params),
-            "get_stats" => validation::validate_get_stats(params),
-            "send_affect" => validation::validate_send_affect(params),
+            "comm_send_message" => validation::validate_send_message(params),
+            "comm_receive_messages" => validation::validate_receive_messages(params),
+            "comm_create_channel" => validation::validate_create_channel(params),
+            "comm_list_channels" => Ok(()), // No required params
+            "comm_join_channel" => validation::validate_join_channel(params),
+            "comm_leave_channel" => validation::validate_leave_channel(params),
+            "comm_get_channel_info" => validation::validate_get_channel_info(params),
+            "comm_subscribe" => validation::validate_subscribe(params),
+            "comm_unsubscribe" => validation::validate_unsubscribe(params),
+            "comm_publish" => validation::validate_publish(params),
+            "comm_broadcast" => validation::validate_broadcast(params),
+            "comm_query_history" => validation::validate_query_history(params),
+            "comm_search_messages" => validation::validate_search_messages(params),
+            "comm_get_message" => validation::validate_get_message(params),
+            "comm_acknowledge_message" => validation::validate_acknowledge_message(params),
+            "comm_set_channel_config" => validation::validate_set_channel_config(params),
+            "comm_communication_log" => validation::validate_communication_log(params),
+            "comm_manage_consent" => validation::validate_manage_consent(params),
+            "comm_check_consent" => validation::validate_check_consent(params),
+            "comm_set_trust_level" => validation::validate_set_trust_level(params),
+            "comm_get_trust_level" => validation::validate_get_trust_level(params),
+            "comm_schedule_message" => validation::validate_schedule_message(params),
+            "comm_list_scheduled" => validation::validate_list_scheduled(params),
+            "comm_form_hive" => validation::validate_form_hive(params),
+            "comm_get_stats" => validation::validate_get_stats(params),
+            "comm_send_affect" => validation::validate_send_affect(params),
             "comm_ground" => (|| {
                 let claim = validation::require_string(params, "claim")?;
                 validation::validate_query(claim)?;
                 Ok(())
             })(),
-            "list_consent_gates" => validation::validate_list_consent_gates(params),
-            "list_trust_levels" => Ok(()), // No required params
-            "cancel_scheduled" => validation::validate_cancel_scheduled(params),
-            "deliver_pending" => Ok(()), // No required params
-            "configure_federation" => validation::validate_configure_federation(params),
-            "add_federated_zone" => validation::validate_add_federated_zone(params),
-            "remove_federated_zone" => validation::validate_remove_federated_zone(params),
-            "list_federated_zones" => Ok(()), // No required params
-            "dissolve_hive" => validation::validate_dissolve_hive(params),
-            "join_hive" => validation::validate_join_hive(params),
-            "leave_hive" => validation::validate_leave_hive(params),
-            "list_hives" => Ok(()), // No required params
-            "get_hive" => validation::validate_get_hive(params),
-            "log_communication" => validation::validate_log_communication(params),
-            "get_comm_log" => validation::validate_get_comm_log(params),
-            "get_audit_log" => validation::validate_get_audit_log(params),
+            "comm_list_consent_gates" => validation::validate_list_consent_gates(params),
+            "comm_list_trust_levels" => Ok(()), // No required params
+            "comm_cancel_scheduled" => validation::validate_cancel_scheduled(params),
+            "comm_deliver_pending" => Ok(()), // No required params
+            "comm_configure_federation" => validation::validate_configure_federation(params),
+            "comm_add_federated_zone" => validation::validate_add_federated_zone(params),
+            "comm_remove_federated_zone" => validation::validate_remove_federated_zone(params),
+            "comm_list_federated_zones" => Ok(()), // No required params
+            "comm_dissolve_hive" => validation::validate_dissolve_hive(params),
+            "comm_join_hive" => validation::validate_join_hive(params),
+            "comm_leave_hive" => validation::validate_leave_hive(params),
+            "comm_list_hives" => Ok(()), // No required params
+            "comm_get_hive" => validation::validate_get_hive(params),
+            "comm_log_communication" => validation::validate_log_communication(params),
+            "comm_get_comm_log" => validation::validate_get_comm_log(params),
+            "comm_get_audit_log" => validation::validate_get_audit_log(params),
             // Semantic tools
-            "send_semantic" => validation::validate_send_semantic(params),
-            "extract_semantic" => validation::validate_extract_semantic(params),
-            "graft_semantic" => validation::validate_graft_semantic(params),
-            "list_semantic_conflicts" => validation::validate_list_semantic_conflicts(params),
+            "comm_send_semantic" => validation::validate_send_semantic(params),
+            "comm_extract_semantic" => validation::validate_extract_semantic(params),
+            "comm_graft_semantic" => validation::validate_graft_semantic(params),
+            "comm_list_semantic_conflicts" => validation::validate_list_semantic_conflicts(params),
             // Affect tools
-            "get_affect_state" => validation::validate_get_affect_state(params),
-            "set_affect_resistance" => validation::validate_set_affect_resistance(params),
+            "comm_get_affect_state" => validation::validate_get_affect_state(params),
+            "comm_set_affect_resistance" => validation::validate_set_affect_resistance(params),
             // Hive extension tools
-            "hive_think" => validation::validate_hive_think(params),
-            "initiate_meld" => validation::validate_initiate_meld(params),
+            "comm_hive_think" => validation::validate_hive_think(params),
+            "comm_initiate_meld" => validation::validate_initiate_meld(params),
             // Consent flow tools
-            "list_pending_consent" => validation::validate_list_pending_consent(params),
-            "respond_consent" => validation::validate_respond_consent(params),
+            "comm_list_pending_consent" => validation::validate_list_pending_consent(params),
+            "comm_respond_consent" => validation::validate_respond_consent(params),
             // Query tools
-            "query_relationships" => validation::validate_query_relationships(params),
-            "query_echoes" => validation::validate_query_echoes(params),
-            "query_conversations" => validation::validate_query_conversations(params),
+            "comm_query_relationships" => validation::validate_query_relationships(params),
+            "comm_query_echoes" => validation::validate_query_echoes(params),
+            "comm_query_conversations" => validation::validate_query_conversations(params),
             // Federation extension tools
-            "get_federation_status" => validation::validate_get_federation_status(params),
-            "set_federation_policy" => validation::validate_set_federation_policy(params),
+            "comm_get_federation_status" => validation::validate_get_federation_status(params),
+            "comm_set_federation_policy" => validation::validate_set_federation_policy(params),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -1382,70 +1382,70 @@ impl ToolRegistry {
 
         // Dispatch to actual handler
         match tool_name {
-            "send_message" => Self::handle_send_message(params, session),
-            "receive_messages" => Self::handle_receive_messages(params, session),
-            "create_channel" => Self::handle_create_channel(params, session),
-            "list_channels" => Self::handle_list_channels(session),
-            "join_channel" => Self::handle_join_channel(params, session),
-            "leave_channel" => Self::handle_leave_channel(params, session),
-            "get_channel_info" => Self::handle_get_channel_info(params, session),
-            "subscribe" => Self::handle_subscribe(params, session),
-            "unsubscribe" => Self::handle_unsubscribe(params, session),
-            "publish" => Self::handle_publish(params, session),
-            "broadcast" => Self::handle_broadcast(params, session),
-            "query_history" => Self::handle_query_history(params, session),
-            "search_messages" => Self::handle_search_messages(params, session),
-            "get_message" => Self::handle_get_message(params, session),
-            "acknowledge_message" => Self::handle_acknowledge_message(params, session),
-            "set_channel_config" => Self::handle_set_channel_config(params, session),
-            "communication_log" => Self::handle_communication_log(params, session),
-            "manage_consent" => Self::handle_manage_consent(params, session),
-            "check_consent" => Self::handle_check_consent(params, session),
-            "set_trust_level" => Self::handle_set_trust_level(params, session),
-            "get_trust_level" => Self::handle_get_trust_level(params, session),
-            "schedule_message" => Self::handle_schedule_message(params, session),
-            "list_scheduled" => Self::handle_list_scheduled(session),
-            "form_hive" => Self::handle_form_hive(params, session),
-            "get_stats" => Self::handle_get_stats(session),
-            "send_affect" => Self::handle_send_affect(params, session),
+            "comm_send_message" => Self::handle_send_message(params, session),
+            "comm_receive_messages" => Self::handle_receive_messages(params, session),
+            "comm_create_channel" => Self::handle_create_channel(params, session),
+            "comm_list_channels" => Self::handle_list_channels(session),
+            "comm_join_channel" => Self::handle_join_channel(params, session),
+            "comm_leave_channel" => Self::handle_leave_channel(params, session),
+            "comm_get_channel_info" => Self::handle_get_channel_info(params, session),
+            "comm_subscribe" => Self::handle_subscribe(params, session),
+            "comm_unsubscribe" => Self::handle_unsubscribe(params, session),
+            "comm_publish" => Self::handle_publish(params, session),
+            "comm_broadcast" => Self::handle_broadcast(params, session),
+            "comm_query_history" => Self::handle_query_history(params, session),
+            "comm_search_messages" => Self::handle_search_messages(params, session),
+            "comm_get_message" => Self::handle_get_message(params, session),
+            "comm_acknowledge_message" => Self::handle_acknowledge_message(params, session),
+            "comm_set_channel_config" => Self::handle_set_channel_config(params, session),
+            "comm_communication_log" => Self::handle_communication_log(params, session),
+            "comm_manage_consent" => Self::handle_manage_consent(params, session),
+            "comm_check_consent" => Self::handle_check_consent(params, session),
+            "comm_set_trust_level" => Self::handle_set_trust_level(params, session),
+            "comm_get_trust_level" => Self::handle_get_trust_level(params, session),
+            "comm_schedule_message" => Self::handle_schedule_message(params, session),
+            "comm_list_scheduled" => Self::handle_list_scheduled(session),
+            "comm_form_hive" => Self::handle_form_hive(params, session),
+            "comm_get_stats" => Self::handle_get_stats(session),
+            "comm_send_affect" => Self::handle_send_affect(params, session),
             "comm_ground" => Self::handle_comm_ground(params, session),
-            "list_consent_gates" => Self::handle_list_consent_gates(params, session),
-            "list_trust_levels" => Self::handle_list_trust_levels(session),
-            "cancel_scheduled" => Self::handle_cancel_scheduled(params, session),
-            "deliver_pending" => Self::handle_deliver_pending(session),
-            "configure_federation" => Self::handle_configure_federation(params, session),
-            "add_federated_zone" => Self::handle_add_federated_zone(params, session),
-            "remove_federated_zone" => Self::handle_remove_federated_zone(params, session),
-            "list_federated_zones" => Self::handle_list_federated_zones(session),
-            "dissolve_hive" => Self::handle_dissolve_hive(params, session),
-            "join_hive" => Self::handle_join_hive(params, session),
-            "leave_hive" => Self::handle_leave_hive(params, session),
-            "list_hives" => Self::handle_list_hives(session),
-            "get_hive" => Self::handle_get_hive(params, session),
-            "log_communication" => Self::handle_log_communication(params, session),
-            "get_comm_log" => Self::handle_get_comm_log(params, session),
-            "get_audit_log" => Self::handle_get_audit_log(params, session),
+            "comm_list_consent_gates" => Self::handle_list_consent_gates(params, session),
+            "comm_list_trust_levels" => Self::handle_list_trust_levels(session),
+            "comm_cancel_scheduled" => Self::handle_cancel_scheduled(params, session),
+            "comm_deliver_pending" => Self::handle_deliver_pending(session),
+            "comm_configure_federation" => Self::handle_configure_federation(params, session),
+            "comm_add_federated_zone" => Self::handle_add_federated_zone(params, session),
+            "comm_remove_federated_zone" => Self::handle_remove_federated_zone(params, session),
+            "comm_list_federated_zones" => Self::handle_list_federated_zones(session),
+            "comm_dissolve_hive" => Self::handle_dissolve_hive(params, session),
+            "comm_join_hive" => Self::handle_join_hive(params, session),
+            "comm_leave_hive" => Self::handle_leave_hive(params, session),
+            "comm_list_hives" => Self::handle_list_hives(session),
+            "comm_get_hive" => Self::handle_get_hive(params, session),
+            "comm_log_communication" => Self::handle_log_communication(params, session),
+            "comm_get_comm_log" => Self::handle_get_comm_log(params, session),
+            "comm_get_audit_log" => Self::handle_get_audit_log(params, session),
             // Semantic tools
-            "send_semantic" => Self::handle_send_semantic(params, session),
-            "extract_semantic" => Self::handle_extract_semantic(params, session),
-            "graft_semantic" => Self::handle_graft_semantic(params, session),
-            "list_semantic_conflicts" => Self::handle_list_semantic_conflicts(params, session),
+            "comm_send_semantic" => Self::handle_send_semantic(params, session),
+            "comm_extract_semantic" => Self::handle_extract_semantic(params, session),
+            "comm_graft_semantic" => Self::handle_graft_semantic(params, session),
+            "comm_list_semantic_conflicts" => Self::handle_list_semantic_conflicts(params, session),
             // Affect tools
-            "get_affect_state" => Self::handle_get_affect_state(params, session),
-            "set_affect_resistance" => Self::handle_set_affect_resistance(params, session),
+            "comm_get_affect_state" => Self::handle_get_affect_state(params, session),
+            "comm_set_affect_resistance" => Self::handle_set_affect_resistance(params, session),
             // Hive extension tools
-            "hive_think" => Self::handle_hive_think(params, session),
-            "initiate_meld" => Self::handle_initiate_meld(params, session),
+            "comm_hive_think" => Self::handle_hive_think(params, session),
+            "comm_initiate_meld" => Self::handle_initiate_meld(params, session),
             // Consent flow tools
-            "list_pending_consent" => Self::handle_list_pending_consent(params, session),
-            "respond_consent" => Self::handle_respond_consent(params, session),
+            "comm_list_pending_consent" => Self::handle_list_pending_consent(params, session),
+            "comm_respond_consent" => Self::handle_respond_consent(params, session),
             // Query tools
-            "query_relationships" => Self::handle_query_relationships(params, session),
-            "query_echoes" => Self::handle_query_echoes(params, session),
-            "query_conversations" => Self::handle_query_conversations(params, session),
+            "comm_query_relationships" => Self::handle_query_relationships(params, session),
+            "comm_query_echoes" => Self::handle_query_echoes(params, session),
+            "comm_query_conversations" => Self::handle_query_conversations(params, session),
             // Federation extension tools
-            "get_federation_status" => Self::handle_get_federation_status(session),
-            "set_federation_policy" => Self::handle_set_federation_policy(params, session),
+            "comm_get_federation_status" => Self::handle_get_federation_status(session),
+            "comm_set_federation_policy" => Self::handle_set_federation_policy(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -1480,7 +1480,7 @@ impl ToolRegistry {
 
         match session.store.send_message(channel_id, sender, content, msg_type) {
             Ok(msg) => {
-                session.record_operation("send_message", Some(msg.id));
+                session.record_operation("comm_send_message", Some(msg.id));
                 Ok(ToolCallResult::json(&msg))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -1504,7 +1504,7 @@ impl ToolRegistry {
 
         match session.store.receive_messages(channel_id, recipient, since) {
             Ok(msgs) => {
-                session.record_operation("receive_messages", None);
+                session.record_operation("comm_receive_messages", None);
                 Ok(ToolCallResult::json(&msgs))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -1549,7 +1549,7 @@ impl ToolRegistry {
 
         match session.store.create_channel(name, ch_type, Some(config)) {
             Ok(ch) => {
-                session.record_operation("create_channel", Some(ch.id));
+                session.record_operation("comm_create_channel", Some(ch.id));
                 Ok(ToolCallResult::json(&ch))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -1560,7 +1560,7 @@ impl ToolRegistry {
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
         let channels = session.store.list_channels();
-        session.record_operation("list_channels", None);
+        session.record_operation("comm_list_channels", None);
         Ok(ToolCallResult::json(&channels))
     }
 
@@ -1579,7 +1579,7 @@ impl ToolRegistry {
 
         match session.store.join_channel(channel_id, participant) {
             Ok(()) => {
-                session.record_operation("join_channel", Some(channel_id));
+                session.record_operation("comm_join_channel", Some(channel_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "joined",
                     "channel_id": channel_id,
@@ -1605,7 +1605,7 @@ impl ToolRegistry {
 
         match session.store.leave_channel(channel_id, participant) {
             Ok(()) => {
-                session.record_operation("leave_channel", Some(channel_id));
+                session.record_operation("comm_leave_channel", Some(channel_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "left",
                     "channel_id": channel_id,
@@ -1625,7 +1625,7 @@ impl ToolRegistry {
             .and_then(|v| v.as_u64())
             .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
 
-        session.record_operation("get_channel_info", Some(channel_id));
+        session.record_operation("comm_get_channel_info", Some(channel_id));
         match session.store.get_channel(channel_id) {
             Some(ch) => Ok(ToolCallResult::json(&ch)),
             None => Ok(ToolCallResult::error(format!(
@@ -1649,7 +1649,7 @@ impl ToolRegistry {
 
         match session.store.subscribe(topic, subscriber) {
             Ok(sub) => {
-                session.record_operation("subscribe", Some(sub.id));
+                session.record_operation("comm_subscribe", Some(sub.id));
                 Ok(ToolCallResult::json(&sub))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -1669,7 +1669,7 @@ impl ToolRegistry {
 
         match session.store.unsubscribe(subscription_id) {
             Ok(()) => {
-                session.record_operation("unsubscribe", Some(subscription_id));
+                session.record_operation("comm_unsubscribe", Some(subscription_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "unsubscribed",
                     "subscription_id": subscription_id,
@@ -1698,7 +1698,7 @@ impl ToolRegistry {
 
         match session.store.publish(topic, sender, content) {
             Ok(msgs) => {
-                session.record_operation("publish", None);
+                session.record_operation("comm_publish", None);
                 Ok(ToolCallResult::json(&json!({
                     "status": "published",
                     "delivered_count": msgs.len(),
@@ -1728,9 +1728,9 @@ impl ToolRegistry {
 
         match session.store.broadcast(channel_id, sender, content) {
             Ok(msgs) => {
-                session.record_operation("broadcast", Some(channel_id));
+                session.record_operation("comm_broadcast", Some(channel_id));
                 Ok(ToolCallResult::json(&json!({
-                    "status": "broadcast",
+                    "status": "comm_broadcast",
                     "delivered_count": msgs.len(),
                     "channel_id": channel_id,
                 })))
@@ -1780,7 +1780,7 @@ impl ToolRegistry {
         };
 
         let results = session.store.query_history(channel_id, &filter);
-        session.record_operation("query_history", Some(channel_id));
+        session.record_operation("comm_query_history", Some(channel_id));
         Ok(ToolCallResult::json(&results))
     }
 
@@ -1798,7 +1798,7 @@ impl ToolRegistry {
             .unwrap_or(20) as usize;
 
         let results = session.store.search_messages(query, max_results);
-        session.record_operation("search_messages", None);
+        session.record_operation("comm_search_messages", None);
         Ok(ToolCallResult::json(&results))
     }
 
@@ -1811,7 +1811,7 @@ impl ToolRegistry {
             .and_then(|v| v.as_u64())
             .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
 
-        session.record_operation("get_message", Some(message_id));
+        session.record_operation("comm_get_message", Some(message_id));
         match session.store.get_message(message_id) {
             Some(msg) => Ok(ToolCallResult::json(&msg)),
             None => Ok(ToolCallResult::error(format!(
@@ -1835,7 +1835,7 @@ impl ToolRegistry {
 
         match session.store.acknowledge_message(message_id, recipient) {
             Ok(()) => {
-                session.record_operation("acknowledge_message", Some(message_id));
+                session.record_operation("comm_acknowledge_message", Some(message_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "acknowledged",
                     "message_id": message_id,
@@ -1884,7 +1884,7 @@ impl ToolRegistry {
 
         match session.store.set_channel_config(channel_id, config) {
             Ok(()) => {
-                session.record_operation("set_channel_config", Some(channel_id));
+                session.record_operation("comm_set_channel_config", Some(channel_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "updated",
                     "channel_id": channel_id,
@@ -1903,7 +1903,7 @@ impl ToolRegistry {
 
         let entry = CommunicationLogEntry::from_input(&input);
         session.log_communication_context(entry.clone());
-        session.record_operation("communication_log", None);
+        session.record_operation("comm_communication_log", None);
 
         Ok(ToolCallResult::json(&json!({
             "status": "logged",
@@ -1944,7 +1944,7 @@ impl ToolRegistry {
             "grant" => {
                 match session.store.grant_consent(grantor, grantee, scope, None, None) {
                     Ok(_entry) => {
-                        session.record_operation("manage_consent", None);
+                        session.record_operation("comm_manage_consent", None);
                         Ok(ToolCallResult::json(&json!({
                             "status": "granted",
                             "action": "grant",
@@ -1959,7 +1959,7 @@ impl ToolRegistry {
             "revoke" => {
                 match session.store.revoke_consent(grantor, grantee, &scope) {
                     Ok(()) => {
-                        session.record_operation("manage_consent", None);
+                        session.record_operation("comm_manage_consent", None);
                         Ok(ToolCallResult::json(&json!({
                             "status": "revoked",
                             "action": "revoke",
@@ -1998,7 +1998,7 @@ impl ToolRegistry {
             .map_err(|e: String| McpError::InvalidParams(e))?;
 
         let granted = session.store.check_consent(grantor, grantee, &scope);
-        session.record_operation("check_consent", None);
+        session.record_operation("comm_check_consent", None);
         Ok(ToolCallResult::json(&json!({
             "grantor": grantor,
             "grantee": grantee,
@@ -2029,7 +2029,7 @@ impl ToolRegistry {
 
         match session.store.set_trust_level(agent_id, level) {
             Ok(()) => {
-                session.record_operation("set_trust_level", None);
+                session.record_operation("comm_set_trust_level", None);
                 Ok(ToolCallResult::json(&json!({
                     "status": "updated",
                     "agent_id": agent_id,
@@ -2050,7 +2050,7 @@ impl ToolRegistry {
             .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
 
         let level = session.store.get_trust_level(agent_id);
-        session.record_operation("get_trust_level", None);
+        session.record_operation("comm_get_trust_level", None);
         Ok(ToolCallResult::json(&json!({
             "agent_id": agent_id,
             "level": format!("{:?}", level),
@@ -2090,7 +2090,7 @@ impl ToolRegistry {
             Ok(temporal_msg) => {
                 let tid = temporal_msg.id;
                 let result = ToolCallResult::json(&temporal_msg);
-                session.record_operation("schedule_message", Some(tid));
+                session.record_operation("comm_schedule_message", Some(tid));
                 Ok(result)
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2104,7 +2104,7 @@ impl ToolRegistry {
             .into_iter()
             .cloned()
             .collect();
-        session.record_operation("list_scheduled", None);
+        session.record_operation("comm_list_scheduled", None);
         Ok(ToolCallResult::json(&scheduled))
     }
 
@@ -2142,7 +2142,7 @@ impl ToolRegistry {
             Ok(hive) => {
                 let hid = hive.id;
                 let result = ToolCallResult::json(&hive);
-                session.record_operation("form_hive", Some(hid));
+                session.record_operation("comm_form_hive", Some(hid));
                 Ok(result)
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2157,7 +2157,7 @@ impl ToolRegistry {
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
         let stats = session.store.stats();
-        session.record_operation("get_stats", None);
+        session.record_operation("comm_get_stats", None);
         Ok(ToolCallResult::json(&stats))
     }
 
@@ -2201,7 +2201,7 @@ impl ToolRegistry {
 
         match session.store.send_affect_message(channel_id, sender, content, affect) {
             Ok(msg) => {
-                session.record_operation("send_affect", Some(msg.id));
+                session.record_operation("comm_send_affect", Some(msg.id));
                 Ok(ToolCallResult::json(&msg))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2239,7 +2239,7 @@ impl ToolRegistry {
             .into_iter()
             .cloned()
             .collect();
-        session.record_operation("list_consent_gates", None);
+        session.record_operation("comm_list_consent_gates", None);
         Ok(ToolCallResult::json(&gates))
     }
 
@@ -2251,7 +2251,7 @@ impl ToolRegistry {
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
         let levels = session.store.list_trust_levels().clone();
-        session.record_operation("list_trust_levels", None);
+        session.record_operation("comm_list_trust_levels", None);
         Ok(ToolCallResult::json(&levels))
     }
 
@@ -2270,7 +2270,7 @@ impl ToolRegistry {
 
         match session.store.cancel_scheduled(temporal_id) {
             Ok(()) => {
-                session.record_operation("cancel_scheduled", Some(temporal_id));
+                session.record_operation("comm_cancel_scheduled", Some(temporal_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "cancelled",
                     "temporal_id": temporal_id,
@@ -2284,7 +2284,7 @@ impl ToolRegistry {
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
         let count = session.store.deliver_pending_temporal();
-        session.record_operation("deliver_pending", None);
+        session.record_operation("comm_deliver_pending", None);
         Ok(ToolCallResult::json(&json!({
             "status": "delivered",
             "count": count,
@@ -2318,7 +2318,7 @@ impl ToolRegistry {
         match session.store.configure_federation(enabled, local_zone, policy) {
             Ok(()) => {
                 let config = session.store.get_federation_config().clone();
-                session.record_operation("configure_federation", None);
+                session.record_operation("comm_configure_federation", None);
                 Ok(ToolCallResult::json(&config))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2364,7 +2364,7 @@ impl ToolRegistry {
 
         match session.store.add_federated_zone(zone) {
             Ok(()) => {
-                session.record_operation("add_federated_zone", None);
+                session.record_operation("comm_add_federated_zone", None);
                 Ok(ToolCallResult::json(&json!({
                     "status": "added",
                     "zone_id": zone_id,
@@ -2385,7 +2385,7 @@ impl ToolRegistry {
 
         match session.store.remove_federated_zone(zone_id) {
             Ok(()) => {
-                session.record_operation("remove_federated_zone", None);
+                session.record_operation("comm_remove_federated_zone", None);
                 Ok(ToolCallResult::json(&json!({
                     "status": "removed",
                     "zone_id": zone_id,
@@ -2399,7 +2399,7 @@ impl ToolRegistry {
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
         let zones: Vec<_> = session.store.list_federated_zones().to_vec();
-        session.record_operation("list_federated_zones", None);
+        session.record_operation("comm_list_federated_zones", None);
         Ok(ToolCallResult::json(&zones))
     }
 
@@ -2418,7 +2418,7 @@ impl ToolRegistry {
 
         match session.store.dissolve_hive(hive_id) {
             Ok(()) => {
-                session.record_operation("dissolve_hive", Some(hive_id));
+                session.record_operation("comm_dissolve_hive", Some(hive_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "dissolved",
                     "hive_id": hive_id,
@@ -2457,7 +2457,7 @@ impl ToolRegistry {
             Ok(()) => {
                 // Clone hive info after mutation for response
                 let hive_info = session.store.get_hive(hive_id).cloned();
-                session.record_operation("join_hive", Some(hive_id));
+                session.record_operation("comm_join_hive", Some(hive_id));
                 match hive_info {
                     Some(hive) => Ok(ToolCallResult::json(&hive)),
                     None => Ok(ToolCallResult::json(&json!({
@@ -2487,7 +2487,7 @@ impl ToolRegistry {
 
         match session.store.leave_hive(hive_id, agent_id) {
             Ok(()) => {
-                session.record_operation("leave_hive", Some(hive_id));
+                session.record_operation("comm_leave_hive", Some(hive_id));
                 Ok(ToolCallResult::json(&json!({
                     "status": "left",
                     "hive_id": hive_id,
@@ -2505,7 +2505,7 @@ impl ToolRegistry {
             .into_iter()
             .cloned()
             .collect();
-        session.record_operation("list_hives", None);
+        session.record_operation("comm_list_hives", None);
         Ok(ToolCallResult::json(&hives))
     }
 
@@ -2518,7 +2518,7 @@ impl ToolRegistry {
             .and_then(|v| v.as_u64())
             .ok_or_else(|| McpError::InvalidParams("hive_id is required".to_string()))?;
 
-        session.record_operation("get_hive", Some(hive_id));
+        session.record_operation("comm_get_hive", Some(hive_id));
         match session.store.get_hive(hive_id) {
             Some(hive) => Ok(ToolCallResult::json(&hive)),
             None => Ok(ToolCallResult::error(format!(
@@ -2578,7 +2578,7 @@ impl ToolRegistry {
             linked_message_id,
             affect,
         ).clone();
-        session.record_operation("log_communication", None);
+        session.record_operation("comm_log_communication", None);
         Ok(ToolCallResult::json(&entry))
     }
 
@@ -2592,7 +2592,7 @@ impl ToolRegistry {
             .map(|n| n as usize);
 
         let entries = session.store.get_comm_log(limit).to_vec();
-        session.record_operation("get_comm_log", None);
+        session.record_operation("comm_get_comm_log", None);
         Ok(ToolCallResult::json(&entries))
     }
 
@@ -2610,7 +2610,7 @@ impl ToolRegistry {
             .map(|n| n as usize);
 
         // NOTE: get_audit_log may not exist yet on CommStore. Return empty array for now.
-        session.record_operation("get_audit_log", None);
+        session.record_operation("comm_get_audit_log", None);
         Ok(ToolCallResult::json(&json!([])))
     }
 
@@ -2653,7 +2653,7 @@ impl ToolRegistry {
             .send_semantic(channel_id, sender, topic, focus_nodes, depth)
         {
             Ok(op) => {
-                session.record_operation("send_semantic", None);
+                session.record_operation("comm_send_semantic", None);
                 Ok(ToolCallResult::json(&op))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2671,7 +2671,7 @@ impl ToolRegistry {
 
         match session.store.extract_semantic(message_id) {
             Ok(op) => {
-                session.record_operation("extract_semantic", None);
+                session.record_operation("comm_extract_semantic", None);
                 Ok(ToolCallResult::json(&op))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2700,7 +2700,7 @@ impl ToolRegistry {
             .graft_semantic(source_id, target_id, strategy)
         {
             Ok(op) => {
-                session.record_operation("graft_semantic", None);
+                session.record_operation("comm_graft_semantic", None);
                 Ok(ToolCallResult::json(&op))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2722,7 +2722,7 @@ impl ToolRegistry {
             .store
             .list_semantic_conflicts(channel_id, severity);
         let result = ToolCallResult::json(&conflicts);
-        session.record_operation("list_semantic_conflicts", None);
+        session.record_operation("comm_list_semantic_conflicts", None);
         Ok(result)
     }
 
@@ -2740,7 +2740,7 @@ impl ToolRegistry {
             .ok_or_else(|| McpError::InvalidParams("agent_id is required".to_string()))?;
 
         let state = session.store.get_affect_state(agent_id).cloned();
-        session.record_operation("get_affect_state", None);
+        session.record_operation("comm_get_affect_state", None);
         match state {
             Some(ref s) => Ok(ToolCallResult::json(s)),
             None => Ok(ToolCallResult::json(&json!({
@@ -2761,7 +2761,7 @@ impl ToolRegistry {
             .ok_or_else(|| McpError::InvalidParams("resistance is required".to_string()))?;
 
         let actual = session.store.set_affect_resistance(resistance);
-        session.record_operation("set_affect_resistance", None);
+        session.record_operation("comm_set_affect_resistance", None);
         Ok(ToolCallResult::json(&json!({
             "resistance": actual,
             "message": format!("Affect resistance set to {}", actual),
@@ -2791,7 +2791,7 @@ impl ToolRegistry {
 
         match session.store.hive_think(hive_id, question, timeout_ms) {
             Ok(result) => {
-                session.record_operation("hive_think", None);
+                session.record_operation("comm_hive_think", None);
                 Ok(ToolCallResult::json(&result))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2818,7 +2818,7 @@ impl ToolRegistry {
         let meld = session
             .store
             .initiate_meld(partner_id, depth, duration_ms);
-        session.record_operation("initiate_meld", None);
+        session.record_operation("comm_initiate_meld", None);
         Ok(ToolCallResult::json(&meld))
     }
 
@@ -2841,7 +2841,7 @@ impl ToolRegistry {
             .store
             .list_pending_consent(agent_id, consent_type);
         let result = ToolCallResult::json(&requests);
-        session.record_operation("list_pending_consent", None);
+        session.record_operation("comm_list_pending_consent", None);
         Ok(result)
     }
 
@@ -2860,7 +2860,7 @@ impl ToolRegistry {
 
         match session.store.respond_consent(request_id, response) {
             Ok(()) => {
-                session.record_operation("respond_consent", None);
+                session.record_operation("comm_respond_consent", None);
                 Ok(ToolCallResult::json(&json!({
                     "request_id": request_id,
                     "response": response,
@@ -2894,7 +2894,7 @@ impl ToolRegistry {
         let result = session
             .store
             .query_relationships(agent_id, relationship_type, depth);
-        session.record_operation("query_relationships", None);
+        session.record_operation("comm_query_relationships", None);
         Ok(ToolCallResult::json(&result))
     }
 
@@ -2913,7 +2913,7 @@ impl ToolRegistry {
 
         match session.store.query_echoes(message_id, depth) {
             Ok(result) => {
-                session.record_operation("query_echoes", None);
+                session.record_operation("comm_query_echoes", None);
                 Ok(ToolCallResult::json(&result))
             }
             Err(e) => Ok(ToolCallResult::error(e.to_string())),
@@ -2938,7 +2938,7 @@ impl ToolRegistry {
         let summaries = session
             .store
             .query_conversations(channel_id, participant, limit);
-        session.record_operation("query_conversations", None);
+        session.record_operation("comm_query_conversations", None);
         Ok(ToolCallResult::json(&summaries))
     }
 
@@ -2950,7 +2950,7 @@ impl ToolRegistry {
         session: &mut SessionManager,
     ) -> Result<ToolCallResult, McpError> {
         let status = session.store.get_federation_status();
-        session.record_operation("get_federation_status", None);
+        session.record_operation("comm_get_federation_status", None);
         Ok(ToolCallResult::json(&status))
     }
 
@@ -2986,7 +2986,7 @@ impl ToolRegistry {
             allow_hive,
             max_message_size,
         );
-        session.record_operation("set_federation_policy", None);
+        session.record_operation("comm_set_federation_policy", None);
         Ok(ToolCallResult::json(&config))
     }
 }

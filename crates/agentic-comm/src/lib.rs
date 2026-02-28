@@ -4,13 +4,15 @@
 //! communication history stored in `.acomm` files.
 
 use std::collections::HashMap;
+use std::fs::File;
 use std::io::{Read as IoRead, Write as IoWrite};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -107,6 +109,10 @@ pub enum CommError {
     /// Rate limit exceeded — the sender has exceeded the configured rate limit.
     #[error("Rate limit exceeded: {limit}")]
     RateLimitExceeded { limit: String },
+
+    /// File locking error.
+    #[error("Lock error: {0}")]
+    LockError(String),
 }
 
 /// Convenience result type.
@@ -587,6 +593,107 @@ pub struct RateTracker {
     /// Epoch second when the hour window was last reset.
     pub last_hour_reset: u64,
 }
+
+// ---------------------------------------------------------------------------
+// File locking
+// ---------------------------------------------------------------------------
+
+/// Advisory file lock for concurrent access to `.acomm` files.
+///
+/// Uses `fs2` advisory locks so that multiple processes can safely read/write
+/// the same `.acomm` file without corruption.  The sidecar lock file lives at
+/// `<data_path>.acomm.lock`.
+pub struct CommFileLock {
+    lock_file: File,
+    lock_path: PathBuf,
+}
+
+impl CommFileLock {
+    /// Acquire an exclusive lock on the `.acomm` file (blocks until available).
+    pub fn acquire(data_path: &Path) -> CommResult<Self> {
+        let lock_path = data_path.with_extension("acomm.lock");
+        let lock_file = File::create(&lock_path).map_err(|e| {
+            CommError::LockError(format!("Failed to create lock file: {}", e))
+        })?;
+        lock_file.lock_exclusive().map_err(|e| {
+            CommError::LockError(format!("Failed to acquire exclusive lock: {}", e))
+        })?;
+        Ok(Self { lock_file, lock_path })
+    }
+
+    /// Try to acquire an exclusive lock without blocking.
+    ///
+    /// Returns an error immediately if the lock is already held by another
+    /// process.
+    pub fn try_acquire(data_path: &Path) -> CommResult<Self> {
+        let lock_path = data_path.with_extension("acomm.lock");
+        let lock_file = File::create(&lock_path).map_err(|e| {
+            CommError::LockError(format!("Failed to create lock file: {}", e))
+        })?;
+        lock_file.try_lock_exclusive().map_err(|e| {
+            CommError::LockError(format!("Failed to acquire lock (already held): {}", e))
+        })?;
+        Ok(Self { lock_file, lock_path })
+    }
+
+    /// Acquire a shared (read) lock on the `.acomm` file (blocks until
+    /// available).
+    ///
+    /// Multiple readers can hold a shared lock simultaneously, but a shared
+    /// lock blocks exclusive writers.
+    pub fn acquire_shared(data_path: &Path) -> CommResult<Self> {
+        let lock_path = data_path.with_extension("acomm.lock");
+        let lock_file = File::create(&lock_path).map_err(|e| {
+            CommError::LockError(format!("Failed to create lock file: {}", e))
+        })?;
+        lock_file.lock_shared().map_err(|e| {
+            CommError::LockError(format!("Failed to acquire shared lock: {}", e))
+        })?;
+        Ok(Self { lock_file, lock_path })
+    }
+
+    /// Explicitly release the lock and attempt to clean up the lock file.
+    pub fn release(self) -> CommResult<()> {
+        self.lock_file.unlock().map_err(|e| {
+            CommError::LockError(format!("Failed to release lock: {}", e))
+        })?;
+        // Best-effort cleanup of the sidecar file.
+        let _ = std::fs::remove_file(&self.lock_path);
+        Ok(())
+    }
+
+    /// Check if the lock file is stale (older than `max_age_secs` seconds) and
+    /// remove it if so.
+    ///
+    /// Returns `Ok(true)` if a stale lock was recovered, `Ok(false)` otherwise.
+    pub fn recover_stale(data_path: &Path, max_age_secs: u64) -> CommResult<bool> {
+        let lock_path = data_path.with_extension("acomm.lock");
+        if lock_path.exists() {
+            if let Ok(metadata) = std::fs::metadata(&lock_path) {
+                if let Ok(modified) = metadata.modified() {
+                    if let Ok(elapsed) = modified.elapsed() {
+                        if elapsed.as_secs() > max_age_secs {
+                            let _ = std::fs::remove_file(&lock_path);
+                            return Ok(true);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(false)
+    }
+}
+
+impl Drop for CommFileLock {
+    fn drop(&mut self) {
+        let _ = self.lock_file.unlock();
+        let _ = std::fs::remove_file(&self.lock_path);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CommStore
+// ---------------------------------------------------------------------------
 
 /// The main communication store holding channels, messages, and subscriptions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1817,8 +1924,16 @@ impl CommStore {
     // Persistence (.acomm file format)
     // -----------------------------------------------------------------------
 
-    /// Save the store to a .acomm file (bincode + gzip).
+    /// Save the store to a `.acomm` file (bincode + gzip).
+    ///
+    /// Acquires an exclusive [`CommFileLock`] for the duration of the write so
+    /// that concurrent readers/writers on the same path do not corrupt data.
     pub fn save(&self, path: &Path) -> CommResult<()> {
+        // Recover stale locks (older than 60 s) before attempting to acquire.
+        CommFileLock::recover_stale(path, 60)?;
+
+        let _lock = CommFileLock::acquire(path)?;
+
         let header = AcommHeader {
             magic: *ACOMM_MAGIC,
             version: ACOMM_VERSION,
@@ -1838,11 +1953,20 @@ impl CommStore {
         encoder.write_all(&store_bytes)?;
         encoder.finish()?;
 
+        // Lock released via Drop of `_lock`.
         Ok(())
     }
 
-    /// Load a store from a .acomm file.
+    /// Load a store from a `.acomm` file.
+    ///
+    /// Acquires a shared [`CommFileLock`] for the duration of the read so that
+    /// concurrent writers are held off while the data is being read.
     pub fn load(path: &Path) -> CommResult<Self> {
+        // Recover stale locks (older than 60 s) before attempting to acquire.
+        CommFileLock::recover_stale(path, 60)?;
+
+        let _lock = CommFileLock::acquire_shared(path)?;
+
         let file = std::fs::File::open(path)?;
         let mut decoder = GzDecoder::new(file);
         let mut data = Vec::new();
@@ -1872,6 +1996,7 @@ impl CommStore {
         let store: CommStore = bincode::deserialize(&data[header_size..])
             .map_err(|e| CommError::InvalidFile(format!("Bad store data: {e}")))?;
 
+        // Lock released via Drop of `_lock`.
         Ok(store)
     }
 
@@ -2331,6 +2456,8 @@ impl CommStore {
             decision_mode,
             formed_at: now,
             metadata: HashMap::new(),
+            coherence_level: 1.0,
+            separation_policy: "graceful".to_string(),
         };
         self.hive_minds.insert(id, hive);
 
@@ -3012,6 +3139,7 @@ pub struct CommStoreStats {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use filetime::FileTime;
 
     fn new_store_with_channel() -> (CommStore, u64) {
         let mut store = CommStore::new();
@@ -5108,6 +5236,151 @@ mod tests {
             sig_warnings, 1,
             "Should have logged a SignatureWarning audit entry for the tampered message"
         );
+    }
+
+    // -- File locking tests --
+
+    #[test]
+    fn file_locking_exclusive_blocks_second_try() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_path = dir.path().join("test.acomm");
+
+        // Acquire an exclusive lock.
+        let lock1 = CommFileLock::acquire(&data_path).unwrap();
+
+        // A non-blocking try_acquire on the same path should fail.
+        let result = CommFileLock::try_acquire(&data_path);
+        assert!(
+            result.is_err(),
+            "try_acquire should fail while exclusive lock is held"
+        );
+
+        // Clean up.
+        lock1.release().unwrap();
+    }
+
+    #[test]
+    fn file_locking_release_allows_reacquire() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_path = dir.path().join("test.acomm");
+
+        // Acquire, then release.
+        let lock1 = CommFileLock::acquire(&data_path).unwrap();
+        lock1.release().unwrap();
+
+        // Now acquiring again should succeed.
+        let lock2 = CommFileLock::acquire(&data_path).unwrap();
+        lock2.release().unwrap();
+    }
+
+    #[test]
+    fn file_locking_stale_recovery() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_path = dir.path().join("test.acomm");
+        let lock_path = data_path.with_extension("acomm.lock");
+
+        // Create a fake stale lock file.
+        std::fs::File::create(&lock_path).unwrap();
+
+        // Backdate the lock file's mtime to 120 seconds in the past.
+        let old_time = FileTime::from_unix_time(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64
+                - 120,
+            0,
+        );
+        filetime::set_file_mtime(&lock_path, old_time).unwrap();
+
+        // A max_age of 60 s means anything older than 60 s is stale.
+        let recovered = CommFileLock::recover_stale(&data_path, 60).unwrap();
+        assert!(recovered, "Should have recovered stale lock file");
+        assert!(
+            !lock_path.exists(),
+            "Stale lock file should have been removed"
+        );
+    }
+
+    #[test]
+    fn file_locking_stale_recovery_not_stale() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_path = dir.path().join("test.acomm");
+        let lock_path = data_path.with_extension("acomm.lock");
+
+        // Create a fresh lock file.
+        std::fs::File::create(&lock_path).unwrap();
+
+        // With a large max_age, the lock should not be considered stale.
+        let recovered = CommFileLock::recover_stale(&data_path, 3600).unwrap();
+        assert!(!recovered, "Fresh lock should not be recovered");
+        assert!(lock_path.exists(), "Fresh lock file should still exist");
+    }
+
+    #[test]
+    fn file_locking_no_lock_file_recovery() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_path = dir.path().join("test.acomm");
+
+        // No lock file exists — recovery should return false.
+        let recovered = CommFileLock::recover_stale(&data_path, 0).unwrap();
+        assert!(!recovered, "No lock file means nothing to recover");
+    }
+
+    #[test]
+    fn file_locking_save_load_with_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("locked.acomm");
+
+        // Build a store with some data.
+        let mut store = CommStore::new();
+        store
+            .create_channel("lock-test", ChannelType::Group, None)
+            .unwrap();
+        store
+            .send_message(1, "agent-a", "hello from lock test", MessageType::Text)
+            .unwrap();
+
+        // Save (internally acquires exclusive lock).
+        store.save(&path).unwrap();
+
+        // Load (internally acquires shared lock).
+        let loaded = CommStore::load(&path).unwrap();
+        assert_eq!(loaded.channels.len(), 1);
+        assert_eq!(loaded.messages.len(), 1);
+
+        let msg = loaded.messages.values().next().unwrap();
+        assert_eq!(msg.content, "hello from lock test");
+    }
+
+    #[test]
+    fn file_locking_shared_allows_multiple_readers() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_path = dir.path().join("test.acomm");
+
+        // Multiple shared locks should coexist.
+        let lock1 = CommFileLock::acquire_shared(&data_path).unwrap();
+        let lock2 = CommFileLock::acquire_shared(&data_path).unwrap();
+
+        // Both held simultaneously — no panic, no error.
+        lock1.release().unwrap();
+        lock2.release().unwrap();
+    }
+
+    #[test]
+    fn file_locking_drop_releases_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_path = dir.path().join("test.acomm");
+
+        // Acquire and then drop without explicit release.
+        {
+            let _lock = CommFileLock::acquire(&data_path).unwrap();
+            // _lock dropped here.
+        }
+
+        // Should be able to re-acquire after drop.
+        let lock2 = CommFileLock::try_acquire(&data_path).unwrap();
+        lock2.release().unwrap();
     }
 
 }

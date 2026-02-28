@@ -202,7 +202,29 @@ impl ProtocolHandler {
         serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
     }
 
+    /// Check if the MCP connection is authorized via AGENTIC_COMM_TOKEN env var.
+    /// If AGENTIC_COMM_TOKEN is set, all tool calls must include a matching token
+    /// in the _meta.token field. If not set, auth is disabled (open access).
+    fn check_auth(params: &Option<Value>) -> McpResult<()> {
+        if let Ok(expected_token) = std::env::var("AGENTIC_COMM_TOKEN") {
+            let provided_token = params
+                .as_ref()
+                .and_then(|p| p.get("_meta"))
+                .and_then(|m| m.get("token"))
+                .and_then(|t| t.as_str())
+                .unwrap_or("");
+            if provided_token != expected_token {
+                return Err(McpError::Unauthorized);
+            }
+        }
+        // If env var not set, auth is disabled
+        Ok(())
+    }
+
     async fn handle_tools_call(&self, params: Option<Value>) -> McpResult<Value> {
+        // Verify auth token before dispatching any tool call.
+        Self::check_auth(&params)?;
+
         let call_params: ToolCallParams = params
             .map(serde_json::from_value)
             .transpose()
