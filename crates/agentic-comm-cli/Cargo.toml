@@ -1,0 +1,18 @@
+[package]
+name = "agentic-comm-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "CLI for agentic-comm: agent communication, channels, pub/sub"
+
+[[bin]]
+name = "acomm"
+path = "src/main.rs"
+
+[dependencies]
+agentic-comm = { workspace = true }
+clap = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }

@@ -1,0 +1,224 @@
+//! Main request dispatcher — receives JSON-RPC messages, routes to handlers.
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::session::manager::SessionManager;
+use crate::tools::registry::ToolRegistry;
+use crate::types::*;
+
+/// Parameters expected by the MCP `initialize` method.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitializeParams {
+    /// Client protocol version.
+    #[serde(rename = "protocolVersion")]
+    pub protocol_version: String,
+    /// Client capabilities.
+    #[serde(default)]
+    pub capabilities: Value,
+    /// Client info.
+    #[serde(rename = "clientInfo", default)]
+    pub client_info: Value,
+}
+
+/// Result returned from `initialize`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitializeResult {
+    /// Server protocol version.
+    #[serde(rename = "protocolVersion")]
+    pub protocol_version: String,
+    /// Server capabilities.
+    pub capabilities: Value,
+    /// Server info.
+    #[serde(rename = "serverInfo")]
+    pub server_info: Value,
+}
+
+/// Parameters for a tools/call invocation.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ToolCallParams {
+    /// Tool name.
+    pub name: String,
+    /// Tool arguments.
+    #[serde(default)]
+    pub arguments: Value,
+}
+
+/// The main protocol handler that dispatches incoming JSON-RPC messages.
+pub struct ProtocolHandler {
+    session: Arc<Mutex<SessionManager>>,
+    shutdown_requested: Arc<AtomicBool>,
+    /// Tracks whether an auto-session was started so we can auto-end it.
+    auto_session_started: AtomicBool,
+}
+
+impl ProtocolHandler {
+    /// Create a new protocol handler with the given session manager.
+    pub fn new(session: Arc<Mutex<SessionManager>>) -> Self {
+        Self {
+            session,
+            shutdown_requested: Arc::new(AtomicBool::new(false)),
+            auto_session_started: AtomicBool::new(false),
+        }
+    }
+
+    /// Returns true once a shutdown request has been handled.
+    pub fn shutdown_requested(&self) -> bool {
+        self.shutdown_requested.load(Ordering::Relaxed)
+    }
+
+    /// Handle an incoming JSON-RPC message and optionally return a response.
+    pub async fn handle_message(&self, msg: JsonRpcMessage) -> Option<Value> {
+        match msg {
+            JsonRpcMessage::Request(req) => Some(self.handle_request(req).await),
+            JsonRpcMessage::Notification(notif) => {
+                self.handle_notification(notif).await;
+                None
+            }
+            _ => {
+                // Responses and errors from the client are unexpected
+                None
+            }
+        }
+    }
+
+    /// Cleanup on transport close (EOF). Auto-ends session if one was started.
+    pub async fn cleanup(&self) {
+        if !self.auto_session_started.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let mut session = self.session.lock().await;
+        if let Err(e) = session.save() {
+            eprintln!("Failed to save on EOF cleanup: {e}");
+        }
+        self.auto_session_started.store(false, Ordering::Relaxed);
+    }
+
+    async fn handle_request(&self, request: JsonRpcRequest) -> Value {
+        if request.jsonrpc != "2.0" {
+            let err = McpError::InvalidRequest("jsonrpc must be \"2.0\"".to_string());
+            return serde_json::to_value(err.to_json_rpc_error(request.id))
+                .unwrap_or_default();
+        }
+
+        let id = request.id.clone();
+        let result = self.dispatch_request(&request).await;
+
+        match result {
+            Ok(value) => {
+                serde_json::to_value(JsonRpcResponse::new(id, value)).unwrap_or_default()
+            }
+            Err(e) => serde_json::to_value(e.to_json_rpc_error(id)).unwrap_or_default(),
+        }
+    }
+
+    async fn dispatch_request(&self, request: &JsonRpcRequest) -> McpResult<Value> {
+        match request.method.as_str() {
+            // Lifecycle
+            "initialize" => self.handle_initialize(request.params.clone()).await,
+            "shutdown" => self.handle_shutdown().await,
+
+            // Tools
+            "tools/list" => self.handle_tools_list().await,
+            "tools/call" => self.handle_tools_call(request.params.clone()).await,
+
+            // Ping
+            "ping" => Ok(Value::Object(serde_json::Map::new())),
+
+            _ => Err(McpError::MethodNotFound(request.method.clone())),
+        }
+    }
+
+    async fn handle_notification(&self, notification: JsonRpcNotification) {
+        match notification.method.as_str() {
+            "initialized" => {
+                // Auto-start session when client confirms connection.
+                self.auto_session_started.store(true, Ordering::Relaxed);
+                let mut session = self.session.lock().await;
+                session.mark_session_started();
+            }
+            "notifications/cancelled" | "$/cancelRequest" => {
+                // Cancellation — no-op for now.
+            }
+            _ => {
+                // Unknown notification — ignore.
+            }
+        }
+    }
+
+    async fn handle_initialize(&self, params: Option<Value>) -> McpResult<Value> {
+        let _init_params: InitializeParams = params
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| McpError::InvalidParams(e.to_string()))?
+            .ok_or_else(|| {
+                McpError::InvalidParams("Initialize params required".to_string())
+            })?;
+
+        let result = InitializeResult {
+            protocol_version: "2024-11-05".to_string(),
+            capabilities: serde_json::json!({
+                "tools": { "listChanged": false },
+            }),
+            server_info: serde_json::json!({
+                "name": "agentic-comm-mcp",
+                "version": env!("CARGO_PKG_VERSION"),
+            }),
+        };
+
+        serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
+    }
+
+    async fn handle_shutdown(&self) -> McpResult<Value> {
+        let mut session = self.session.lock().await;
+
+        // Save on shutdown.
+        if self.auto_session_started.swap(false, Ordering::Relaxed) {
+            if let Err(e) = session.save() {
+                eprintln!("Failed to save on shutdown: {e}");
+            }
+        }
+
+        self.shutdown_requested.store(true, Ordering::Relaxed);
+        Ok(Value::Object(serde_json::Map::new()))
+    }
+
+    async fn handle_tools_list(&self) -> McpResult<Value> {
+        let result = ToolListResult {
+            tools: ToolRegistry::list_tools(),
+            next_cursor: None,
+        };
+        serde_json::to_value(result).map_err(|e| McpError::InternalError(e.to_string()))
+    }
+
+    async fn handle_tools_call(&self, params: Option<Value>) -> McpResult<Value> {
+        let call_params: ToolCallParams = params
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|e| McpError::InvalidParams(e.to_string()))?
+            .ok_or_else(|| {
+                McpError::InvalidParams("Tool call params required".to_string())
+            })?;
+
+        let mut session = self.session.lock().await;
+
+        // Two-tier error handling: ToolNotFound → protocol error; everything else → tool result
+        match ToolRegistry::dispatch(&call_params.name, &call_params.arguments, &mut session)
+        {
+            Ok(result) => serde_json::to_value(result)
+                .map_err(|e| McpError::InternalError(e.to_string())),
+            Err(McpError::ToolNotFound(name)) => Err(McpError::ToolNotFound(name)),
+            Err(e) => {
+                // Non-protocol errors become tool execution errors
+                let result = ToolCallResult::error(e.to_string());
+                serde_json::to_value(result)
+                    .map_err(|e| McpError::InternalError(e.to_string()))
+            }
+        }
+    }
+}

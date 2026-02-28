@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/agentic-comm",
+    "crates/agentic-comm-cli",
+    "crates/agentic-comm-mcp",
+    "crates/agentic-comm-ffi",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/agentralabs/agentic-comm"
+authors = ["Agentra Labs <contact@agentralabs.tech>"]
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1"
+sha2 = "0.10"
+bincode = "1"
+flate2 = "1"
+clap = { version = "4", features = ["derive"] }
+
+# Internal crates
+agentic-comm = { path = "crates/agentic-comm" }
+agentic-comm-mcp = { path = "crates/agentic-comm-mcp" }
+agentic-comm-cli = { path = "crates/agentic-comm-cli" }
+agentic-comm-ffi = { path = "crates/agentic-comm-ffi" }

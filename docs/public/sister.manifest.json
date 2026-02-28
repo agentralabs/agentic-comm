@@ -1,0 +1,30 @@
+{
+  "key": "comm",
+  "name": "AgenticComm",
+  "include_landing": true,
+  "page_ids": [
+    "overview",
+    "experience-with-vs-without",
+    "quickstart",
+    "installation",
+    "command-surface",
+    "integration-guide",
+    "concepts",
+    "api-reference",
+    "data-structures",
+    "file-format",
+    "architecture",
+    "cli-reference",
+    "configuration",
+    "ffi-reference",
+    "mcp-tools",
+    "mcp-resources",
+    "mcp-prompts",
+    "troubleshooting",
+    "benchmarks",
+    "faq",
+    "guide",
+    "SCENARIOS-AGENTIC-COMM"
+  ],
+  "slug_by_id": {}
+}

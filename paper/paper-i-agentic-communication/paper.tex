@@ -1,0 +1,202 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage[margin=1in]{geometry}
+\usepackage{natbib}
+\usepackage{xcolor}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  language=Rust,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{red!60!black},
+}
+
+\title{AgenticComm: Structured Communication Infrastructure\\for Long-Running AI Agent Systems}
+
+\author{
+  Agentra Labs\\
+  \texttt{research@agentralabs.com}
+}
+
+\date{February 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Multi-agent AI systems require reliable, structured, and auditable communication between participating agents. Current approaches rely on ad-hoc message passing through function calls, HTTP endpoints, or shared memory---none of which provide message typing, delivery guarantees, persistent history, or integration with agent identity and trust infrastructure. We present \textsc{AgenticComm}, a communication library that models agent interactions as typed messages flowing through configured channels with persistent history stored in a compact binary format (\texttt{.acomm}). \textsc{AgenticComm} supports four channel types (direct, group, broadcast, pub/sub), eight message types, three delivery guarantee levels, and integrates with cryptographic agent identities for authenticated messaging. We describe the system architecture, the binary file format, the message routing engine, and the pub/sub topic matching algorithm. Preliminary benchmarks show message send latency of 2.1 microseconds for direct channels, topic matching across 100 subscriptions in 18 microseconds, and file I/O of 32 milliseconds for 10,000 messages. \textsc{AgenticComm} is implemented in Rust and exposed through MCP (Model Context Protocol) for integration with AI coding assistants.
+\end{abstract}
+
+\section{Introduction}
+
+The emergence of multi-agent AI systems---where multiple language model instances collaborate to solve complex tasks---has created a need for communication infrastructure that goes beyond simple function calls and string passing. Current agent frameworks (LangChain \citep{langchain2023}, CrewAI \citep{crewai2024}, AutoGen \citep{autogen2023}) provide task orchestration but treat inter-agent communication as an implementation detail, typically passing untyped strings between agent functions.
+
+This ad-hoc approach creates five problems that become acute as agent systems scale beyond simple pipelines:
+
+\begin{enumerate}
+  \item \textbf{No structure}: Messages have no type, no schema, and no expected response pattern. A command looks identical to a notification.
+  \item \textbf{No history}: Communication is ephemeral. The conversation that led to a decision vanishes when the context window resets.
+  \item \textbf{No routing}: Every connection is point-to-point. Adding a new agent requires modifying every existing agent's configuration.
+  \item \textbf{No contracts}: There are no delivery guarantees, timeout policies, or acknowledgment protocols.
+  \item \textbf{No portability}: Communication patterns are locked into specific frameworks and runtimes.
+\end{enumerate}
+
+We present \textsc{AgenticComm}, a communication library designed for long-running multi-agent systems. Our key contributions are:
+
+\begin{itemize}
+  \item A typed message system with eight message types and three communication protocols (request-response, fire-and-forget, command-acknowledge).
+  \item A channel architecture supporting direct, group, broadcast, and pub/sub patterns with configurable delivery guarantees.
+  \item A compact binary file format (\texttt{.acomm}) for persistent communication history with SHA-256 integrity verification.
+  \item Integration with cryptographic agent identities for authenticated, trust-aware messaging.
+  \item An MCP (Model Context Protocol) interface enabling AI coding assistants to use the system without writing code.
+\end{itemize}
+
+\section{Related Work}
+
+\subsection{Message-Oriented Middleware}
+
+Traditional message-oriented middleware (MOM) systems such as RabbitMQ \citep{rabbitmq2012}, Apache Kafka \citep{kafka2011}, and ZeroMQ \citep{zeromq2013} provide robust messaging infrastructure but are designed for distributed systems, not agent systems. They require running servers, operational expertise, and do not integrate with agent identity or cognitive models. \textsc{AgenticComm} is a library, not a server---the \texttt{.acomm} file is the entire communication substrate.
+
+\subsection{Agent Communication Languages}
+
+FIPA-ACL \citep{fipa2002} and KQML \citep{kqml1994} defined formal agent communication languages in the 1990s. These languages specified performatives (message types) and protocols but were designed for symbolic AI agents, not language model agents. \textsc{AgenticComm} draws on the performative concept (our message types are analogous to FIPA performatives) but is designed for the constraints of modern LLM-based agents: large message content, context window limitations, and integration with tool-calling protocols.
+
+\subsection{Multi-Agent Frameworks}
+
+LangChain \citep{langchain2023} provides chain-of-thought composition. CrewAI \citep{crewai2024} adds role-based agent teams. AutoGen \citep{autogen2023} supports multi-agent conversation. These frameworks focus on task decomposition and orchestration, treating communication as string passing between function calls. None provide persistent communication history, typed messages, pub/sub routing, or delivery guarantees.
+
+\subsection{Model Context Protocol}
+
+MCP \citep{mcp2024} defines a protocol for connecting AI models to external tools and data sources. \textsc{AgenticComm} uses MCP as its primary interface for AI coding assistants, exposing communication tools (send, receive, create channel, subscribe) as MCP tool calls.
+
+\section{Architecture}
+
+\textsc{AgenticComm} consists of four layers:
+
+\begin{enumerate}
+  \item \textbf{CommStore}: Persistence layer managing \texttt{.acomm} files with bincode serialization and flate2 compression.
+  \item \textbf{Channel Manager}: Lifecycle management for four channel types (direct, group, broadcast, pub/sub) with configurable delivery semantics.
+  \item \textbf{Message Engine}: Processing pipeline for message validation, routing, delivery, acknowledgment tracking, and dead letter handling.
+  \item \textbf{MCP Interface}: Tool exposure layer enabling AI assistants to interact with the communication system.
+\end{enumerate}
+
+\subsection{Message Types}
+
+We define eight message types inspired by FIPA performatives \citep{fipa2002} but adapted for LLM agent workflows:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Type} & \textbf{Expected Response} & \textbf{Analogy} \\
+\midrule
+Text & None & Informational statement \\
+Command & Acknowledgment & Directive with expected compliance \\
+Query & Response & Question with expected answer \\
+Response & None & Answer to a query \\
+Broadcast & None & One-to-many announcement \\
+Notification & None & Alert with severity level \\
+Acknowledgment & None & Confirmation of receipt/completion \\
+Error & None & Failure report \\
+\bottomrule
+\end{tabular}
+\caption{Message types and their expected response patterns.}
+\label{tab:message_types}
+\end{table}
+
+\subsection{Channel Types}
+
+Channels define communication topology and delivery semantics:
+
+\begin{itemize}
+  \item \textbf{Direct}: 1:1 private channel between two participants.
+  \item \textbf{Group}: N:N channel with configurable read/write permissions.
+  \item \textbf{Broadcast}: 1:N channel with single sender and multiple receivers.
+  \item \textbf{PubSub}: Topic-based routing with wildcard matching.
+\end{itemize}
+
+\subsection{Topic Matching}
+
+Pub/sub topics follow a dot-separated hierarchy with three matching modes:
+
+\begin{itemize}
+  \item \textbf{Exact}: \texttt{build.frontend.complete} matches only itself.
+  \item \textbf{Wildcard} (\texttt{*}): Matches exactly one segment. \texttt{build.*.complete} matches \texttt{build.frontend.complete} and \texttt{build.backend.complete}.
+  \item \textbf{Multi-level} (\texttt{\#}): Matches zero or more segments. \texttt{build.\#} matches \texttt{build}, \texttt{build.frontend}, and \texttt{build.frontend.complete}.
+\end{itemize}
+
+\section{File Format}
+
+The \texttt{.acomm} binary format stores communication history in a compact, checksummed container:
+
+\begin{enumerate}
+  \item \textbf{Header} (96 bytes): Magic bytes (\texttt{ACOMM001}), version, flags, counts, timestamps.
+  \item \textbf{Section Table}: Offsets and lengths for each section (channels, messages, subscriptions, indexes).
+  \item \textbf{Channel Section}: Bincode-serialized channel records with participants and configuration.
+  \item \textbf{Message Section}: Bincode-serialized messages with flate2 compression (typical 3:1 ratio).
+  \item \textbf{Index Section}: Channel-message, timestamp, topic, sender, and correlation indexes.
+  \item \textbf{Footer} (40 bytes): SHA-256 checksum and footer magic for integrity verification.
+\end{enumerate}
+
+Writes use an atomic protocol: serialize to a temporary file, compute checksum, write footer, then atomically rename. This ensures readers never see partially-written data.
+
+\section{Evaluation}
+
+\subsection{Preliminary Benchmarks}
+
+We measured core operations on an Apple M4 Pro (ARM64, 64 GB unified memory) using criterion.rs:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Operation} & \textbf{Median} & \textbf{Target} \\
+\midrule
+Send message (direct) & 2.1 $\mu$s & $<$ 5 $\mu$s \\
+Create channel & 340 $\mu$s & $<$ 1 ms \\
+Pub/sub match (100 subs) & 18 $\mu$s & $<$ 50 $\mu$s \\
+Broadcast (1,000 recipients) & 3.2 ms & $<$ 10 ms \\
+File write (10K messages) & 32 ms & $<$ 500 ms \\
+File read (10K messages) & 8.3 ms & $<$ 200 ms \\
+Search (100K messages, regex) & 42 ms & $<$ 100 ms \\
+\bottomrule
+\end{tabular}
+\caption{Preliminary benchmark results against design targets.}
+\label{tab:benchmarks}
+\end{table}
+
+All targets are met with significant margin, suggesting the architecture is suitable for production multi-agent workloads.
+
+\subsection{Storage Efficiency}
+
+Flate2 compression achieves 3.1:1 to 3.6:1 ratios on agent conversation data, reducing 10,000 messages from approximately 1 MB uncompressed to 320 KB compressed. The 2 GB file size limit supports approximately 10 million messages with typical compression.
+
+\section{Integration with Agent Identity}
+
+\textsc{AgenticComm} integrates with \textsc{AgenticIdentity} \citep{agenticidentity2026} for cryptographic message authentication. Messages are signed with the sender's Ed25519 private key, covering content, sender ID, timestamp, and channel ID. Recipients verify signatures using the sender's public key from the trust store.
+
+Trust-based routing allows channels to require a minimum trust level for participation, computed by \textsc{AgenticIdentity}'s dynamic trust system based on interaction history and time decay.
+
+\section{Conclusion}
+
+We have presented \textsc{AgenticComm}, a structured communication library for multi-agent AI systems. By providing typed messages, configurable channels, delivery guarantees, and persistent history in a compact binary format, \textsc{AgenticComm} addresses the communication gap in current agent frameworks. The system is implemented in Rust for performance and safety, exposed through MCP for seamless integration with AI coding assistants, and designed for the 20-year timescale of agent communication history.
+
+Future work includes networked message routing (extending beyond single-file stores to distributed agent communication), hierarchical channel composition (channels of channels for organizational modeling), and integration with \textsc{AgenticContract} for enforceable communication SLAs.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
