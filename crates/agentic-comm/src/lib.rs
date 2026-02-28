@@ -2937,6 +2937,470 @@ impl CommStore {
         clamped
     }
 
+
+    // -----------------------------------------------------------------------
+    // Affect contagion pipeline
+    // -----------------------------------------------------------------------
+
+    /// Process affect contagion across all participants in a channel.
+    ///
+    /// For each message with affect metadata (valence, arousal, dominance),
+    /// apply a simple contagion model: each receiver's state is nudged toward
+    /// the sender's state, weighted by `(1 - affect_resistance)`.
+    pub fn process_affect_contagion(
+        &mut self,
+        channel_id: u64,
+    ) -> Vec<(String, f64, f64, f64)> {
+        let channel = match self.channels.get(&channel_id) {
+            Some(ch) => ch.clone(),
+            None => return Vec::new(),
+        };
+        let participants = channel.participants.clone();
+        let resistance = self.affect_resistance;
+
+        // Collect messages with affect metadata
+        let mut affect_messages: Vec<(String, f64, f64, f64)> = Vec::new();
+        for msg in self.messages.values() {
+            if msg.channel_id != channel_id {
+                continue;
+            }
+            let valence = msg
+                .metadata
+                .get("valence")
+                .and_then(|v| v.parse::<f64>().ok());
+            let arousal = msg
+                .metadata
+                .get("arousal")
+                .and_then(|v| v.parse::<f64>().ok());
+            let dominance = msg
+                .metadata
+                .get("dominance")
+                .and_then(|v| v.parse::<f64>().ok());
+
+            if let (Some(v), Some(a), Some(d)) = (valence, arousal, dominance) {
+                affect_messages.push((msg.sender.clone(), v, a, d));
+            }
+        }
+
+        let mut results: Vec<(String, f64, f64, f64)> = Vec::new();
+
+        for (sender, v, a, d) in &affect_messages {
+            for participant in &participants {
+                if participant == sender {
+                    continue;
+                }
+                let weight = 1.0 - resistance;
+                let current = self
+                    .affect_states
+                    .get(participant)
+                    .cloned()
+                    .unwrap_or_default();
+                let new_valence =
+                    (current.valence + (v - current.valence) * weight).clamp(-1.0, 1.0);
+                let new_arousal =
+                    (current.arousal + (a - current.arousal) * weight).clamp(0.0, 1.0);
+                let new_dominance =
+                    (current.dominance + (d - current.dominance) * weight).clamp(0.0, 1.0);
+
+                let state = self
+                    .affect_states
+                    .entry(participant.clone())
+                    .or_insert_with(AffectState::default);
+                state.valence = new_valence;
+                state.arousal = new_arousal;
+                state.dominance = new_dominance;
+
+                results.push((
+                    participant.clone(),
+                    new_valence,
+                    new_arousal,
+                    new_dominance,
+                ));
+            }
+        }
+
+        results
+    }
+
+    /// Retrieve the full affect history for an agent.
+    ///
+    /// Builds a history from the current affect state and any messages
+    /// sent by or to the agent that carried affect metadata.
+    pub fn get_affect_history(&self, agent: &str) -> types::AffectHistory {
+        use crate::types::{AffectHistory, AffectHistoryEntry};
+
+        let mut entries: Vec<AffectHistoryEntry> = Vec::new();
+
+        // Scan messages for affect metadata involving this agent
+        for msg in self.messages.values() {
+            let involves_agent = msg.sender == agent
+                || msg
+                    .recipient
+                    .as_deref()
+                    .map_or(false, |r| r == agent);
+
+            if !involves_agent {
+                continue;
+            }
+
+            let valence = msg
+                .metadata
+                .get("valence")
+                .and_then(|v| v.parse::<f64>().ok());
+            let arousal = msg
+                .metadata
+                .get("arousal")
+                .and_then(|v| v.parse::<f64>().ok());
+            let dominance = msg
+                .metadata
+                .get("dominance")
+                .and_then(|v| v.parse::<f64>().ok());
+
+            if valence.is_some() || arousal.is_some() || dominance.is_some() {
+                entries.push(AffectHistoryEntry {
+                    timestamp: msg.timestamp.timestamp() as u64,
+                    emotion: String::new(),
+                    intensity: 0.0,
+                    valence: valence.unwrap_or(0.0),
+                    arousal: arousal.unwrap_or(0.0),
+                    dominance: dominance.unwrap_or(0.5),
+                    source: if msg.sender == agent {
+                        "direct".to_string()
+                    } else {
+                        "contagion".to_string()
+                    },
+                });
+            }
+        }
+
+        // Add current state if it exists
+        if let Some(state) = self.affect_states.get(agent) {
+            entries.push(AffectHistoryEntry {
+                timestamp: chrono::Utc::now().timestamp() as u64,
+                emotion: String::new(),
+                intensity: 0.0,
+                valence: state.valence,
+                arousal: state.arousal,
+                dominance: state.dominance,
+                source: "current".to_string(),
+            });
+        }
+
+        entries.sort_by_key(|e| e.timestamp);
+
+        AffectHistory {
+            agent: agent.to_string(),
+            states: entries,
+        }
+    }
+
+    /// Apply temporal decay to all agent affect states.
+    ///
+    /// Each dimension is multiplied by `(1.0 - decay_rate)`, then clamped
+    /// to valid ranges: valence [-1.0, 1.0], arousal [0.0, 1.0],
+    /// dominance [0.0, 1.0].
+    pub fn apply_affect_decay(&mut self, decay_rate: f64) {
+        let factor = 1.0 - decay_rate.clamp(0.0, 1.0);
+        for state in self.affect_states.values_mut() {
+            state.valence = (state.valence * factor).clamp(-1.0, 1.0);
+            state.arousal = (state.arousal * factor).clamp(0.0, 1.0);
+            state.dominance = (state.dominance * factor).clamp(0.0, 1.0);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Message forwarding with echo tracking
+    // -----------------------------------------------------------------------
+
+    /// Forward a message to another channel with echo tracking metadata.
+    ///
+    /// Creates a new message in `target_channel` with content prefixed
+    /// "[Forwarded] " and metadata tracking the forwarding chain.
+    pub fn forward_message(
+        &mut self,
+        original_id: u64,
+        target_channel: u64,
+        forwarder: &str,
+    ) -> Result<u64, String> {
+        let original = self
+            .messages
+            .get(&original_id)
+            .cloned()
+            .ok_or_else(|| format!("Message {} not found", original_id))?;
+
+        if !self.channels.contains_key(&target_channel) {
+            return Err(format!("Target channel {} not found", target_channel));
+        }
+
+        // Determine echo depth and original root
+        let parent_depth: u32 = original
+            .metadata
+            .get("echo_depth")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        let root_id = original
+            .metadata
+            .get("original_message_id")
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(original_id);
+
+        let content = format!("[Forwarded] {}", original.content);
+
+        let id = self.next_message_id;
+        self.next_message_id += 1;
+
+        self.lamport_counter += 1;
+        let mut ts = types::CommTimestamp::now(forwarder);
+        ts.lamport = self.lamport_counter;
+
+        let mut metadata = HashMap::new();
+        metadata.insert("forwarded_from".to_string(), original_id.to_string());
+        metadata.insert("echo_depth".to_string(), (parent_depth + 1).to_string());
+        metadata.insert("original_message_id".to_string(), root_id.to_string());
+        metadata.insert("forwarder".to_string(), forwarder.to_string());
+
+        let message = Message {
+            id,
+            channel_id: target_channel,
+            sender: forwarder.to_string(),
+            recipient: None,
+            content,
+            message_type: MessageType::Text,
+            timestamp: Utc::now(),
+            metadata,
+            signature: Some(self.compute_signature(&original.content)),
+            acknowledged_by: Vec::new(),
+            status: MessageStatus::Sent,
+            priority: MessagePriority::default(),
+            reply_to: None,
+            correlation_id: None,
+            thread_id: None,
+            comm_timestamp: ts,
+        };
+
+        self.messages.insert(id, message);
+
+        self.log_audit(
+            AuditEventType::MessageSent,
+            forwarder,
+            &format!(
+                "Forwarded message {} to channel {} (depth {})",
+                original_id,
+                target_channel,
+                parent_depth + 1
+            ),
+            Some(id.to_string()),
+        );
+
+        Ok(id)
+    }
+
+    /// Trace the full forwarding (echo) chain of a message.
+    ///
+    /// Follows "forwarded_from" metadata backwards to the root, then
+    /// searches forward for all messages forwarded from any message in the
+    /// chain.
+    pub fn query_echo_chain(&self, message_id: u64) -> Vec<types::EchoChainEntry> {
+        use crate::types::EchoChainEntry;
+
+        let mut chain: Vec<EchoChainEntry> = Vec::new();
+
+        // Walk backwards to the root
+        let mut current_id = message_id;
+        let mut visited: std::collections::HashSet<u64> = std::collections::HashSet::new();
+        loop {
+            if !visited.insert(current_id) {
+                break; // cycle protection
+            }
+            let msg = match self.messages.get(&current_id) {
+                Some(m) => m,
+                None => break,
+            };
+            let depth: u32 = msg
+                .metadata
+                .get("echo_depth")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
+            let forwarder = msg
+                .metadata
+                .get("forwarder")
+                .cloned()
+                .unwrap_or_else(|| msg.sender.clone());
+
+            chain.push(EchoChainEntry {
+                message_id: current_id,
+                channel_id: msg.channel_id,
+                sender: msg.sender.clone(),
+                forwarder,
+                depth,
+                timestamp: msg.timestamp.timestamp() as u64,
+            });
+
+            match msg
+                .metadata
+                .get("forwarded_from")
+                .and_then(|v| v.parse::<u64>().ok())
+            {
+                Some(parent) => current_id = parent,
+                None => break,
+            }
+        }
+
+        chain.reverse(); // root first
+
+        // Walk forward: find all messages forwarded from any message in the chain
+        let chain_ids: std::collections::HashSet<u64> =
+            chain.iter().map(|e| e.message_id).collect();
+        for msg in self.messages.values() {
+            if chain_ids.contains(&msg.id) {
+                continue; // already in chain
+            }
+            if let Some(parent_str) = msg.metadata.get("forwarded_from") {
+                if let Ok(parent_id) = parent_str.parse::<u64>() {
+                    if chain_ids.contains(&parent_id) {
+                        let depth: u32 = msg
+                            .metadata
+                            .get("echo_depth")
+                            .and_then(|v| v.parse().ok())
+                            .unwrap_or(0);
+                        let forwarder = msg
+                            .metadata
+                            .get("forwarder")
+                            .cloned()
+                            .unwrap_or_else(|| msg.sender.clone());
+                        chain.push(EchoChainEntry {
+                            message_id: msg.id,
+                            channel_id: msg.channel_id,
+                            sender: msg.sender.clone(),
+                            forwarder,
+                            depth,
+                            timestamp: msg.timestamp.timestamp() as u64,
+                        });
+                    }
+                }
+            }
+        }
+
+        chain.sort_by_key(|e| (e.depth, e.timestamp));
+        chain
+    }
+
+    /// Get the forwarding depth of a message in its echo chain.
+    ///
+    /// Returns the "echo_depth" metadata value, or 0 if the message is an
+    /// original (not forwarded).
+    pub fn get_echo_depth(&self, message_id: u64) -> u32 {
+        self.messages
+            .get(&message_id)
+            .and_then(|msg| {
+                msg.metadata
+                    .get("echo_depth")
+                    .and_then(|v| v.parse().ok())
+            })
+            .unwrap_or(0)
+    }
+
+    // -----------------------------------------------------------------------
+    // Conversation summarization
+    // -----------------------------------------------------------------------
+
+    /// Generate detailed conversation statistics for a channel.
+    pub fn summarize_conversation(
+        &self,
+        channel_id: u64,
+    ) -> Result<types::ConversationSummaryDetailed, String> {
+        use crate::types::ConversationSummaryDetailed;
+
+        let channel = self
+            .channels
+            .get(&channel_id)
+            .ok_or_else(|| format!("Channel {} not found", channel_id))?;
+
+        let msgs: Vec<&Message> = self
+            .messages
+            .values()
+            .filter(|m| m.channel_id == channel_id)
+            .collect();
+
+        let message_count = msgs.len();
+        let participants = channel.participants.clone();
+        let participant_count = participants.len();
+
+        let first_message_time = msgs
+            .iter()
+            .map(|m| m.timestamp.timestamp() as u64)
+            .min();
+        let last_message_time = msgs
+            .iter()
+            .map(|m| m.timestamp.timestamp() as u64)
+            .max();
+
+        let duration_secs = match (first_message_time, last_message_time) {
+            (Some(first), Some(last)) if last > first => last - first,
+            _ => 0,
+        };
+
+        let messages_per_minute = if duration_secs > 0 {
+            (message_count as f64) / (duration_secs as f64 / 60.0)
+        } else if message_count > 0 {
+            message_count as f64
+        } else {
+            0.0
+        };
+
+        // Count messages per sender
+        let mut sender_counts: HashMap<String, usize> = HashMap::new();
+        for msg in &msgs {
+            *sender_counts
+                .entry(msg.sender.clone())
+                .or_insert(0) += 1;
+        }
+        let mut top_senders: Vec<(String, usize)> = sender_counts.into_iter().collect();
+        top_senders.sort_by(|a, b| b.1.cmp(&a.1));
+
+        let most_active_participant = top_senders.first().map(|(name, _)| name.clone());
+        let most_active_count = top_senders.first().map(|(_, c)| *c).unwrap_or(0);
+
+        // Thread count
+        let thread_ids: std::collections::HashSet<&str> = msgs
+            .iter()
+            .filter_map(|m| m.thread_id.as_deref())
+            .collect();
+        let thread_count = thread_ids.len();
+
+        // Reply count
+        let reply_count = msgs.iter().filter(|m| m.reply_to.is_some()).count();
+
+        // Average message length
+        let avg_message_length = if message_count > 0 {
+            msgs.iter().map(|m| m.content.len()).sum::<usize>() as f64 / message_count as f64
+        } else {
+            0.0
+        };
+
+        // Check for affect data
+        let has_affect_data = msgs.iter().any(|m| m.metadata.contains_key("valence"));
+
+        Ok(ConversationSummaryDetailed {
+            channel_id,
+            channel_name: channel.name.clone(),
+            participant_count,
+            message_count,
+            participants,
+            first_message_time,
+            last_message_time,
+            duration_secs,
+            messages_per_minute,
+            top_senders,
+            most_active_participant,
+            most_active_count,
+            avg_message_length,
+            thread_count,
+            reply_count,
+            has_affect_data,
+        })
+    }
+
     // -----------------------------------------------------------------------
     // Hive extensions
     // -----------------------------------------------------------------------
@@ -5847,4 +6311,229 @@ mod tests {
         lock2.release().unwrap();
     }
 
+
+    // -- Affect Contagion / Echo Chain / Summarization tests --
+
+    #[test]
+    fn affect_contagion_basic() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("affect-test", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "alice").unwrap();
+        store.join_channel(ch.id, "bob").unwrap();
+
+        // Send a message with affect metadata
+        let msg = store
+            .send_message(ch.id, "alice", "I am so happy!", MessageType::Text)
+            .unwrap();
+        // Manually set affect metadata on the message
+        store
+            .messages
+            .get_mut(&msg.id)
+            .unwrap()
+            .metadata
+            .insert("valence".to_string(), "0.9".to_string());
+        store
+            .messages
+            .get_mut(&msg.id)
+            .unwrap()
+            .metadata
+            .insert("arousal".to_string(), "0.7".to_string());
+        store
+            .messages
+            .get_mut(&msg.id)
+            .unwrap()
+            .metadata
+            .insert("dominance".to_string(), "0.6".to_string());
+
+        store.set_affect_resistance(0.0);
+        let results = store.process_affect_contagion(ch.id);
+
+        // Bob should be affected
+        assert!(!results.is_empty());
+        let bob_result = results.iter().find(|(name, _, _, _)| name == "bob");
+        assert!(bob_result.is_some());
+        let (_, valence, arousal, _) = bob_result.unwrap();
+        assert!(*valence > 0.0, "Bob's valence should be positive");
+        assert!(*arousal > 0.0, "Bob's arousal should be positive");
+    }
+
+    #[test]
+    fn affect_contagion_empty_channel() {
+        let mut store = CommStore::new();
+        // Non-existent channel
+        let results = store.process_affect_contagion(999);
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn affect_history_empty() {
+        let store = CommStore::new();
+        let history = store.get_affect_history("nonexistent-agent");
+        assert_eq!(history.agent, "nonexistent-agent");
+        assert!(history.states.is_empty());
+    }
+
+    #[test]
+    fn affect_history_with_state() {
+        let mut store = CommStore::new();
+        store.affect_states.insert(
+            "agent-x".to_string(),
+            AffectState {
+                valence: 0.5,
+                arousal: 0.3,
+                dominance: 0.7,
+                ..AffectState::default()
+            },
+        );
+        let history = store.get_affect_history("agent-x");
+        assert_eq!(history.agent, "agent-x");
+        assert!(!history.states.is_empty());
+        let last = history.states.last().unwrap();
+        assert_eq!(last.source, "current");
+        assert!((last.valence - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn affect_decay_reduces_state() {
+        let mut store = CommStore::new();
+        store.affect_states.insert(
+            "agent-y".to_string(),
+            AffectState {
+                valence: 0.8,
+                arousal: 0.6,
+                dominance: 0.5,
+                ..AffectState::default()
+            },
+        );
+        store.apply_affect_decay(0.5);
+        let state = store.affect_states.get("agent-y").unwrap();
+        assert!((state.valence - 0.4).abs() < 0.01, "valence should halve");
+        assert!((state.arousal - 0.3).abs() < 0.01, "arousal should halve");
+    }
+
+    #[test]
+    fn forward_message_basic() {
+        let mut store = CommStore::new();
+        let ch1 = store
+            .create_channel("source-chan", ChannelType::Group, None)
+            .unwrap();
+        let ch2 = store
+            .create_channel("target-chan", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch1.id, "alice").unwrap();
+        store.join_channel(ch2.id, "bob").unwrap();
+
+        let msg = store
+            .send_message(ch1.id, "alice", "Hello world", MessageType::Text)
+            .unwrap();
+
+        let fwd_id = store
+            .forward_message(msg.id, ch2.id, "bob")
+            .unwrap();
+
+        let fwd_msg = store.messages.get(&fwd_id).unwrap();
+        assert!(fwd_msg.content.starts_with("[Forwarded]"));
+        assert_eq!(fwd_msg.channel_id, ch2.id);
+        assert_eq!(
+            fwd_msg.metadata.get("forwarded_from").unwrap(),
+            &msg.id.to_string()
+        );
+        assert_eq!(fwd_msg.metadata.get("echo_depth").unwrap(), "1");
+    }
+
+    #[test]
+    fn forward_message_not_found() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("target", ChannelType::Group, None)
+            .unwrap();
+        let result = store.forward_message(999, ch.id, "bob");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn forward_message_target_not_found() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("source", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "alice").unwrap();
+        let msg = store
+            .send_message(ch.id, "alice", "test", MessageType::Text)
+            .unwrap();
+        let result = store.forward_message(msg.id, 999, "bob");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn echo_chain_and_depth() {
+        let mut store = CommStore::new();
+        let ch1 = store
+            .create_channel("ch1", ChannelType::Group, None)
+            .unwrap();
+        let ch2 = store
+            .create_channel("ch2", ChannelType::Group, None)
+            .unwrap();
+        let ch3 = store
+            .create_channel("ch3", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch1.id, "alice").unwrap();
+        store.join_channel(ch2.id, "bob").unwrap();
+        store.join_channel(ch3.id, "charlie").unwrap();
+
+        let orig = store
+            .send_message(ch1.id, "alice", "Original", MessageType::Text)
+            .unwrap();
+        assert_eq!(store.get_echo_depth(orig.id), 0);
+
+        let fwd1 = store.forward_message(orig.id, ch2.id, "bob").unwrap();
+        assert_eq!(store.get_echo_depth(fwd1), 1);
+
+        let fwd2 = store.forward_message(fwd1, ch3.id, "charlie").unwrap();
+        assert_eq!(store.get_echo_depth(fwd2), 2);
+
+        let chain = store.query_echo_chain(fwd2);
+        assert!(chain.len() >= 3);
+        assert_eq!(chain[0].message_id, orig.id);
+        assert_eq!(chain[0].depth, 0);
+    }
+
+    #[test]
+    fn summarize_conversation_basic() {
+        let mut store = CommStore::new();
+        let ch = store
+            .create_channel("summary-test", ChannelType::Group, None)
+            .unwrap();
+        store.join_channel(ch.id, "alice").unwrap();
+        store.join_channel(ch.id, "bob").unwrap();
+
+        store
+            .send_message(ch.id, "alice", "Hello!", MessageType::Text)
+            .unwrap();
+        store
+            .send_message(ch.id, "bob", "Hi there!", MessageType::Text)
+            .unwrap();
+        store
+            .send_message(ch.id, "alice", "How are you?", MessageType::Text)
+            .unwrap();
+
+        let summary = store.summarize_conversation(ch.id).unwrap();
+        assert_eq!(summary.channel_id, ch.id);
+        assert_eq!(summary.channel_name, "summary-test");
+        assert_eq!(summary.message_count, 3);
+        assert_eq!(summary.participant_count, 2);
+        assert!(summary.avg_message_length > 0.0);
+        assert!(!summary.has_affect_data);
+    }
+
+    #[test]
+    fn summarize_conversation_not_found() {
+        let store = CommStore::new();
+        let result = store.summarize_conversation(999);
+        assert!(result.is_err());
+    }
 }

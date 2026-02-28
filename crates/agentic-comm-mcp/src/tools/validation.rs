@@ -1240,6 +1240,72 @@ pub fn validate_session_resume(params: &Value) -> ValidationResult {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Affect Contagion / Echo Chain / Summarization validators
+// ---------------------------------------------------------------------------
+
+/// Validate affect contagion parameters.
+pub fn validate_affect_contagion(params: &Value) -> ValidationResult {
+    validate_channel_id(params)?;
+    Ok(())
+}
+
+/// Validate affect decay parameters.
+pub fn validate_affect_decay(params: &Value) -> ValidationResult {
+    let rate = params
+        .get("decay_rate")
+        .ok_or_else(|| {
+            ToolCallResult::error(
+                "Validation error: decay_rate is required".to_string(),
+            )
+        })?;
+    let rate_val = rate.as_f64().ok_or_else(|| {
+        ToolCallResult::error(
+            "Validation error: decay_rate must be a number".to_string(),
+        )
+    })?;
+    if !(0.0..=1.0).contains(&rate_val) {
+        return Err(ToolCallResult::error(
+            "Validation error: decay_rate must be between 0.0 and 1.0".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validate forward message parameters.
+pub fn validate_forward_message(params: &Value) -> ValidationResult {
+    validate_message_id(params)?;
+    validate_channel_id(params)?;
+    let forwarder = require_string(params, "forwarder")?;
+    validate_sender(forwarder)?;
+    Ok(())
+}
+
+/// Validate summarize conversation parameters.
+pub fn validate_summarize_conversation(params: &Value) -> ValidationResult {
+    validate_channel_id(params)?;
+    Ok(())
+}
+
+/// Validate get_affect_history parameters.
+pub fn validate_get_affect_history(params: &Value) -> ValidationResult {
+    let agent = require_string(params, "agent")?;
+    validate_agent_id(agent)?;
+    Ok(())
+}
+
+/// Validate query_echo_chain parameters.
+pub fn validate_query_echo_chain(params: &Value) -> ValidationResult {
+    validate_message_id(params)?;
+    Ok(())
+}
+
+/// Validate get_echo_depth parameters.
+pub fn validate_get_echo_depth(params: &Value) -> ValidationResult {
+    validate_message_id(params)?;
+    Ok(())
+}
+
 
 #[cfg(test)]
 mod tests {

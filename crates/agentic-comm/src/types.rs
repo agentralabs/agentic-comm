@@ -1540,6 +1540,138 @@ pub struct FederationMessage {
     pub hops: Vec<String>,
 }
 
+
+// ---------------------------------------------------------------------------
+// Affect Contagion Pipeline types
+// ---------------------------------------------------------------------------
+
+/// Result of affect contagion processing on a single agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AffectContagionResult {
+    /// The agent whose affect was modified.
+    pub agent: String,
+    /// The emotion label.
+    pub emotion: String,
+    /// The previous intensity value.
+    pub old_intensity: f64,
+    /// The new intensity after contagion.
+    pub new_intensity: f64,
+    /// The agent whose affect caused the change.
+    pub source_agent: String,
+    /// Channel where the contagion occurred.
+    pub channel_id: u64,
+}
+/// A single entry in an agent's affect history.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AffectHistoryEntry {
+    /// When the affect change happened (epoch seconds).
+    pub timestamp: u64,
+    /// The emotion label.
+    #[serde(default)]
+    pub emotion: String,
+    /// The intensity at this point.
+    #[serde(default)]
+    pub intensity: f64,
+    /// Valence: -1.0 (negative) to 1.0 (positive).
+    #[serde(default)]
+    pub valence: f64,
+    /// Arousal: 0.0 (calm) to 1.0 (excited).
+    #[serde(default)]
+    pub arousal: f64,
+    /// Dominance: 0.0 (submissive) to 1.0 (dominant).
+    #[serde(default)]
+    pub dominance: f64,
+    /// Source of the change: "contagion", "direct", "decay".
+    pub source: String,
+}
+
+/// Full affect history for a single agent.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AffectHistory {
+    /// The agent this history belongs to.
+    pub agent: String,
+    /// Ordered list of affect state snapshots.
+    #[serde(default)]
+    pub states: Vec<AffectHistoryEntry>,
+}
+
+// ---------------------------------------------------------------------------
+// Echo Chain / Message Forwarding types
+// ---------------------------------------------------------------------------
+
+/// A single entry in a message's forwarding (echo) chain.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EchoChainEntry {
+    /// The message ID at this point in the chain.
+    pub message_id: u64,
+    /// The channel the message lives in.
+    pub channel_id: u64,
+    /// Who sent/forwarded the message.
+    pub sender: String,
+    /// Who forwarded the message (alias for clarity in forwarding context).
+    #[serde(default)]
+    pub forwarder: String,
+    /// Forwarding depth (0 = original).
+    pub depth: u32,
+    /// When this copy was created (epoch seconds).
+    pub timestamp: u64,
+}
+
+// ---------------------------------------------------------------------------
+// Conversation Summarization types
+// ---------------------------------------------------------------------------
+
+/// Detailed conversation statistics for a channel.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationSummaryDetailed {
+    /// Channel ID.
+    pub channel_id: u64,
+    /// Channel name.
+    #[serde(default)]
+    pub channel_name: String,
+    /// Number of unique participants.
+    #[serde(default)]
+    pub participant_count: usize,
+    /// Total number of messages.
+    #[serde(default)]
+    pub message_count: usize,
+    /// List of participant names.
+    #[serde(default)]
+    pub participants: Vec<String>,
+    /// Timestamp of the first message (epoch seconds), if any.
+    #[serde(default)]
+    pub first_message_time: Option<u64>,
+    /// Timestamp of the last message (epoch seconds), if any.
+    #[serde(default)]
+    pub last_message_time: Option<u64>,
+    /// Duration of conversation in seconds.
+    #[serde(default)]
+    pub duration_secs: u64,
+    /// Messages per minute rate.
+    #[serde(default)]
+    pub messages_per_minute: f64,
+    /// Top senders sorted by message count descending.
+    #[serde(default)]
+    pub top_senders: Vec<(String, usize)>,
+    /// Participant with the most messages, if any.
+    #[serde(default)]
+    pub most_active_participant: Option<String>,
+    /// Number of messages from the most active participant.
+    #[serde(default)]
+    pub most_active_count: usize,
+    /// Average message content length in bytes.
+    #[serde(default)]
+    pub avg_message_length: f64,
+    /// Number of distinct thread IDs.
+    #[serde(default)]
+    pub thread_count: usize,
+    /// Number of messages with reply_to set.
+    #[serde(default)]
+    pub reply_count: usize,
+    /// Whether any messages have affect data.
+    #[serde(default)]
+    pub has_affect_data: bool,
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -14,7 +14,7 @@ use agentic_comm::{ChannelConfig, ChannelType, MessageFilter, MessageType, Messa
 pub struct ToolRegistry;
 
 impl ToolRegistry {
-    /// Return definitions for all 95 tools.
+    /// Return definitions for all 102 tools.
     pub fn list_tools() -> Vec<ToolDefinition> {
         vec![
             ToolDefinition {
@@ -1944,6 +1944,129 @@ impl ToolRegistry {
                     }
                 }),
             },
+            // --- Affect Contagion Pipeline tools ---
+            ToolDefinition {
+                name: "comm_process_affect_contagion".to_string(),
+                description: Some(
+                    "Process affect contagion across participants in a channel".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Channel ID to process contagion in"
+                        }
+                    },
+                    "required": ["channel_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_get_affect_history".to_string(),
+                description: Some(
+                    "Retrieve affect state history for an agent".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "agent": {
+                            "type": "string",
+                            "description": "Agent identity to get affect history for"
+                        }
+                    },
+                    "required": ["agent"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_apply_affect_decay".to_string(),
+                description: Some(
+                    "Apply temporal decay to all agent affect states".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "decay_rate": {
+                            "type": "number",
+                            "description": "Decay rate between 0.0 and 1.0"
+                        }
+                    },
+                    "required": ["decay_rate"]
+                }),
+            },
+            // --- Message Forwarding / Echo Tracking tools ---
+            ToolDefinition {
+                name: "comm_forward_message".to_string(),
+                description: Some(
+                    "Forward a message to another channel with echo tracking".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "message_id": {
+                            "type": "integer",
+                            "description": "ID of the message to forward"
+                        },
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Target channel ID to forward to"
+                        },
+                        "forwarder": {
+                            "type": "string",
+                            "description": "Identity of the agent forwarding the message"
+                        }
+                    },
+                    "required": ["message_id", "channel_id", "forwarder"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_query_echo_chain".to_string(),
+                description: Some(
+                    "Trace the forwarding chain of a message across channels".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "message_id": {
+                            "type": "integer",
+                            "description": "Message ID to trace the echo chain for"
+                        }
+                    },
+                    "required": ["message_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_get_echo_depth".to_string(),
+                description: Some(
+                    "Get the forwarding depth of a message in its echo chain".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "message_id": {
+                            "type": "integer",
+                            "description": "Message ID to get the echo depth for"
+                        }
+                    },
+                    "required": ["message_id"]
+                }),
+            },
+            // --- Conversation Summarization tool ---
+            ToolDefinition {
+                name: "comm_summarize_conversation".to_string(),
+                description: Some(
+                    "Generate detailed statistics for a channel conversation".to_string(),
+                ),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Channel ID to summarize"
+                        }
+                    },
+                    "required": ["channel_id"]
+                }),
+            },
         ]
     }
 
@@ -2081,6 +2204,24 @@ impl ToolRegistry {
             "comm_session_end" => Ok(()), // No required params
             "comm_session_resume" => validation::validate_session_resume(params),
             "comm_conversation_log" => Ok(()), // All params optional
+            // Affect Contagion / Echo Chain / Summarization tools
+            "comm_process_affect_contagion" => validation::validate_affect_contagion(params),
+            "comm_get_affect_history" => (|| {
+                let agent = validation::require_string(params, "agent")?;
+                validation::validate_agent_id(agent)?;
+                Ok(())
+            })(),
+            "comm_apply_affect_decay" => validation::validate_affect_decay(params),
+            "comm_forward_message" => validation::validate_forward_message(params),
+            "comm_query_echo_chain" => (|| {
+                validation::validate_message_id(params)?;
+                Ok(())
+            })(),
+            "comm_get_echo_depth" => (|| {
+                validation::validate_message_id(params)?;
+                Ok(())
+            })(),
+            "comm_summarize_conversation" => validation::validate_summarize_conversation(params),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -2201,6 +2342,14 @@ impl ToolRegistry {
             "comm_session_end" => Self::handle_session_end(params, session),
             "comm_session_resume" => Self::handle_session_resume(params, session),
             "comm_conversation_log" => Self::handle_conversation_log(params, session),
+            // Affect Contagion / Echo Chain / Summarization tools
+            "comm_process_affect_contagion" => Self::handle_process_affect_contagion(params, session),
+            "comm_get_affect_history" => Self::handle_get_affect_history(params, session),
+            "comm_apply_affect_decay" => Self::handle_apply_affect_decay(params, session),
+            "comm_forward_message" => Self::handle_forward_message(params, session),
+            "comm_query_echo_chain" => Self::handle_query_echo_chain(params, session),
+            "comm_get_echo_depth" => Self::handle_get_echo_depth(params, session),
+            "comm_summarize_conversation" => Self::handle_summarize_conversation(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -4588,5 +4737,161 @@ impl ToolRegistry {
             "prev_temporal_id": entry.prev_temporal_id,
             "timestamp": entry.timestamp,
         })))
+    }
+
+    // -----------------------------------------------------------------------
+    // Affect contagion / Echo chain / Summarization handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_process_affect_contagion(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+
+        let results = session.store.process_affect_contagion(channel_id);
+        session.record_operation("comm_process_affect_contagion", Some(channel_id));
+
+        let entries: Vec<serde_json::Value> = results
+            .iter()
+            .map(|(agent, v, a, d)| {
+                json!({
+                    "agent": agent,
+                    "valence": v,
+                    "arousal": a,
+                    "dominance": d,
+                })
+            })
+            .collect();
+
+        Ok(ToolCallResult::json(&json!({
+            "channel_id": channel_id,
+            "affected_agents": entries.len(),
+            "results": entries,
+        })))
+    }
+
+    fn handle_get_affect_history(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let agent = params
+            .get("agent")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("agent is required".to_string()))?;
+
+        let history = session.store.get_affect_history(agent);
+        session.record_operation("comm_get_affect_history", None);
+
+        Ok(ToolCallResult::json(&history))
+    }
+
+    fn handle_apply_affect_decay(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let decay_rate = params
+            .get("decay_rate")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| McpError::InvalidParams("decay_rate is required".to_string()))?;
+
+        session.store.apply_affect_decay(decay_rate);
+        session.record_operation("comm_apply_affect_decay", None);
+
+        Ok(ToolCallResult::json(&json!({
+            "decay_rate": decay_rate,
+            "message": format!("Applied affect decay with rate {}", decay_rate),
+        })))
+    }
+
+    fn handle_forward_message(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let message_id = params
+            .get("message_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+        let forwarder = params
+            .get("forwarder")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("forwarder is required".to_string()))?;
+
+        match session.store.forward_message(message_id, channel_id, forwarder) {
+            Ok(new_id) => {
+                let depth = session.store.get_echo_depth(new_id);
+                session.record_operation("comm_forward_message", Some(new_id));
+                Ok(ToolCallResult::json(&json!({
+                    "new_message_id": new_id,
+                    "original_message_id": message_id,
+                    "target_channel_id": channel_id,
+                    "forwarder": forwarder,
+                    "echo_depth": depth,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e)),
+        }
+    }
+
+    fn handle_query_echo_chain(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let message_id = params
+            .get("message_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
+
+        let chain = session.store.query_echo_chain(message_id);
+        session.record_operation("comm_query_echo_chain", Some(message_id));
+
+        Ok(ToolCallResult::json(&json!({
+            "message_id": message_id,
+            "chain_length": chain.len(),
+            "chain": chain,
+        })))
+    }
+
+    fn handle_get_echo_depth(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let message_id = params
+            .get("message_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
+
+        let depth = session.store.get_echo_depth(message_id);
+        session.record_operation("comm_get_echo_depth", Some(message_id));
+
+        Ok(ToolCallResult::json(&json!({
+            "message_id": message_id,
+            "echo_depth": depth,
+        })))
+    }
+
+    fn handle_summarize_conversation(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+
+        match session.store.summarize_conversation(channel_id) {
+            Ok(summary) => {
+                session.record_operation("comm_summarize_conversation", Some(channel_id));
+                Ok(ToolCallResult::json(&summary))
+            }
+            Err(e) => Ok(ToolCallResult::error(e)),
+        }
     }
 }
