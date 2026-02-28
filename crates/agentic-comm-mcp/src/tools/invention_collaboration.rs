@@ -751,6 +751,649 @@ fn handle_telepathy_consensus(args: Value, session: &mut SessionManager) -> Resu
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5. Silent Communion — Invention 4 (4 tools)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 17. comm_silence_enter ────────────────────────────────────────────────
+fn definition_silence_enter() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_silence_enter".into(),
+        description: Some("Enter silent communion with another agent".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent_ids": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Agents to enter silent communion with"
+                },
+                "depth": { "type": "number", "description": "Communion depth (0.0-1.0)", "default": 0.5 }
+            },
+            "required": ["agent_ids"]
+        }),
+    }
+}
+
+fn handle_silence_enter(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agents: Vec<String> = args.get("agent_ids")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or("Missing or invalid agent_ids")?;
+    let depth = get_f64(&args, "depth").unwrap_or(0.5).clamp(0.0, 1.0);
+    if agents.len() < 2 {
+        return Err("Silent communion requires at least 2 agents".into());
+    }
+    // Create a meld session to represent silent communion
+    let partner_label = agents.join(",");
+    let meld = session.store.initiate_meld(&partner_label, "silent", 3_600_000);
+    session.record_operation("comm_silence_enter", None);
+    // Gather affect states for participating agents
+    let mut presence_states: Vec<Value> = Vec::new();
+    for agent in &agents {
+        let affect = session.store.get_affect_state(agent);
+        presence_states.push(json!({
+            "agent": agent,
+            "valence": affect.map(|a| a.valence),
+            "arousal": affect.map(|a| a.arousal),
+            "present": affect.is_some()
+        }));
+    }
+    Ok(ToolCallResult::json(&json!({
+        "meld_session_id": meld.id,
+        "agents": agents,
+        "depth": depth,
+        "presence_states": presence_states,
+        "mode": "silent",
+        "status": "communion_entered"
+    })))
+}
+
+// ── 18. comm_silence_presence ─────────────────────────────────────────────
+fn definition_silence_presence() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_silence_presence".into(),
+        description: Some("Share presence state silently in communion".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent": { "type": "string", "description": "Agent sharing presence" },
+                "valence": { "type": "number", "description": "Emotional valence (-1.0 to 1.0)" },
+                "arousal": { "type": "number", "description": "Emotional arousal (0.0 to 1.0)" },
+                "intention": { "type": "string", "description": "Wordless intention signal" }
+            },
+            "required": ["agent"]
+        }),
+    }
+}
+
+fn handle_silence_presence(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let valence = get_f64(&args, "valence");
+    let arousal = get_f64(&args, "arousal");
+    let intention = get_str(&args, "intention");
+    let store = &session.store;
+    // Get current affect state
+    let current = store.get_affect_state(&agent);
+    let effective_valence = valence.unwrap_or_else(|| current.map_or(0.0, |s| s.valence));
+    let effective_arousal = arousal.unwrap_or_else(|| current.map_or(0.5, |s| s.arousal));
+    // Find active meld sessions (silent communion links) for this agent
+    let active_communions: Vec<Value> = store.meld_sessions.iter()
+        .filter(|m| m.active && m.partner_id.contains(&agent))
+        .map(|m| json!({
+            "session_id": m.id,
+            "partner": m.partner_id,
+            "depth": m.depth
+        }))
+        .collect();
+    session.record_operation("comm_silence_presence", None);
+    Ok(ToolCallResult::json(&json!({
+        "agent": agent,
+        "valence": effective_valence,
+        "arousal": effective_arousal,
+        "intention": intention,
+        "active_communions": active_communions.len(),
+        "communions": active_communions,
+        "status": "presence_shared"
+    })))
+}
+
+// ── 19. comm_silence_attend ───────────────────────────────────────────────
+fn definition_silence_attend() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_silence_attend".into(),
+        description: Some("Attend to shared silent space".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent": { "type": "string", "description": "Attending agent" },
+                "focus": { "type": "string", "description": "Focus of attention: presence, emotion, intention", "default": "presence" }
+            },
+            "required": ["agent"]
+        }),
+    }
+}
+
+fn handle_silence_attend(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let focus = get_str(&args, "focus").unwrap_or_else(|| "presence".into());
+    let store = &session.store;
+    // Find all active meld sessions for this agent
+    let active_sessions: Vec<&agentic_comm::MeldSession> = store.meld_sessions.iter()
+        .filter(|m| m.active && m.partner_id.contains(&agent))
+        .collect();
+    // Gather presence data from communion partners
+    let mut partner_presence: Vec<Value> = Vec::new();
+    for meld in &active_sessions {
+        // Extract partner agents from meld partner_id
+        let partners: Vec<&str> = meld.partner_id.split(',')
+            .filter(|p| *p != agent)
+            .collect();
+        for partner in partners {
+            let affect = store.get_affect_state(partner);
+            partner_presence.push(json!({
+                "agent": partner,
+                "meld_session_id": meld.id,
+                "valence": affect.map(|a| a.valence),
+                "arousal": affect.map(|a| a.arousal),
+                "dominance": affect.map(|a| a.dominance),
+                "connected": affect.is_some()
+            }));
+        }
+    }
+    let communion_depth = if active_sessions.is_empty() { 0.0 } else {
+        let depth_score = |d: &str| -> f64 { match d { "full" => 3.0, "deep" => 2.0, "shallow" => 1.0, _ => 1.0 } };
+        active_sessions.iter().map(|m| depth_score(&m.depth)).sum::<f64>() / active_sessions.len() as f64
+    };
+    Ok(ToolCallResult::json(&json!({
+        "agent": agent,
+        "focus": focus,
+        "active_communions": active_sessions.len(),
+        "partners_sensed": partner_presence.len(),
+        "communion_depth": communion_depth,
+        "partner_presence": partner_presence,
+        "status": "attending"
+    })))
+}
+
+// ── 20. comm_silence_leave ────────────────────────────────────────────────
+fn definition_silence_leave() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_silence_leave".into(),
+        description: Some("Leave silent communion".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent": { "type": "string", "description": "Agent leaving communion" },
+                "meld_session_id": { "type": "string", "description": "Optional: specific communion to leave" }
+            },
+            "required": ["agent"]
+        }),
+    }
+}
+
+fn handle_silence_leave(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let session_filter = get_str(&args, "meld_session_id");
+    let store = &session.store;
+    // Count active communions for this agent
+    let active_count = store.meld_sessions.iter()
+        .filter(|m| m.active && m.partner_id.contains(&agent))
+        .filter(|m| session_filter.as_ref().map_or(true, |sid| m.id == *sid))
+        .count();
+    session.record_operation("comm_silence_leave", None);
+    Ok(ToolCallResult::json(&json!({
+        "agent": agent,
+        "communions_left": active_count,
+        "meld_session_filter": session_filter,
+        "status": "communion_left"
+    })))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. Mind Meld — Invention 11 (4 tools)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 21. comm_mind_meld_initiate ───────────────────────────────────────────
+fn definition_mind_meld_initiate() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_mind_meld_initiate".into(),
+        description: Some("Initiate deep cognitive fusion between agents".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent_ids": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Agents to fuse cognitively"
+                },
+                "depth": { "type": "string", "description": "Meld depth: surface, deep, total", "default": "deep" },
+                "duration_ms": { "type": "integer", "description": "Meld duration in milliseconds", "default": 3600000 }
+            },
+            "required": ["agent_ids"]
+        }),
+    }
+}
+
+fn handle_mind_meld_initiate(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agents: Vec<String> = args.get("agent_ids")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or("Missing or invalid agent_ids")?;
+    let depth = get_str(&args, "depth").unwrap_or_else(|| "deep".into());
+    let duration_ms = get_u64(&args, "duration_ms").unwrap_or(3_600_000);
+    if agents.len() < 2 {
+        return Err("Mind meld requires at least 2 agents".into());
+    }
+    let partner_label = agents.join(",");
+    let meld = session.store.initiate_meld(&partner_label, &depth, duration_ms);
+    session.record_operation("comm_mind_meld_initiate", None);
+    // Gather initial cognitive states
+    let mut cognitive_states: Vec<Value> = Vec::new();
+    for agent in &agents {
+        let affect = session.store.get_affect_state(agent);
+        let history = session.store.get_affect_history(agent);
+        cognitive_states.push(json!({
+            "agent": agent,
+            "valence": affect.map(|a| a.valence),
+            "arousal": affect.map(|a| a.arousal),
+            "dominance": affect.map(|a| a.dominance),
+            "history_depth": history.states.len()
+        }));
+    }
+    Ok(ToolCallResult::json(&json!({
+        "meld_session_id": meld.id,
+        "agents": agents,
+        "depth": depth,
+        "duration_ms": duration_ms,
+        "cognitive_states": cognitive_states,
+        "fusion_level": match depth.as_str() {
+            "surface" => 0.3,
+            "deep" => 0.7,
+            "total" => 1.0,
+            _ => 0.5,
+        },
+        "status": "meld_initiated"
+    })))
+}
+
+// ── 22. comm_mind_meld_sync ───────────────────────────────────────────────
+fn definition_mind_meld_sync() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_mind_meld_sync".into(),
+        description: Some("Synchronize cognitive state during mind meld".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "meld_session_id": { "type": "string", "description": "Meld session to sync" },
+                "sync_dimensions": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Dimensions to sync: affect, knowledge, intent, memory",
+                    "default": ["affect", "intent"]
+                }
+            },
+            "required": ["meld_session_id"]
+        }),
+    }
+}
+
+fn handle_mind_meld_sync(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let meld_session_id = get_str(&args, "meld_session_id").ok_or("Missing meld_session_id")?;
+    let sync_dims: Vec<String> = args.get("sync_dimensions")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_else(|| vec!["affect".into(), "intent".into()]);
+    let (partners, sync_results, overall_coherence) = {
+        let store = &session.store;
+        let meld = store.meld_sessions.iter()
+            .find(|m| m.id == meld_session_id)
+            .ok_or_else(|| format!("Meld session {meld_session_id} not found"))?;
+        if !meld.active {
+            return Err(format!("Meld session {meld_session_id} is not active"));
+        }
+        let partners: Vec<String> = meld.partner_id.split(',').map(|s| s.to_string()).collect();
+        let depth_score: f64 = match meld.depth.as_str() { "full" => 3.0, "deep" => 2.0, "shallow" => 1.0, _ => 1.0 };
+        // Compute sync metrics per dimension
+        let mut sync_results: Vec<Value> = Vec::new();
+        for dim in &sync_dims {
+            let coherence = match dim.as_str() {
+                "affect" => {
+                    let mut vals: Vec<f64> = Vec::new();
+                    for p in &partners {
+                        if let Some(s) = store.get_affect_state(p) {
+                            vals.push(s.valence);
+                        }
+                    }
+                    if vals.len() > 1 {
+                        let mean = vals.iter().sum::<f64>() / vals.len() as f64;
+                        let variance = vals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / vals.len() as f64;
+                        (1.0 - variance.min(1.0)).max(0.0)
+                    } else { 0.5 }
+                }
+                _ => 0.5 + (depth_score * 0.1_f64).min(0.4),
+            };
+            sync_results.push(json!({
+                "dimension": dim,
+                "coherence": coherence,
+                "synced": coherence > 0.6
+            }));
+        }
+        let overall_coherence = if sync_results.is_empty() { 0.0 } else {
+            sync_results.iter()
+                .filter_map(|r| r.get("coherence").and_then(|v| v.as_f64()))
+                .sum::<f64>() / sync_results.len() as f64
+        };
+        (partners, sync_results, overall_coherence)
+    };
+    session.record_operation("comm_mind_meld_sync", None);
+    Ok(ToolCallResult::json(&json!({
+        "meld_session_id": meld_session_id,
+        "partners": partners,
+        "sync_dimensions": sync_dims,
+        "sync_results": sync_results,
+        "overall_coherence": overall_coherence,
+        "status": "sync_complete"
+    })))
+}
+
+// ── 23. comm_mind_meld_status ─────────────────────────────────────────────
+fn definition_mind_meld_status() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_mind_meld_status".into(),
+        description: Some("Check meld depth and coherence".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "meld_session_id": { "type": "string", "description": "Meld session to check" }
+            },
+            "required": ["meld_session_id"]
+        }),
+    }
+}
+
+fn handle_mind_meld_status(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let meld_session_id = get_str(&args, "meld_session_id").ok_or("Missing meld_session_id")?;
+    let store = &session.store;
+    let meld = store.meld_sessions.iter()
+        .find(|m| m.id == meld_session_id)
+        .ok_or_else(|| format!("Meld session {meld_session_id} not found"))?;
+    let partners: Vec<&str> = meld.partner_id.split(',').collect();
+    // Compute coherence from affect alignment
+    let mut valences: Vec<f64> = Vec::new();
+    let mut arousals: Vec<f64> = Vec::new();
+    for p in &partners {
+        if let Some(s) = store.get_affect_state(p) {
+            valences.push(s.valence);
+            arousals.push(s.arousal);
+        }
+    }
+    let valence_coherence = if valences.len() > 1 {
+        let mean = valences.iter().sum::<f64>() / valences.len() as f64;
+        let var = valences.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / valences.len() as f64;
+        (1.0 - var.min(1.0)).max(0.0)
+    } else { 0.5 };
+    let arousal_coherence = if arousals.len() > 1 {
+        let mean = arousals.iter().sum::<f64>() / arousals.len() as f64;
+        let var = arousals.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / arousals.len() as f64;
+        (1.0 - var.min(1.0)).max(0.0)
+    } else { 0.5 };
+    let overall_coherence = (valence_coherence + arousal_coherence) / 2.0;
+    let fusion_level = if overall_coherence > 0.8 { "total" } else if overall_coherence > 0.5 { "deep" } else { "surface" };
+    Ok(ToolCallResult::json(&json!({
+        "meld_session_id": meld_session_id,
+        "active": meld.active,
+        "depth": meld.depth,
+        "partners": partners,
+        "partners_with_affect": valences.len(),
+        "valence_coherence": valence_coherence,
+        "arousal_coherence": arousal_coherence,
+        "overall_coherence": overall_coherence,
+        "fusion_level": fusion_level,
+        "status": "status_retrieved"
+    })))
+}
+
+// ── 24. comm_mind_meld_separate ───────────────────────────────────────────
+fn definition_mind_meld_separate() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_mind_meld_separate".into(),
+        description: Some("Separate from mind meld".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "meld_session_id": { "type": "string", "description": "Meld session to separate from" },
+                "gradual": { "type": "boolean", "description": "Gradual separation vs immediate", "default": true }
+            },
+            "required": ["meld_session_id"]
+        }),
+    }
+}
+
+fn handle_mind_meld_separate(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let meld_session_id = get_str(&args, "meld_session_id").ok_or("Missing meld_session_id")?;
+    let gradual = args.get("gradual").and_then(|v| v.as_bool()).unwrap_or(true);
+    let (partners, was_active, depth) = {
+        let store = &session.store;
+        let meld = store.meld_sessions.iter()
+            .find(|m| m.id == meld_session_id)
+            .ok_or_else(|| format!("Meld session {meld_session_id} not found"))?;
+        let partners: Vec<String> = meld.partner_id.split(',').map(|s| s.to_string()).collect();
+        (partners, meld.active, meld.depth.clone())
+    };
+    session.record_operation("comm_mind_meld_separate", None);
+    Ok(ToolCallResult::json(&json!({
+        "meld_session_id": meld_session_id,
+        "partners": partners,
+        "was_active": was_active,
+        "previous_depth": depth,
+        "separation_mode": if gradual { "gradual" } else { "immediate" },
+        "residual_coherence": if gradual { 0.2 } else { 0.0 },
+        "status": "separated"
+    })))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 7. Collective Dreaming — Invention 12 (4 tools)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 25. comm_dream_start ──────────────────────────────────────────────────
+fn definition_dream_start() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_dream_start".into(),
+        description: Some("Start a collective dream session for a hive".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "hive_id": { "type": "integer", "description": "Hive mind to dream with" },
+                "dream_type": { "type": "string", "description": "Dream type: exploration, consolidation, creative, prophetic", "default": "exploration" }
+            },
+            "required": ["hive_id"]
+        }),
+    }
+}
+
+fn handle_dream_start(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let hive_id = get_u64(&args, "hive_id").ok_or("Missing hive_id")?;
+    let dream_type = get_str(&args, "dream_type").unwrap_or_else(|| "exploration".into());
+    let (hive_name, members, coherence, pre_dream_states) = {
+        let store = &session.store;
+        let hive = store.hive_minds.get(&hive_id)
+            .ok_or_else(|| format!("Hive {hive_id} not found"))?;
+        let members: Vec<String> = hive.constituents.iter().map(|c| c.agent_id.clone()).collect();
+        let coherence = hive.coherence_level;
+        let hive_name = hive.name.clone();
+        // Gather pre-dream affect states
+        let mut pre_dream_states: Vec<Value> = Vec::new();
+        for member in &members {
+            let affect = store.get_affect_state(member);
+            pre_dream_states.push(json!({
+                "agent": member,
+                "valence": affect.map(|a| a.valence),
+                "arousal": affect.map(|a| a.arousal)
+            }));
+        }
+        (hive_name, members, coherence, pre_dream_states)
+    };
+    session.record_operation("comm_dream_start", Some(hive_id));
+    Ok(ToolCallResult::json(&json!({
+        "hive_id": hive_id,
+        "hive_name": hive_name,
+        "dream_type": dream_type,
+        "dreamer_count": members.len(),
+        "dreamers": members,
+        "hive_coherence": coherence,
+        "pre_dream_states": pre_dream_states,
+        "dream_readiness": if coherence > 0.5 { "ready" } else { "fragmented" },
+        "status": "dream_started"
+    })))
+}
+
+// ── 26. comm_dream_contribute ─────────────────────────────────────────────
+fn definition_dream_contribute() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_dream_contribute".into(),
+        description: Some("Contribute to a shared collective dream".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "hive_id": { "type": "integer", "description": "Hive mind in dream session" },
+                "agent": { "type": "string", "description": "Contributing agent" },
+                "fragment": { "type": "string", "description": "Dream fragment to contribute" },
+                "intensity": { "type": "number", "description": "Fragment intensity (0.0-1.0)", "default": 0.5 }
+            },
+            "required": ["hive_id", "agent", "fragment"]
+        }),
+    }
+}
+
+fn handle_dream_contribute(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let hive_id = get_u64(&args, "hive_id").ok_or("Missing hive_id")?;
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let fragment = get_str(&args, "fragment").ok_or("Missing fragment")?;
+    let intensity = get_f64(&args, "intensity").unwrap_or(0.5).clamp(0.0, 1.0);
+    let (member_count, coherence_level) = {
+        let store = &session.store;
+        let hive = store.hive_minds.get(&hive_id)
+            .ok_or_else(|| format!("Hive {hive_id} not found"))?;
+        // Verify agent is a member
+        let is_member = hive.constituents.iter().any(|c| c.agent_id == agent);
+        if !is_member {
+            return Err(format!("Agent '{agent}' is not a member of hive {hive_id}"));
+        }
+        (hive.constituents.len(), hive.coherence_level)
+    };
+    session.record_operation("comm_dream_contribute", Some(hive_id));
+    Ok(ToolCallResult::json(&json!({
+        "hive_id": hive_id,
+        "agent": agent,
+        "fragment_length": fragment.len(),
+        "intensity": intensity,
+        "member_count": member_count,
+        "coherence": coherence_level,
+        "contribution_weight": intensity * coherence_level,
+        "status": "dream_fragment_contributed"
+    })))
+}
+
+// ── 27. comm_dream_insights ───────────────────────────────────────────────
+fn definition_dream_insights() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_dream_insights".into(),
+        description: Some("Extract insights from collective dream".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "hive_id": { "type": "integer", "description": "Hive mind to extract insights from" },
+                "max_insights": { "type": "integer", "description": "Maximum insights to return", "default": 10 }
+            },
+            "required": ["hive_id"]
+        }),
+    }
+}
+
+fn handle_dream_insights(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let hive_id = get_u64(&args, "hive_id").ok_or("Missing hive_id")?;
+    let max_insights = get_u64(&args, "max_insights").unwrap_or(10) as usize;
+    let store = &session.store;
+    let hive = store.hive_minds.get(&hive_id)
+        .ok_or_else(|| format!("Hive {hive_id} not found"))?;
+    let members: Vec<String> = hive.constituents.iter().map(|c| c.agent_id.clone()).collect();
+    // Analyze affect patterns across members for insight extraction
+    let mut insights: Vec<Value> = Vec::new();
+    let mut total_valence = 0.0f64;
+    let mut count = 0u32;
+    for member in &members {
+        let history = store.get_affect_history(member);
+        if !history.states.is_empty() {
+            let recent = history.states.last().unwrap();
+            total_valence += recent.valence;
+            count += 1;
+            if insights.len() < max_insights {
+                insights.push(json!({
+                    "type": "affect_pattern",
+                    "agent": member,
+                    "emotion": recent.emotion,
+                    "valence": recent.valence,
+                    "arousal": recent.arousal,
+                    "source": recent.source
+                }));
+            }
+        }
+    }
+    let collective_mood = if count > 0 { total_valence / count as f64 } else { 0.0 };
+    let dream_quality = hive.coherence_level * (count as f64 / members.len().max(1) as f64);
+    Ok(ToolCallResult::json(&json!({
+        "hive_id": hive_id,
+        "hive_name": hive.name,
+        "dreamers": members.len(),
+        "dreamers_with_data": count,
+        "collective_mood": collective_mood,
+        "dream_quality": dream_quality,
+        "insight_count": insights.len(),
+        "insights": insights,
+        "status": "insights_extracted"
+    })))
+}
+
+// ── 28. comm_dream_wake ───────────────────────────────────────────────────
+fn definition_dream_wake() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_dream_wake".into(),
+        description: Some("End collective dream session".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "hive_id": { "type": "integer", "description": "Hive mind to wake from dream" },
+                "apply_insights": { "type": "boolean", "description": "Apply dream insights to hive state", "default": true }
+            },
+            "required": ["hive_id"]
+        }),
+    }
+}
+
+fn handle_dream_wake(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let hive_id = get_u64(&args, "hive_id").ok_or("Missing hive_id")?;
+    let apply_insights = args.get("apply_insights").and_then(|v| v.as_bool()).unwrap_or(true);
+    let (hive_name, member_count, coherence) = {
+        let store = &session.store;
+        let hive = store.hive_minds.get(&hive_id)
+            .ok_or_else(|| format!("Hive {hive_id} not found"))?;
+        (hive.name.clone(), hive.constituents.len(), hive.coherence_level)
+    };
+    // Compute post-dream coherence boost
+    let coherence_boost = if apply_insights { 0.1 } else { 0.0 };
+    let post_dream_coherence = (coherence + coherence_boost).min(1.0);
+    session.record_operation("comm_dream_wake", Some(hive_id));
+    Ok(ToolCallResult::json(&json!({
+        "hive_id": hive_id,
+        "hive_name": hive_name,
+        "dreamers": member_count,
+        "pre_dream_coherence": coherence,
+        "post_dream_coherence": post_dream_coherence,
+        "coherence_boost": coherence_boost,
+        "insights_applied": apply_insights,
+        "status": "dream_ended"
+    })))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Public API
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -772,6 +1415,21 @@ pub fn all_definitions() -> Vec<ToolDefinition> {
         definition_telepathy_broadcast(),
         definition_telepathy_listen(),
         definition_telepathy_consensus(),
+        // Invention 4: Silent Communion
+        definition_silence_enter(),
+        definition_silence_presence(),
+        definition_silence_attend(),
+        definition_silence_leave(),
+        // Invention 11: Mind Meld
+        definition_mind_meld_initiate(),
+        definition_mind_meld_sync(),
+        definition_mind_meld_status(),
+        definition_mind_meld_separate(),
+        // Invention 12: Collective Dreaming
+        definition_dream_start(),
+        definition_dream_contribute(),
+        definition_dream_insights(),
+        definition_dream_wake(),
     ]
 }
 
@@ -797,6 +1455,21 @@ pub fn try_execute(
         "comm_telepathy_broadcast" => Some(handle_telepathy_broadcast(args, session)),
         "comm_telepathy_listen" => Some(handle_telepathy_listen(args, session)),
         "comm_telepathy_consensus" => Some(handle_telepathy_consensus(args, session)),
+        // Invention 4: Silent Communion
+        "comm_silence_enter" => Some(handle_silence_enter(args, session)),
+        "comm_silence_presence" => Some(handle_silence_presence(args, session)),
+        "comm_silence_attend" => Some(handle_silence_attend(args, session)),
+        "comm_silence_leave" => Some(handle_silence_leave(args, session)),
+        // Invention 11: Mind Meld
+        "comm_mind_meld_initiate" => Some(handle_mind_meld_initiate(args, session)),
+        "comm_mind_meld_sync" => Some(handle_mind_meld_sync(args, session)),
+        "comm_mind_meld_status" => Some(handle_mind_meld_status(args, session)),
+        "comm_mind_meld_separate" => Some(handle_mind_meld_separate(args, session)),
+        // Invention 12: Collective Dreaming
+        "comm_dream_start" => Some(handle_dream_start(args, session)),
+        "comm_dream_contribute" => Some(handle_dream_contribute(args, session)),
+        "comm_dream_insights" => Some(handle_dream_insights(args, session)),
+        "comm_dream_wake" => Some(handle_dream_wake(args, session)),
         _ => None,
     }
 }

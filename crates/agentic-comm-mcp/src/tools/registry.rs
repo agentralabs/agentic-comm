@@ -102,7 +102,8 @@ impl ToolRegistry {
                                 "comm_semantic_compress", "comm_semantic_decompress", "comm_semantic_translate", "comm_semantic_align",
                                 "comm_echo_chamber_create", "comm_echo_chamber_detect", "comm_echo_chamber_break", "comm_echo_chamber_analyze",
                                 "comm_ghost_create", "comm_ghost_detect", "comm_ghost_exorcise", "comm_ghost_history",
-                                "comm_metamessage_encode", "comm_metamessage_decode", "comm_metamessage_layer", "comm_metamessage_strip"
+                                "comm_metamessage_encode", "comm_metamessage_decode", "comm_metamessage_layer", "comm_metamessage_strip",
+                                "comm_fork_create", "comm_fork_explore", "comm_fork_merge", "comm_fork_list"
                             ],
                             "description": "Operation to perform"
                         },
@@ -133,7 +134,8 @@ impl ToolRegistry {
                                 "comm_affect_contagion_simulate", "comm_affect_contagion_immunize", "comm_affect_contagion_trace", "comm_affect_contagion_predict",
                                 "comm_affect_archaeology_dig", "comm_affect_archaeology_artifacts", "comm_affect_archaeology_reconstruct",
                                 "comm_affect_prophecy_predict", "comm_affect_prophecy_similar", "comm_affect_prophecy_track", "comm_affect_prophecy_warn",
-                                "comm_unspeakable_encode", "comm_unspeakable_decode", "comm_unspeakable_detect", "comm_unspeakable_translate"
+                                "comm_unspeakable_encode", "comm_unspeakable_decode", "comm_unspeakable_detect", "comm_unspeakable_translate",
+                                "comm_anticipate_predict", "comm_anticipate_prepare", "comm_anticipate_calibrate", "comm_anticipate_accuracy"
                             ],
                             "description": "Operation to perform"
                         },
@@ -161,7 +163,10 @@ impl ToolRegistry {
                                 "comm_hive_consciousness_create", "comm_hive_consciousness_dissolve", "comm_hive_consciousness_join", "comm_hive_consciousness_think",
                                 "comm_collective_intelligence_vote", "comm_collective_intelligence_consensus", "comm_collective_intelligence_swarm", "comm_collective_intelligence_decide",
                                 "comm_ancestor_invoke", "comm_ancestor_listen", "comm_ancestor_honor", "comm_ancestor_lineage",
-                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever"
+                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever",
+                                "comm_silence_enter", "comm_silence_presence", "comm_silence_attend", "comm_silence_leave",
+                                "comm_mind_meld_initiate", "comm_mind_meld_sync", "comm_mind_meld_status", "comm_mind_meld_separate",
+                                "comm_dream_start", "comm_dream_contribute", "comm_dream_insights", "comm_dream_wake"
                             ],
                             "description": "Operation to perform"
                         },
@@ -256,7 +261,8 @@ impl ToolRegistry {
                                 "comm_federation_gateway_create", "comm_federation_gateway_connect", "comm_federation_gateway_disconnect", "comm_federation_gateway_status",
                                 "comm_federation_route_message", "comm_federation_route_trace", "comm_federation_route_optimize", "comm_federation_route_policy",
                                 "comm_federation_zone_create", "comm_federation_zone_list", "comm_federation_zone_merge", "comm_federation_zone_policy",
-                                "comm_reality_fork", "comm_reality_merge", "comm_reality_detect", "comm_reality_bend"
+                                "comm_reality_fork", "comm_reality_merge", "comm_reality_detect", "comm_reality_bend",
+                                "comm_destiny_create", "comm_destiny_align", "comm_destiny_probability", "comm_destiny_converge"
                             ],
                             "description": "Operation to perform"
                         },
@@ -283,7 +289,8 @@ impl ToolRegistry {
                                 "comm_precognition_predict", "comm_precognition_prepare", "comm_precognition_accuracy", "comm_precognition_calibrate",
                                 "comm_temporal_schedule", "comm_temporal_cancel", "comm_temporal_pending", "comm_temporal_reschedule",
                                 "comm_legacy_compose", "comm_legacy_seal", "comm_legacy_unseal", "comm_legacy_list",
-                                "comm_dead_letter_resurrect", "comm_dead_letter_autopsy", "comm_dead_letter_phoenix", "comm_dead_letter_analyze"
+                                "comm_dead_letter_resurrect", "comm_dead_letter_autopsy", "comm_dead_letter_phoenix", "comm_dead_letter_analyze",
+                                "comm_temporal_consensus_propose", "comm_temporal_consensus_vote", "comm_temporal_consensus_status", "comm_temporal_consensus_resolve"
                             ],
                             "description": "Operation to perform"
                         },
@@ -355,7 +362,10 @@ impl ToolRegistry {
                                 "comm_hive_consciousness_create", "comm_hive_consciousness_dissolve", "comm_hive_consciousness_join", "comm_hive_consciousness_think",
                                 "comm_collective_intelligence_vote", "comm_collective_intelligence_consensus", "comm_collective_intelligence_swarm", "comm_collective_intelligence_decide",
                                 "comm_ancestor_invoke", "comm_ancestor_listen", "comm_ancestor_honor", "comm_ancestor_lineage",
-                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever"
+                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever",
+                                "comm_silence_enter", "comm_silence_presence", "comm_silence_attend", "comm_silence_leave",
+                                "comm_mind_meld_initiate", "comm_mind_meld_sync", "comm_mind_meld_status", "comm_mind_meld_separate",
+                                "comm_dream_start", "comm_dream_contribute", "comm_dream_insights", "comm_dream_wake"
                             ],
                             "description": "Operation to perform"
                         },
@@ -560,7 +570,8 @@ impl ToolRegistry {
             name if name.starts_with("comm_semantic_")
                 || name.starts_with("comm_echo_chamber_")
                 || name.starts_with("comm_ghost_")
-                || name.starts_with("comm_metamessage_") =>
+                || name.starts_with("comm_metamessage_")
+                || name.starts_with("comm_fork_") =>
             {
                 if let Some(result) = invention_semantics::try_execute(name, params.clone(), session) {
                     result.map_err(|e| McpError::InternalError(e))
@@ -585,7 +596,8 @@ impl ToolRegistry {
             name if name.starts_with("comm_affect_contagion_")
                 || name.starts_with("comm_affect_archaeology_")
                 || name.starts_with("comm_affect_prophecy_")
-                || name.starts_with("comm_unspeakable_") =>
+                || name.starts_with("comm_unspeakable_")
+                || name.starts_with("comm_anticipate_") =>
             {
                 if let Some(result) = invention_affect::try_execute(name, params.clone(), session) {
                     result.map_err(|e| McpError::InternalError(e))
@@ -612,7 +624,10 @@ impl ToolRegistry {
             name if name.starts_with("comm_hive_consciousness_")
                 || name.starts_with("comm_collective_intelligence_")
                 || name.starts_with("comm_ancestor_")
-                || name.starts_with("comm_telepathy_") =>
+                || name.starts_with("comm_telepathy_")
+                || name.starts_with("comm_silence_")
+                || name.starts_with("comm_mind_meld_")
+                || name.starts_with("comm_dream_") =>
             {
                 if let Some(result) = invention_collaboration::try_execute(name, params.clone(), session) {
                     result.map_err(|e| McpError::InternalError(e))
@@ -685,7 +700,8 @@ impl ToolRegistry {
             name if name.starts_with("comm_federation_gateway_")
                 || name.starts_with("comm_federation_route_")
                 || name.starts_with("comm_federation_zone_")
-                || name.starts_with("comm_reality_") =>
+                || name.starts_with("comm_reality_")
+                || name.starts_with("comm_destiny_") =>
             {
                 if let Some(result) = invention_federation::try_execute(name, params.clone(), session) {
                     result.map_err(|e| McpError::InternalError(e))
@@ -762,7 +778,10 @@ impl ToolRegistry {
             name if name.starts_with("comm_hive_consciousness_")
                 || name.starts_with("comm_collective_intelligence_")
                 || name.starts_with("comm_ancestor_")
-                || name.starts_with("comm_telepathy_") =>
+                || name.starts_with("comm_telepathy_")
+                || name.starts_with("comm_silence_")
+                || name.starts_with("comm_mind_meld_")
+                || name.starts_with("comm_dream_") =>
             {
                 if let Some(result) = invention_collaboration::try_execute(name, params.clone(), session) {
                     result.map_err(|e| McpError::InternalError(e))

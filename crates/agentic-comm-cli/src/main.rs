@@ -200,7 +200,7 @@ enum Commands {
         #[command(subcommand)]
         action: KeyAction,
     },
-    /// Daemon management (start, stop, status)
+    /// Daemon management (start, stop, status, logs, config, health-check)
     Daemon {
         #[command(subcommand)]
         action: DaemonAction,
@@ -891,6 +891,21 @@ enum DaemonAction {
     Stop,
     /// Show daemon status
     Status,
+    /// Show daemon log output
+    Logs {
+        /// Number of log lines to display
+        #[arg(long, default_value = "50")]
+        lines: usize,
+    },
+    /// Show or update daemon configuration
+    Config {
+        /// Set a configuration value (key=value)
+        #[arg(long)]
+        set: Option<String>,
+    },
+    /// Run a health check on the daemon
+    #[command(name = "health-check")]
+    HealthCheck,
 }
 
 // ---------------------------------------------------------------------------
@@ -2719,6 +2734,194 @@ fn main() {
                         }),
                         json_mode,
                     );
+                }
+            }
+            DaemonAction::Logs { lines } => {
+                let data_dir = store_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let log_path = data_dir.join("acomm.log");
+
+                if log_path.exists() {
+                    match std::fs::read_to_string(&log_path) {
+                        Ok(content) => {
+                            let all_lines: Vec<&str> = content.lines().collect();
+                            let total = all_lines.len();
+                            let start = if total > lines { total - lines } else { 0 };
+                            let tail: Vec<&str> = all_lines[start..].to_vec();
+                            output(
+                                &serde_json::json!({
+                                    "log_file": log_path.display().to_string(),
+                                    "total_lines": total,
+                                    "showing": tail.len(),
+                                    "lines": tail,
+                                }),
+                                json_mode,
+                            );
+                        }
+                        Err(e) => {
+                            eprintln!("Error reading log file: {e}");
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    output(
+                        &serde_json::json!({
+                            "status": "no_logs",
+                            "log_file": log_path.display().to_string(),
+                            "note": "No log file found — daemon may not have been started",
+                        }),
+                        json_mode,
+                    );
+                }
+            }
+            DaemonAction::Config { set } => {
+                let data_dir = store_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let config_path = data_dir.join("acomm.conf.json");
+
+                if let Some(kv) = set {
+                    // Parse key=value
+                    let parts: Vec<&str> = kv.splitn(2, '=').collect();
+                    if parts.len() != 2 {
+                        eprintln!("Error: --set requires key=value format");
+                        std::process::exit(1);
+                    }
+                    let (key, value) = (parts[0], parts[1]);
+
+                    // Load existing config or start fresh
+                    let mut config: serde_json::Map<String, serde_json::Value> =
+                        if config_path.exists() {
+                            match std::fs::read_to_string(&config_path) {
+                                Ok(s) => serde_json::from_str(&s).unwrap_or_default(),
+                                Err(_) => serde_json::Map::new(),
+                            }
+                        } else {
+                            serde_json::Map::new()
+                        };
+
+                    config.insert(
+                        key.to_string(),
+                        serde_json::Value::String(value.to_string()),
+                    );
+
+                    if let Err(e) = std::fs::write(
+                        &config_path,
+                        serde_json::to_string_pretty(&config).unwrap(),
+                    ) {
+                        eprintln!("Error writing config file: {e}");
+                        std::process::exit(1);
+                    }
+
+                    output(
+                        &serde_json::json!({
+                            "status": "updated",
+                            "key": key,
+                            "value": value,
+                            "config_file": config_path.display().to_string(),
+                        }),
+                        json_mode,
+                    );
+                } else {
+                    // Show current config
+                    if config_path.exists() {
+                        match std::fs::read_to_string(&config_path) {
+                            Ok(s) => {
+                                let config: serde_json::Value =
+                                    serde_json::from_str(&s).unwrap_or(serde_json::json!({}));
+                                output(
+                                    &serde_json::json!({
+                                        "config_file": config_path.display().to_string(),
+                                        "config": config,
+                                    }),
+                                    json_mode,
+                                );
+                            }
+                            Err(e) => {
+                                eprintln!("Error reading config file: {e}");
+                                std::process::exit(1);
+                            }
+                        }
+                    } else {
+                        output(
+                            &serde_json::json!({
+                                "config_file": config_path.display().to_string(),
+                                "config": {},
+                                "note": "No config file found — using defaults",
+                            }),
+                            json_mode,
+                        );
+                    }
+                }
+            }
+            DaemonAction::HealthCheck => {
+                let data_dir = store_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."));
+                let pid_path = data_dir.join("acomm.pid");
+
+                if pid_path.exists() {
+                    match std::fs::read_to_string(&pid_path) {
+                        Ok(pid_str) => {
+                            let pid_str = pid_str.trim();
+                            // Check if process is actually alive
+                            let pid_alive = pid_str
+                                .parse::<u32>()
+                                .ok()
+                                .map(|pid| {
+                                    // Check process existence via kill -0 on Unix
+                                    std::process::Command::new("kill")
+                                        .args(["-0", &pid.to_string()])
+                                        .stdout(std::process::Stdio::null())
+                                        .stderr(std::process::Stdio::null())
+                                        .status()
+                                        .map(|s| s.success())
+                                        .unwrap_or(false)
+                                })
+                                .unwrap_or(false);
+
+                            // Read PID file modification time as a proxy for start time
+                            let uptime_secs = std::fs::metadata(&pid_path)
+                                .ok()
+                                .and_then(|m| m.modified().ok())
+                                .and_then(|t| t.elapsed().ok())
+                                .map(|d| d.as_secs());
+
+                            // Estimate memory from store file size
+                            let store_size_bytes =
+                                std::fs::metadata(&store_path).ok().map(|m| m.len());
+
+                            output(
+                                &serde_json::json!({
+                                    "status": if pid_alive { "healthy" } else { "stale_pid" },
+                                    "pid": pid_str,
+                                    "pid_alive": pid_alive,
+                                    "uptime_secs": uptime_secs,
+                                    "store_file": store_path.display().to_string(),
+                                    "store_size_bytes": store_size_bytes,
+                                }),
+                                json_mode,
+                            );
+
+                            if !pid_alive {
+                                std::process::exit(1);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error reading PID file: {e}");
+                            std::process::exit(1);
+                        }
+                    }
+                } else {
+                    output(
+                        &serde_json::json!({
+                            "status": "not_running",
+                            "note": "No PID file found — daemon is not running",
+                        }),
+                        json_mode,
+                    );
+                    std::process::exit(1);
                 }
             }
         },

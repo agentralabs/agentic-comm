@@ -505,6 +505,9 @@ pub struct Message {
     /// UUID-based universal identifier (alongside legacy u64 id).
     #[serde(default)]
     pub comm_id: Option<CommId>,
+    /// Identity receipt ID for this message (from agentic-identity).
+    #[serde(default)]
+    pub receipt_id: Option<String>,
 }
 
 /// The type of a communication channel.
@@ -622,6 +625,9 @@ pub struct Channel {
     /// UUID-based universal identifier (alongside legacy u64 id).
     #[serde(default)]
     pub comm_id: Option<CommId>,
+    /// Optional contract reference for SLA enforcement.
+    #[serde(default)]
+    pub contract_ref: Option<String>,
 }
 
 /// A pub/sub subscription.
@@ -1463,6 +1469,7 @@ impl CommStore {
                 comm_timestamp: CommTimestamp::default(),
                 rich_content_json: None,
                 comm_id: None,
+                receipt_id: None,
             };
             self.dead_letters.push(DeadLetter {
                 original_message: msg,
@@ -1507,6 +1514,7 @@ impl CommStore {
                 comm_timestamp: CommTimestamp::default(),
                 rich_content_json: None,
                 comm_id: None,
+                receipt_id: None,
             };
             self.dead_letters.push(DeadLetter {
                 original_message: msg,
@@ -1545,6 +1553,7 @@ impl CommStore {
             comm_timestamp: ts,
             rich_content_json: None,
             comm_id: None,
+            receipt_id: None,
         };
 
         self.messages.insert(id, message.clone());
@@ -1712,6 +1721,7 @@ impl CommStore {
                 comm_timestamp: ts,
                 rich_content_json: None,
                 comm_id: None,
+                receipt_id: None,
             };
 
             self.messages.insert(id, message.clone());
@@ -1781,6 +1791,7 @@ impl CommStore {
             comm_timestamp: ts,
             rich_content_json: None,
             comm_id: None,
+            receipt_id: None,
         };
 
         self.messages.insert(id, message.clone());
@@ -1844,6 +1855,7 @@ impl CommStore {
             config: config.unwrap_or_default(),
             state: ChannelState::Active,
             comm_id: None,
+            contract_ref: None,
         };
 
         self.channels.insert(id, channel.clone());
@@ -2040,6 +2052,7 @@ impl CommStore {
                 comm_timestamp: ts,
                 rich_content_json: None,
                 comm_id: None,
+                receipt_id: None,
             };
 
             self.messages.insert(id, message.clone());
@@ -2899,6 +2912,7 @@ impl CommStore {
             metadata: HashMap::new(),
             coherence_level: 1.0,
             separation_policy: "graceful".to_string(),
+            cognitive_space: None,
         };
         self.hive_minds.insert(id, hive);
 
@@ -3068,6 +3082,40 @@ impl CommStore {
             }
             _ => self.audit_log.iter().collect(),
         }
+    }
+
+    /// Rotate audit log, keeping only the most recent entries.
+    pub fn rotate_audit_log(&mut self, max_entries: usize) -> usize {
+        if self.audit_log.len() <= max_entries {
+            return 0;
+        }
+        let removed = self.audit_log.len() - max_entries;
+        self.audit_log = self.audit_log.split_off(removed);
+        removed
+    }
+
+    /// Enforce retention policy, removing entries older than cutoff timestamp.
+    pub fn enforce_audit_retention(&mut self, cutoff_timestamp: &str) -> usize {
+        let before = self.audit_log.len();
+        self.audit_log.retain(|entry| entry.timestamp.as_str() >= cutoff_timestamp);
+        before - self.audit_log.len()
+    }
+
+    /// Export audit log as JSON array.
+    pub fn export_audit_log(&self) -> serde_json::Value {
+        let entries: Vec<serde_json::Value> = self.audit_log.iter().map(|e| {
+            serde_json::json!({
+                "event_type": format!("{:?}", e.event_type),
+                "timestamp": e.timestamp,
+                "agent_id": e.agent_id,
+                "description": e.description,
+                "related_id": e.related_id,
+            })
+        }).collect();
+        serde_json::json!({
+            "total_entries": entries.len(),
+            "entries": entries,
+        })
     }
 
     // -----------------------------------------------------------------------
@@ -3417,6 +3465,7 @@ impl CommStore {
             comm_timestamp: ts,
             rich_content_json: None,
             comm_id: None,
+            receipt_id: None,
         };
 
         self.messages.insert(id, message);
@@ -3734,7 +3783,7 @@ impl CommStore {
     // Query helpers
     // -----------------------------------------------------------------------
 
-    /// Query relationships between agents.
+    /// Query relationships for an agent including trust, channels, and consent.
     pub fn query_relationships(
         &self,
         agent_id: &str,
@@ -3743,43 +3792,134 @@ impl CommStore {
     ) -> serde_json::Value {
         let _ = depth;
         let mut relationships = Vec::new();
-        // Check trust levels
-        if let Some(level) = self.trust_levels.get(agent_id) {
-            relationships.push(serde_json::json!({
-                "type": "trust",
-                "agent": agent_id,
-                "level": level.to_string(),
-            }));
-        }
-        // Check consent gates
-        for gate in &self.consent_gates {
-            if gate.grantor == agent_id || gate.grantee == agent_id {
-                if relationship_type.map_or(true, |rt| rt == "consent") {
+
+        // Trust relationships
+        if relationship_type.is_none() || relationship_type == Some("trust") {
+            if let Some(level) = self.trust_levels.get(agent_id) {
+                relationships.push(serde_json::json!({
+                    "type": "trust",
+                    "agent": agent_id,
+                    "level": level.to_string(),
+                }));
+            }
+            // Also find agents that trust this agent
+            for (other, level) in &self.trust_levels {
+                if other != agent_id {
                     relationships.push(serde_json::json!({
-                        "type": "consent",
-                        "from": gate.grantor,
-                        "to": gate.grantee,
-                        "scope": gate.scope.to_string(),
-                        "status": gate.status,
+                        "type": "trusted_by",
+                        "agent": other,
+                        "level": level.to_string(),
                     }));
                 }
             }
         }
-        // Check hive membership
-        for hive in self.hive_minds.values() {
-            if hive.constituents.iter().any(|c| c.agent_id == agent_id) {
-                if relationship_type.map_or(true, |rt| rt == "hive") {
+
+        // Channel co-membership
+        if relationship_type.is_none() || relationship_type == Some("channel") {
+            for channel in self.channels.values() {
+                if channel.participants.contains(&agent_id.to_string()) {
+                    for peer in &channel.participants {
+                        if peer != agent_id {
+                            relationships.push(serde_json::json!({
+                                "type": "channel_peer",
+                                "agent": peer,
+                                "channel_id": channel.id,
+                                "channel_name": channel.name,
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Consent relationships
+        if relationship_type.is_none() || relationship_type == Some("consent") {
+            for gate in &self.consent_gates {
+                if gate.grantor == agent_id {
                     relationships.push(serde_json::json!({
-                        "type": "hive_membership",
-                        "hive_id": hive.id,
-                        "hive_name": hive.name,
+                        "type": "consent_granted_to",
+                        "agent": gate.grantee,
+                        "scope": format!("{:?}", gate.scope),
+                        "status": format!("{:?}", gate.status),
+                    }));
+                }
+                if gate.grantee == agent_id {
+                    relationships.push(serde_json::json!({
+                        "type": "consent_received_from",
+                        "agent": gate.grantor,
+                        "scope": format!("{:?}", gate.scope),
+                        "status": format!("{:?}", gate.status),
                     }));
                 }
             }
         }
+
+        // Hive co-membership
+        if relationship_type.is_none() || relationship_type == Some("hive") {
+            for hive in self.hive_minds.values() {
+                let is_member = hive.constituents.iter().any(|c| c.agent_id == agent_id);
+                if is_member {
+                    for constituent in &hive.constituents {
+                        if constituent.agent_id != agent_id {
+                            relationships.push(serde_json::json!({
+                                "type": "hive_peer",
+                                "agent": constituent.agent_id,
+                                "hive_id": hive.id,
+                                "hive_name": hive.name,
+                                "role": format!("{:?}", constituent.role),
+                            }));
+                        }
+                    }
+                }
+            }
+        }
+
         serde_json::json!({
             "agent_id": agent_id,
+            "relationship_count": relationships.len(),
             "relationships": relationships,
+        })
+    }
+
+    /// Query the conversation state at a specific point in time.
+    pub fn conversation_at_time(&self, channel_id: u64, timestamp: u64) -> serde_json::Value {
+        let messages: Vec<&Message> = self.messages.values()
+            .filter(|m| m.channel_id == channel_id && m.timestamp.timestamp() as u64 <= timestamp)
+            .collect();
+        let channel = self.channels.get(&channel_id);
+        serde_json::json!({
+            "channel_id": channel_id,
+            "channel_name": channel.map(|c| c.name.as_str()).unwrap_or("unknown"),
+            "as_of": timestamp,
+            "message_count": messages.len(),
+            "participants": channel.map(|c| &c.participants),
+            "last_message": messages.last().map(|m| serde_json::json!({
+                "id": m.id,
+                "sender": m.sender,
+                "content": m.content,
+                "timestamp": m.timestamp.to_rfc3339(),
+            })),
+        })
+    }
+
+    /// Get changes between two timestamps for a channel.
+    pub fn changes_in_range(&self, channel_id: u64, start: u64, end: u64) -> serde_json::Value {
+        let messages: Vec<&Message> = self.messages.values()
+            .filter(|m| {
+                m.channel_id == channel_id
+                    && m.timestamp.timestamp() as u64 >= start
+                    && m.timestamp.timestamp() as u64 <= end
+            })
+            .collect();
+        let new_participants: Vec<String> = Vec::new(); // Would need join/leave events
+        serde_json::json!({
+            "channel_id": channel_id,
+            "start": start,
+            "end": end,
+            "messages_added": messages.len(),
+            "senders": messages.iter().map(|m| m.sender.clone()).collect::<std::collections::HashSet<_>>(),
+            "message_types": messages.iter().map(|m| format!("{:?}", m.message_type)).collect::<std::collections::HashSet<_>>(),
+            "new_participants": new_participants,
         })
     }
 
@@ -5002,6 +5142,7 @@ mod tests {
             comm_timestamp: CommTimestamp::default(),
             rich_content_json: None,
             comm_id: None,
+            receipt_id: None,
         };
         store.messages.insert(id, msg);
 

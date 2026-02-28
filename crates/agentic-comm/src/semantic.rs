@@ -265,6 +265,10 @@ mod tests {
             id: id.to_string(),
             label: label.to_string(),
             node_type: CognitiveNodeType::default(),
+            confidence: 0.0,
+            source: None,
+            content: None,
+            metadata: std::collections::HashMap::new(),
         }
     }
 

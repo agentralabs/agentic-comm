@@ -62,6 +62,7 @@ impl ChannelManager {
             config: config.unwrap_or_default(),
             state: ChannelState::Active,
             comm_id: None,
+            contract_ref: None,
         };
 
         self.channels.insert(id, channel);

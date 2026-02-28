@@ -209,6 +209,10 @@ fn bench_semantic_transfer(c: &mut Criterion) {
                 id: format!("node-{}", i),
                 label: format!("concept-{}", i),
                 node_type: CognitiveNodeType::Concept,
+                confidence: 0.0,
+                source: None,
+                content: None,
+                metadata: std::collections::HashMap::new(),
             });
         }
         for i in 0..49 {

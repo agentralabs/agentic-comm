@@ -1,5 +1,5 @@
 //! Invention modules: Cross-Zone Gateway, Message Routing, Zone Policies,
-//! Reality Bending — 16 tools for the FEDERATION category of the Comm Inventions.
+//! Reality Bending, Destiny Channels — 20 tools for the FEDERATION category of the Comm Inventions.
 
 use crate::session::manager::SessionManager;
 use crate::types::response::{ToolCallResult, ToolDefinition};
@@ -714,6 +714,256 @@ fn handle_reality_detect(args: Value, session: &mut SessionManager) -> Result<To
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5. Destiny Channels (4 tools)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 17. comm_destiny_create ───────────────────────────────────────────────
+fn definition_destiny_create() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_destiny_create".into(),
+        description: Some("Create a destiny channel that connects agents with aligned goals".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "purpose": { "type": "string", "description": "Shared purpose or destiny for the channel" },
+                "founding_agents": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Agents founding this destiny channel"
+                },
+                "convergence_target": { "type": "string", "description": "Target outcome the channel works toward" },
+                "zone_id": { "type": "string", "description": "Optional: restrict to a federation zone" }
+            },
+            "required": ["purpose", "founding_agents", "convergence_target"]
+        }),
+    }
+}
+
+fn handle_destiny_create(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let purpose = get_str(&args, "purpose").ok_or("Missing purpose")?;
+    let founding_agents: Vec<String> = args.get("founding_agents")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .ok_or("Missing or invalid founding_agents")?;
+    let convergence_target = get_str(&args, "convergence_target").ok_or("Missing convergence_target")?;
+    let zone_id = get_str(&args, "zone_id");
+    if founding_agents.is_empty() {
+        return Err("founding_agents cannot be empty".into());
+    }
+    // Create a channel for this destiny
+    let channel_name = format!("destiny:{purpose}");
+    let config = agentic_comm::ChannelConfig {
+        ..Default::default()
+    };
+    match session.store.create_channel(&channel_name, agentic_comm::ChannelType::Group, Some(config)) {
+        Ok(channel) => {
+            for agent in &founding_agents {
+                let _ = session.store.join_channel(channel.id, agent);
+            }
+            session.record_operation("comm_destiny_create", Some(channel.id));
+            Ok(ToolCallResult::json(&json!({
+                "destiny_channel_id": channel.id,
+                "purpose": purpose,
+                "convergence_target": convergence_target,
+                "founding_agents": founding_agents,
+                "zone_id": zone_id,
+                "initial_alignment": 0.0,
+                "status": "destiny_created"
+            })))
+        }
+        Err(e) => Ok(ToolCallResult::error(format!("Failed to create destiny channel: {e}"))),
+    }
+}
+
+// ── 18. comm_destiny_align ────────────────────────────────────────────────
+fn definition_destiny_align() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_destiny_align".into(),
+        description: Some("Measure alignment between agents in a destiny channel".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "destiny_channel_id": { "type": "integer", "description": "Destiny channel to measure alignment for" }
+            },
+            "required": ["destiny_channel_id"]
+        }),
+    }
+}
+
+fn handle_destiny_align(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let destiny_channel_id = get_u64(&args, "destiny_channel_id").ok_or("Missing destiny_channel_id")?;
+    let store = &session.store;
+    let channel = store.get_channel(destiny_channel_id)
+        .ok_or_else(|| format!("Destiny channel {destiny_channel_id} not found"))?;
+    if !channel.name.starts_with("destiny:") {
+        return Err(format!("Channel {destiny_channel_id} is not a destiny channel"));
+    }
+    let purpose = channel.name.strip_prefix("destiny:").unwrap_or(&channel.name);
+    // Measure alignment by analyzing affect similarity and message patterns
+    let mut affect_vectors: Vec<(String, f64, f64)> = Vec::new();
+    for participant in &channel.participants {
+        if let Some(state) = store.get_affect_state(participant) {
+            affect_vectors.push((participant.clone(), state.valence, state.arousal));
+        }
+    }
+    // Pairwise alignment scores
+    let mut pairwise_alignments: Vec<Value> = Vec::new();
+    let mut total_alignment = 0.0f64;
+    let mut pair_count = 0u32;
+    for i in 0..affect_vectors.len() {
+        for j in (i+1)..affect_vectors.len() {
+            let (ref a, av, aa) = affect_vectors[i];
+            let (ref b, bv, ba) = affect_vectors[j];
+            let distance = ((av - bv).powi(2) + (aa - ba).powi(2)).sqrt();
+            let alignment = (1.0 - distance / 2.0_f64.sqrt()).max(0.0);
+            total_alignment += alignment;
+            pair_count += 1;
+            pairwise_alignments.push(json!({
+                "agent_a": a, "agent_b": b,
+                "alignment": alignment
+            }));
+        }
+    }
+    let avg_alignment = if pair_count > 0 { total_alignment / pair_count as f64 } else { 0.0 };
+    // Message activity alignment: how evenly do agents participate?
+    let msg_counts: Vec<usize> = channel.participants.iter()
+        .map(|p| store.messages.values().filter(|m| m.channel_id == destiny_channel_id && m.sender == *p).count())
+        .collect();
+    let total_messages: usize = msg_counts.iter().sum();
+    let participation_balance = if !msg_counts.is_empty() && total_messages > 0 {
+        let expected = total_messages as f64 / msg_counts.len() as f64;
+        let variance = msg_counts.iter().map(|&c| (c as f64 - expected).powi(2)).sum::<f64>() / msg_counts.len() as f64;
+        (1.0 / (1.0 + (variance / expected.max(1.0)).sqrt())).min(1.0)
+    } else { 0.0 };
+    Ok(ToolCallResult::json(&json!({
+        "destiny_channel_id": destiny_channel_id,
+        "purpose": purpose,
+        "participants": channel.participants.len(),
+        "affect_alignment": avg_alignment,
+        "participation_balance": participation_balance,
+        "overall_alignment": (avg_alignment * 0.6 + participation_balance * 0.4),
+        "pairwise_alignments": pairwise_alignments,
+        "total_messages": total_messages,
+        "status": "alignment_measured"
+    })))
+}
+
+// ── 19. comm_destiny_probability ──────────────────────────────────────────
+fn definition_destiny_probability() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_destiny_probability".into(),
+        description: Some("Calculate probability of destiny convergence".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "destiny_channel_id": { "type": "integer", "description": "Destiny channel to assess" },
+                "horizon_seconds": { "type": "integer", "description": "Time horizon for convergence", "default": 86400 }
+            },
+            "required": ["destiny_channel_id"]
+        }),
+    }
+}
+
+fn handle_destiny_probability(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let destiny_channel_id = get_u64(&args, "destiny_channel_id").ok_or("Missing destiny_channel_id")?;
+    let horizon = get_u64(&args, "horizon_seconds").unwrap_or(86400);
+    let store = &session.store;
+    let channel = store.get_channel(destiny_channel_id)
+        .ok_or_else(|| format!("Destiny channel {destiny_channel_id} not found"))?;
+    if !channel.name.starts_with("destiny:") {
+        return Err(format!("Channel {destiny_channel_id} is not a destiny channel"));
+    }
+    let purpose = channel.name.strip_prefix("destiny:").unwrap_or(&channel.name);
+    let participant_count = channel.participants.len();
+    let msg_count = store.messages.values()
+        .filter(|m| m.channel_id == destiny_channel_id)
+        .count();
+    // Factors: message velocity, affect alignment, participation
+    let active_participants = channel.participants.iter()
+        .filter(|p| store.messages.values().any(|m| m.channel_id == destiny_channel_id && m.sender == **p))
+        .count();
+    let participation_rate = if participant_count > 0 { active_participants as f64 / participant_count as f64 } else { 0.0 };
+    // Message velocity (messages per hour)
+    let velocity = if msg_count > 1 {
+        let mut timestamps: Vec<i64> = store.messages.values()
+            .filter(|m| m.channel_id == destiny_channel_id)
+            .map(|m| m.timestamp.timestamp())
+            .collect();
+        timestamps.sort();
+        let time_span = (timestamps.last().unwrap_or(&0) - timestamps.first().unwrap_or(&0)) as f64;
+        if time_span > 0.0 { msg_count as f64 / (time_span / 3600.0) } else { 0.0 }
+    } else { 0.0 };
+    // Convergence probability
+    let activity_factor = (velocity / 10.0).min(1.0) * 0.3;
+    let participation_factor = participation_rate * 0.4;
+    let momentum_factor = (msg_count as f64 / 100.0).min(1.0) * 0.3;
+    let probability = (activity_factor + participation_factor + momentum_factor).min(1.0);
+    let outcome = if probability > 0.7 { "likely" } else if probability > 0.4 { "possible" } else { "unlikely" };
+    Ok(ToolCallResult::json(&json!({
+        "destiny_channel_id": destiny_channel_id,
+        "purpose": purpose,
+        "horizon_seconds": horizon,
+        "participants": participant_count,
+        "active_participants": active_participants,
+        "participation_rate": participation_rate,
+        "message_velocity_per_hour": velocity,
+        "total_messages": msg_count,
+        "convergence_probability": probability,
+        "outcome_prediction": outcome,
+        "status": "probability_calculated"
+    })))
+}
+
+// ── 20. comm_destiny_converge ─────────────────────────────────────────────
+fn definition_destiny_converge() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_destiny_converge".into(),
+        description: Some("Trigger destiny convergence when conditions are met".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "destiny_channel_id": { "type": "integer", "description": "Destiny channel to converge" },
+                "outcome": { "type": "string", "description": "Convergence outcome description" },
+                "resolver": { "type": "string", "description": "Agent declaring convergence" }
+            },
+            "required": ["destiny_channel_id", "outcome", "resolver"]
+        }),
+    }
+}
+
+fn handle_destiny_converge(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let destiny_channel_id = get_u64(&args, "destiny_channel_id").ok_or("Missing destiny_channel_id")?;
+    let outcome = get_str(&args, "outcome").ok_or("Missing outcome")?;
+    let resolver = get_str(&args, "resolver").ok_or("Missing resolver")?;
+    let store = &session.store;
+    let channel = store.get_channel(destiny_channel_id)
+        .ok_or_else(|| format!("Destiny channel {destiny_channel_id} not found"))?;
+    if !channel.name.starts_with("destiny:") {
+        return Err(format!("Channel {destiny_channel_id} is not a destiny channel"));
+    }
+    let purpose = channel.name.strip_prefix("destiny:").unwrap_or(&channel.name).to_string();
+    let participant_count = channel.participants.len();
+    let msg_count = store.messages.values()
+        .filter(|m| m.channel_id == destiny_channel_id)
+        .count();
+    // Post convergence announcement
+    let convergence_msg = format!("[destiny:converged] {outcome}");
+    let _ = session.store.send_message(destiny_channel_id, &resolver, &convergence_msg, agentic_comm::MessageType::Text);
+    // Close the destiny channel
+    let _ = session.store.close_channel(destiny_channel_id);
+    session.record_operation("comm_destiny_converge", Some(destiny_channel_id));
+    Ok(ToolCallResult::json(&json!({
+        "destiny_channel_id": destiny_channel_id,
+        "purpose": purpose,
+        "outcome": outcome,
+        "resolver": resolver,
+        "participants": participant_count,
+        "total_messages": msg_count,
+        "channel_closed": true,
+        "status": "destiny_converged"
+    })))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Public API
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -735,6 +985,10 @@ pub fn all_definitions() -> Vec<ToolDefinition> {
         definition_reality_fork(),
         definition_reality_merge(),
         definition_reality_detect(),
+        definition_destiny_create(),
+        definition_destiny_align(),
+        definition_destiny_probability(),
+        definition_destiny_converge(),
     ]
 }
 
@@ -760,6 +1014,10 @@ pub fn try_execute(
         "comm_reality_fork" => Some(handle_reality_fork(args, session)),
         "comm_reality_merge" => Some(handle_reality_merge(args, session)),
         "comm_reality_detect" => Some(handle_reality_detect(args, session)),
+        "comm_destiny_create" => Some(handle_destiny_create(args, session)),
+        "comm_destiny_align" => Some(handle_destiny_align(args, session)),
+        "comm_destiny_probability" => Some(handle_destiny_probability(args, session)),
+        "comm_destiny_converge" => Some(handle_destiny_converge(args, session)),
         _ => None,
     }
 }

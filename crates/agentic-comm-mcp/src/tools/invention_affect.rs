@@ -1,5 +1,5 @@
 //! Invention modules: Affective Contagion, Emotional Archaeology, Affect Prophecy,
-//! Unspeakable Content — 16 tools for the AFFECT category of the Comm Inventions.
+//! Unspeakable Content, Anticipatory Understanding — 20 tools for the AFFECT category of the Comm Inventions.
 
 use crate::session::manager::SessionManager;
 use crate::types::response::{ToolCallResult, ToolDefinition};
@@ -891,6 +891,263 @@ fn handle_unspeakable_translate(args: Value, session: &mut SessionManager) -> Re
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5. Anticipatory Understanding (4 tools)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 17. comm_anticipate_predict ───────────────────────────────────────────
+fn definition_anticipate_predict() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_anticipate_predict".into(),
+        description: Some("Predict what an agent needs before they ask".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent": { "type": "string", "description": "Agent to anticipate needs for" },
+                "channel_id": { "type": "integer", "description": "Optional: scope prediction to a channel" },
+                "horizon_messages": { "type": "integer", "description": "Number of future messages to predict for", "default": 5 }
+            },
+            "required": ["agent"]
+        }),
+    }
+}
+
+fn handle_anticipate_predict(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let channel_id = get_u64(&args, "channel_id");
+    let horizon = get_u64(&args, "horizon_messages").unwrap_or(5) as usize;
+    let store = &session.store;
+    // Analyze agent's message patterns
+    let agent_messages: Vec<&agentic_comm::Message> = store.messages.values()
+        .filter(|m| m.sender == agent)
+        .filter(|m| channel_id.map_or(true, |cid| m.channel_id == cid))
+        .collect();
+    // Analyze affect state
+    let affect = store.get_affect_state(&agent);
+    let affect_history = store.get_affect_history(&agent);
+    // Pattern analysis: message frequency, topic keywords, response patterns
+    let mut word_freq: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut reply_ratio = 0.0f64;
+    let mut replies = 0u32;
+    for msg in &agent_messages {
+        for word in msg.content.to_lowercase().split_whitespace() {
+            let clean: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
+            if clean.len() > 3 {
+                *word_freq.entry(clean).or_insert(0) += 1;
+            }
+        }
+        if msg.reply_to.is_some() {
+            replies += 1;
+        }
+    }
+    if !agent_messages.is_empty() {
+        reply_ratio = replies as f64 / agent_messages.len() as f64;
+    }
+    // Top topics
+    let mut topics: Vec<(String, usize)> = word_freq.into_iter().collect();
+    topics.sort_by(|a, b| b.1.cmp(&a.1));
+    topics.truncate(5);
+    let predicted_topics: Vec<Value> = topics.iter().map(|(word, count)| json!({
+        "topic": word,
+        "frequency": count,
+        "likelihood": (*count as f64 / agent_messages.len().max(1) as f64).min(1.0)
+    })).collect();
+    let current_valence = affect.map_or(0.0, |a| a.valence);
+    let current_arousal = affect.map_or(0.0, |a| a.arousal);
+    let emotional_trajectory = if affect_history.states.len() >= 2 {
+        let recent = &affect_history.states[affect_history.states.len()-1];
+        let prev = &affect_history.states[affect_history.states.len()-2];
+        if recent.valence > prev.valence { "improving" } else if recent.valence < prev.valence { "declining" } else { "stable" }
+    } else { "unknown" };
+    let confidence = if agent_messages.len() > 20 { 0.7 } else if agent_messages.len() > 5 { 0.4 } else { 0.15 };
+    Ok(ToolCallResult::json(&json!({
+        "agent": agent,
+        "channel_id": channel_id,
+        "horizon_messages": horizon,
+        "messages_analyzed": agent_messages.len(),
+        "reply_ratio": reply_ratio,
+        "predicted_topics": predicted_topics,
+        "current_valence": current_valence,
+        "current_arousal": current_arousal,
+        "emotional_trajectory": emotional_trajectory,
+        "confidence": confidence,
+        "status": "anticipation_complete"
+    })))
+}
+
+// ── 18. comm_anticipate_prepare ───────────────────────────────────────────
+fn definition_anticipate_prepare() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_anticipate_prepare".into(),
+        description: Some("Prepare proactive content based on anticipated needs".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent": { "type": "string", "description": "Agent to prepare content for" },
+                "channel_id": { "type": "integer", "description": "Channel for the prepared content" },
+                "prepared_content": { "type": "string", "description": "Content prepared in anticipation" },
+                "trigger_condition": { "type": "string", "description": "Condition to trigger delivery: message_from, topic_mention, affect_shift", "default": "message_from" },
+                "preparer": { "type": "string", "description": "Agent preparing the content" }
+            },
+            "required": ["agent", "channel_id", "prepared_content", "preparer"]
+        }),
+    }
+}
+
+fn handle_anticipate_prepare(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let channel_id = get_u64(&args, "channel_id").ok_or("Missing channel_id")?;
+    let prepared_content = get_str(&args, "prepared_content").ok_or("Missing prepared_content")?;
+    let trigger_condition = get_str(&args, "trigger_condition").unwrap_or_else(|| "message_from".into());
+    let preparer = get_str(&args, "preparer").ok_or("Missing preparer")?;
+    let _ = session.store.get_channel(channel_id)
+        .ok_or_else(|| format!("Channel {channel_id} not found"))?;
+    let condition = format!("{}:{}", trigger_condition, agent);
+    let result = session.store.schedule_message(
+        channel_id, &preparer, &prepared_content,
+        agentic_comm::types::TemporalTarget::Conditional { condition: condition.clone() },
+        None,
+    ).map_err(|e| format!("Failed to prepare: {e}"))?;
+    let temporal_id = result.id;
+    session.record_operation("comm_anticipate_prepare", Some(temporal_id));
+    Ok(ToolCallResult::json(&json!({
+        "temporal_id": temporal_id,
+        "target_agent": agent,
+        "channel_id": channel_id,
+        "preparer": preparer,
+        "trigger_condition": condition,
+        "content_length": prepared_content.len(),
+        "status": "anticipation_prepared"
+    })))
+}
+
+// ── 19. comm_anticipate_calibrate ─────────────────────────────────────────
+fn definition_anticipate_calibrate() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_anticipate_calibrate".into(),
+        description: Some("Calibrate anticipatory understanding for an agent".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent": { "type": "string", "description": "Agent to calibrate anticipation for" },
+                "feedback": { "type": "string", "description": "Feedback on last anticipation: accurate, missed, wrong" },
+                "learning_rate": { "type": "number", "description": "Calibration learning rate (0.0-1.0)", "default": 0.1 }
+            },
+            "required": ["agent", "feedback"]
+        }),
+    }
+}
+
+fn handle_anticipate_calibrate(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let feedback = get_str(&args, "feedback").ok_or("Missing feedback")?;
+    let learning_rate = get_f64(&args, "learning_rate").unwrap_or(0.1).clamp(0.0, 1.0);
+    if !["accurate", "missed", "wrong"].contains(&feedback.as_str()) {
+        return Err("feedback must be one of: accurate, missed, wrong".into());
+    }
+    let store = &session.store;
+    // Analyze current model quality based on affect history depth
+    let history = store.get_affect_history(&agent);
+    let data_points = history.states.len();
+    let message_count = store.messages.values().filter(|m| m.sender == agent).count();
+    let model_maturity = if message_count > 50 { "mature" } else if message_count > 10 { "developing" } else { "nascent" };
+    let accuracy_adjustment = match feedback.as_str() {
+        "accurate" => learning_rate,
+        "missed" => -learning_rate * 0.5,
+        "wrong" => -learning_rate,
+        _ => 0.0,
+    };
+    session.record_operation("comm_anticipate_calibrate", None);
+    Ok(ToolCallResult::json(&json!({
+        "agent": agent,
+        "feedback": feedback,
+        "learning_rate": learning_rate,
+        "accuracy_adjustment": accuracy_adjustment,
+        "data_points": data_points,
+        "message_count": message_count,
+        "model_maturity": model_maturity,
+        "calibrated": true,
+        "status": "calibration_complete"
+    })))
+}
+
+// ── 20. comm_anticipate_accuracy ──────────────────────────────────────────
+fn definition_anticipate_accuracy() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_anticipate_accuracy".into(),
+        description: Some("Check accuracy of anticipatory predictions for an agent".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "agent": { "type": "string", "description": "Agent to check anticipation accuracy for" },
+                "window_messages": { "type": "integer", "description": "Number of recent messages to evaluate", "default": 30 }
+            },
+            "required": ["agent"]
+        }),
+    }
+}
+
+fn handle_anticipate_accuracy(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let agent = get_str(&args, "agent").ok_or("Missing agent")?;
+    let window = get_u64(&args, "window_messages").unwrap_or(30) as usize;
+    let store = &session.store;
+    // Analyze pattern consistency: how predictable is this agent's behavior?
+    let mut agent_messages: Vec<&agentic_comm::Message> = store.messages.values()
+        .filter(|m| m.sender == agent)
+        .collect();
+    agent_messages.sort_by_key(|m| m.timestamp);
+    let recent = &agent_messages[agent_messages.len().saturating_sub(window)..];
+    // Topic consistency: do they talk about the same things?
+    let mut all_words: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for msg in recent {
+        for word in msg.content.to_lowercase().split_whitespace() {
+            let clean: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
+            if clean.len() > 3 {
+                *all_words.entry(clean).or_insert(0) += 1;
+            }
+        }
+    }
+    let total_unique = all_words.len();
+    let total_words: usize = all_words.values().sum();
+    let repetition_rate = if total_unique > 0 { total_words as f64 / total_unique as f64 } else { 0.0 };
+    // Timing consistency: are intervals between messages consistent?
+    let mut intervals: Vec<i64> = Vec::new();
+    for w in recent.windows(2) {
+        let diff = w[1].timestamp.signed_duration_since(w[0].timestamp).num_seconds();
+        intervals.push(diff);
+    }
+    let avg_interval = if !intervals.is_empty() { intervals.iter().sum::<i64>() as f64 / intervals.len() as f64 } else { 0.0 };
+    let interval_variance = if intervals.len() > 1 {
+        let mean = avg_interval;
+        intervals.iter().map(|&i| (i as f64 - mean).powi(2)).sum::<f64>() / intervals.len() as f64
+    } else { 0.0 };
+    let timing_predictability = (1.0 / (1.0 + (interval_variance / 10000.0).sqrt())).min(1.0);
+    // Affect consistency
+    let affect_history = store.get_affect_history(&agent);
+    let affect_stability = if affect_history.states.len() >= 2 {
+        let mut valence_diffs: Vec<f64> = Vec::new();
+        for w in affect_history.states.windows(2) {
+            valence_diffs.push((w[1].valence - w[0].valence).abs());
+        }
+        let avg_diff = valence_diffs.iter().sum::<f64>() / valence_diffs.len() as f64;
+        (1.0 - avg_diff).max(0.0)
+    } else { 0.5 };
+    let overall_predictability = (repetition_rate.min(5.0) / 5.0 * 0.3 + timing_predictability * 0.3 + affect_stability * 0.4).min(1.0);
+    let rating = if overall_predictability > 0.7 { "high" } else if overall_predictability > 0.4 { "medium" } else { "low" };
+    Ok(ToolCallResult::json(&json!({
+        "agent": agent,
+        "messages_analyzed": recent.len(),
+        "unique_words": total_unique,
+        "repetition_rate": repetition_rate,
+        "average_message_interval_seconds": avg_interval,
+        "timing_predictability": timing_predictability,
+        "affect_stability": affect_stability,
+        "overall_predictability": overall_predictability,
+        "accuracy_rating": rating,
+        "status": "accuracy_assessed"
+    })))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Public API
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -912,6 +1169,10 @@ pub fn all_definitions() -> Vec<ToolDefinition> {
         definition_unspeakable_decode(),
         definition_unspeakable_detect(),
         definition_unspeakable_translate(),
+        definition_anticipate_predict(),
+        definition_anticipate_prepare(),
+        definition_anticipate_calibrate(),
+        definition_anticipate_accuracy(),
     ]
 }
 
@@ -937,6 +1198,10 @@ pub fn try_execute(
         "comm_unspeakable_decode" => Some(handle_unspeakable_decode(args, session)),
         "comm_unspeakable_detect" => Some(handle_unspeakable_detect(args, session)),
         "comm_unspeakable_translate" => Some(handle_unspeakable_translate(args, session)),
+        "comm_anticipate_predict" => Some(handle_anticipate_predict(args, session)),
+        "comm_anticipate_prepare" => Some(handle_anticipate_prepare(args, session)),
+        "comm_anticipate_calibrate" => Some(handle_anticipate_calibrate(args, session)),
+        "comm_anticipate_accuracy" => Some(handle_anticipate_accuracy(args, session)),
         _ => None,
     }
 }

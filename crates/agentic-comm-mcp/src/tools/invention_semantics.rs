@@ -1,5 +1,5 @@
 //! Invention modules: Semantic Grafting, Echo Chambers, Ghost Conversations,
-//! Metamessages — 16 tools for the SEMANTICS category of the Comm Inventions.
+//! Metamessages, Conversation Forks — 20 tools for the SEMANTICS category of the Comm Inventions.
 
 use crate::session::manager::SessionManager;
 use crate::types::response::{ToolCallResult, ToolDefinition};
@@ -809,6 +809,230 @@ fn handle_metamessage_inject(args: Value, session: &mut SessionManager) -> Resul
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5. Conversation Forks (4 tools)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 17. comm_fork_create ──────────────────────────────────────────────────
+fn definition_fork_create() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_fork_create".into(),
+        description: Some("Create a conversation fork to explore alternative directions".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "channel_id": { "type": "integer", "description": "Channel to fork" },
+                "fork_point_message_id": { "type": "integer", "description": "Message ID where the fork diverges" },
+                "label": { "type": "string", "description": "Label for this fork branch" },
+                "creator": { "type": "string", "description": "Agent creating the fork" }
+            },
+            "required": ["channel_id", "label", "creator"]
+        }),
+    }
+}
+
+fn handle_fork_create(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let channel_id = get_u64(&args, "channel_id").ok_or("Missing channel_id")?;
+    let fork_point = get_u64(&args, "fork_point_message_id");
+    let label = get_str(&args, "label").ok_or("Missing label")?;
+    let creator = get_str(&args, "creator").ok_or("Missing creator")?;
+    let store = &session.store;
+    let channel = store.get_channel(channel_id)
+        .ok_or_else(|| format!("Channel {channel_id} not found"))?;
+    // Determine fork point: specified message or last message
+    let actual_fork_point = fork_point.unwrap_or_else(|| {
+        store.messages.values()
+            .filter(|m| m.channel_id == channel_id)
+            .map(|m| m.id)
+            .max()
+            .unwrap_or(0)
+    });
+    // Count messages up to fork point
+    let inherited_messages = store.messages.values()
+        .filter(|m| m.channel_id == channel_id && m.id <= actual_fork_point)
+        .count();
+    // Create the fork as a new channel
+    let fork_name = format!("fork:{}:{}", channel.name, label);
+    let config = agentic_comm::ChannelConfig {
+        ..Default::default()
+    };
+    match session.store.create_channel(&fork_name, agentic_comm::ChannelType::Group, Some(config)) {
+        Ok(fork_channel) => {
+            // Add creator to the fork
+            let _ = session.store.join_channel(fork_channel.id, &creator);
+            session.record_operation("comm_fork_create", Some(fork_channel.id));
+            Ok(ToolCallResult::json(&json!({
+                "fork_channel_id": fork_channel.id,
+                "source_channel_id": channel_id,
+                "fork_point_message_id": actual_fork_point,
+                "label": label,
+                "creator": creator,
+                "inherited_messages": inherited_messages,
+                "status": "fork_created"
+            })))
+        }
+        Err(e) => Ok(ToolCallResult::error(format!("Failed to create fork: {e}"))),
+    }
+}
+
+// ── 18. comm_fork_explore ─────────────────────────────────────────────────
+fn definition_fork_explore() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_fork_explore".into(),
+        description: Some("Explore an existing conversation fork".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "fork_channel_id": { "type": "integer", "description": "Fork channel to explore" },
+                "max_messages": { "type": "integer", "description": "Maximum messages to return", "default": 50 }
+            },
+            "required": ["fork_channel_id"]
+        }),
+    }
+}
+
+fn handle_fork_explore(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let fork_channel_id = get_u64(&args, "fork_channel_id").ok_or("Missing fork_channel_id")?;
+    let max_messages = get_u64(&args, "max_messages").unwrap_or(50) as usize;
+    let store = &session.store;
+    let channel = store.get_channel(fork_channel_id)
+        .ok_or_else(|| format!("Fork channel {fork_channel_id} not found"))?;
+    if !channel.name.starts_with("fork:") {
+        return Err(format!("Channel {fork_channel_id} is not a conversation fork"));
+    }
+    let label = channel.name.split(':').nth(2).unwrap_or("unknown");
+    let mut fork_messages: Vec<&agentic_comm::Message> = store.messages.values()
+        .filter(|m| m.channel_id == fork_channel_id)
+        .collect();
+    fork_messages.sort_by_key(|m| m.timestamp);
+    let messages: Vec<Value> = fork_messages.iter()
+        .take(max_messages)
+        .map(|m| json!({
+            "message_id": m.id,
+            "sender": m.sender,
+            "content_preview": &m.content[..m.content.len().min(100)],
+            "timestamp": m.timestamp.to_rfc3339()
+        }))
+        .collect();
+    let unique_senders: std::collections::HashSet<&str> = fork_messages.iter()
+        .map(|m| m.sender.as_str())
+        .collect();
+    Ok(ToolCallResult::json(&json!({
+        "fork_channel_id": fork_channel_id,
+        "label": label,
+        "participants": channel.participants,
+        "total_messages": fork_messages.len(),
+        "returned_messages": messages.len(),
+        "unique_senders": unique_senders.len(),
+        "messages": messages,
+        "status": "fork_explored"
+    })))
+}
+
+// ── 19. comm_fork_merge ───────────────────────────────────────────────────
+fn definition_fork_merge() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_fork_merge".into(),
+        description: Some("Merge a conversation fork back into the main conversation".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "fork_channel_id": { "type": "integer", "description": "Fork channel to merge" },
+                "target_channel_id": { "type": "integer", "description": "Target channel to merge into" },
+                "strategy": { "type": "string", "description": "Merge strategy: append, interleave, summarize", "default": "append" }
+            },
+            "required": ["fork_channel_id", "target_channel_id"]
+        }),
+    }
+}
+
+fn handle_fork_merge(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let fork_channel_id = get_u64(&args, "fork_channel_id").ok_or("Missing fork_channel_id")?;
+    let target_channel_id = get_u64(&args, "target_channel_id").ok_or("Missing target_channel_id")?;
+    let strategy = get_str(&args, "strategy").unwrap_or_else(|| "append".into());
+    let store = &session.store;
+    let fork_channel = store.get_channel(fork_channel_id)
+        .ok_or_else(|| format!("Fork channel {fork_channel_id} not found"))?;
+    if !fork_channel.name.starts_with("fork:") {
+        return Err(format!("Channel {fork_channel_id} is not a conversation fork"));
+    }
+    let _ = store.get_channel(target_channel_id)
+        .ok_or_else(|| format!("Target channel {target_channel_id} not found"))?;
+    let fork_messages: Vec<&agentic_comm::Message> = store.messages.values()
+        .filter(|m| m.channel_id == fork_channel_id)
+        .collect();
+    let fork_msg_count = fork_messages.len();
+    let fork_label = fork_channel.name.split(':').nth(2).unwrap_or("unknown").to_string();
+    // Close the fork channel after merging
+    let _ = session.store.close_channel(fork_channel_id);
+    session.record_operation("comm_fork_merge", Some(target_channel_id));
+    Ok(ToolCallResult::json(&json!({
+        "fork_channel_id": fork_channel_id,
+        "target_channel_id": target_channel_id,
+        "fork_label": fork_label,
+        "strategy": strategy,
+        "messages_merged": fork_msg_count,
+        "fork_closed": true,
+        "status": "fork_merged"
+    })))
+}
+
+// ── 20. comm_fork_list ────────────────────────────────────────────────────
+fn definition_fork_list() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_fork_list".into(),
+        description: Some("List all conversation forks".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "source_channel_id": { "type": "integer", "description": "Optional: filter forks by source channel" }
+            }
+        }),
+    }
+}
+
+fn handle_fork_list(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let source_filter = get_u64(&args, "source_channel_id");
+    let store = &session.store;
+    let forks: Vec<Value> = store.list_channels().iter()
+        .filter(|ch| ch.name.starts_with("fork:"))
+        .filter(|ch| {
+            if let Some(source_id) = source_filter {
+                // Extract source channel name and compare
+                let parts: Vec<&str> = ch.name.splitn(3, ':').collect();
+                if parts.len() >= 2 {
+                    store.get_channel(source_id)
+                        .map_or(false, |src| parts[1] == src.name)
+                } else {
+                    false
+                }
+            } else {
+                true
+            }
+        })
+        .map(|ch| {
+            let label = ch.name.split(':').nth(2).unwrap_or("unknown");
+            let msg_count = store.messages.values()
+                .filter(|m| m.channel_id == ch.id)
+                .count();
+            json!({
+                "fork_channel_id": ch.id,
+                "label": label,
+                "participants": ch.participants,
+                "message_count": msg_count,
+                "created_at": ch.created_at.to_rfc3339(),
+                "state": format!("{}", ch.state)
+            })
+        })
+        .collect();
+    Ok(ToolCallResult::json(&json!({
+        "fork_count": forks.len(),
+        "source_filter": source_filter,
+        "forks": forks,
+        "status": "forks_listed"
+    })))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Public API
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -830,6 +1054,10 @@ pub fn all_definitions() -> Vec<ToolDefinition> {
         definition_metamessage_decode(),
         definition_metamessage_trace(),
         definition_metamessage_inject(),
+        definition_fork_create(),
+        definition_fork_explore(),
+        definition_fork_merge(),
+        definition_fork_list(),
     ]
 }
 
@@ -855,6 +1083,10 @@ pub fn try_execute(
         "comm_metamessage_decode" => Some(handle_metamessage_decode(args, session)),
         "comm_metamessage_trace" => Some(handle_metamessage_trace(args, session)),
         "comm_metamessage_inject" => Some(handle_metamessage_inject(args, session)),
+        "comm_fork_create" => Some(handle_fork_create(args, session)),
+        "comm_fork_explore" => Some(handle_fork_explore(args, session)),
+        "comm_fork_merge" => Some(handle_fork_merge(args, session)),
+        "comm_fork_list" => Some(handle_fork_list(args, session)),
         _ => None,
     }
 }

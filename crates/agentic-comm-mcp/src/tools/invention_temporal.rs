@@ -1,5 +1,5 @@
 //! Invention modules: Precognitive Messaging, Temporal Scheduling,
-//! Legacy Messages, Dead Letter Resurrection — 16 tools for the
+//! Legacy Messages, Dead Letter Resurrection, Temporal Consensus — 20 tools for the
 //! TEMPORAL category of the Comm Inventions.
 
 use crate::session::manager::SessionManager;
@@ -739,6 +739,229 @@ fn handle_dead_letter_autopsy(args: Value, session: &mut SessionManager) -> Resu
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5. Temporal Consensus (4 tools)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 17. comm_temporal_consensus_propose ───────────────────────────────────
+fn definition_temporal_consensus_propose() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_temporal_consensus_propose".into(),
+        description: Some("Propose a temporal consensus decision to a group".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "channel_id": { "type": "integer", "description": "Channel to propose consensus in" },
+                "proposer": { "type": "string", "description": "Agent proposing the consensus" },
+                "proposal": { "type": "string", "description": "Proposal content to reach consensus on" },
+                "deadline_seconds": { "type": "integer", "description": "Seconds until voting closes", "default": 3600 },
+                "quorum": { "type": "number", "description": "Fraction of participants required (0.0-1.0)", "default": 0.5 }
+            },
+            "required": ["channel_id", "proposer", "proposal"]
+        }),
+    }
+}
+
+fn handle_temporal_consensus_propose(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let channel_id = get_u64(&args, "channel_id").ok_or("Missing channel_id")?;
+    let proposer = get_str(&args, "proposer").ok_or("Missing proposer")?;
+    let proposal = get_str(&args, "proposal").ok_or("Missing proposal")?;
+    let deadline_seconds = get_u64(&args, "deadline_seconds").unwrap_or(3600);
+    let quorum = get_f64(&args, "quorum").unwrap_or(0.5).clamp(0.0, 1.0);
+    let store = &session.store;
+    let channel = store.get_channel(channel_id)
+        .ok_or_else(|| format!("Channel {channel_id} not found"))?;
+    let participant_count = channel.participants.len();
+    let required_votes = ((participant_count as f64) * quorum).ceil() as usize;
+    // Schedule a temporal message as the consensus proposal
+    let proposal_content = format!("[consensus:proposal] {proposal}");
+    let result = session.store.schedule_message(
+        channel_id, &proposer, &proposal_content,
+        agentic_comm::types::TemporalTarget::FutureRelative { delay_seconds: deadline_seconds },
+        None,
+    ).map_err(|e| format!("Failed to create proposal: {e}"))?;
+    let proposal_id = result.id;
+    session.record_operation("comm_temporal_consensus_propose", Some(proposal_id));
+    Ok(ToolCallResult::json(&json!({
+        "proposal_id": proposal_id,
+        "channel_id": channel_id,
+        "proposer": proposer,
+        "proposal": proposal,
+        "deadline_seconds": deadline_seconds,
+        "quorum": quorum,
+        "participants": participant_count,
+        "required_votes": required_votes,
+        "status": "proposal_submitted"
+    })))
+}
+
+// ── 18. comm_temporal_consensus_vote ──────────────────────────────────────
+fn definition_temporal_consensus_vote() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_temporal_consensus_vote".into(),
+        description: Some("Cast a vote on a temporal consensus proposal".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "proposal_id": { "type": "integer", "description": "Proposal to vote on (temporal_id)" },
+                "voter": { "type": "string", "description": "Voting agent" },
+                "vote": { "type": "string", "description": "Vote: approve, reject, abstain" },
+                "reason": { "type": "string", "description": "Optional reason for the vote" }
+            },
+            "required": ["proposal_id", "voter", "vote"]
+        }),
+    }
+}
+
+fn handle_temporal_consensus_vote(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let proposal_id = get_u64(&args, "proposal_id").ok_or("Missing proposal_id")?;
+    let voter = get_str(&args, "voter").ok_or("Missing voter")?;
+    let vote = get_str(&args, "vote").ok_or("Missing vote")?;
+    let reason = get_str(&args, "reason");
+    if !["approve", "reject", "abstain"].contains(&vote.as_str()) {
+        return Err("vote must be one of: approve, reject, abstain".into());
+    }
+    let store = &session.store;
+    // Verify proposal exists
+    let proposal = store.temporal_queue.iter()
+        .find(|m| m.id == proposal_id && m.content.starts_with("[consensus:proposal]"))
+        .ok_or_else(|| format!("Consensus proposal {proposal_id} not found"))?;
+    let channel_id = proposal.channel_id;
+    // Record the vote as a message in the channel
+    let vote_content = format!("[consensus:vote:{}] {}", vote, reason.as_deref().unwrap_or(""));
+    match session.store.send_message(channel_id, &voter, &vote_content, agentic_comm::MessageType::Text) {
+        Ok(msg) => {
+            session.record_operation("comm_temporal_consensus_vote", Some(msg.id));
+            Ok(ToolCallResult::json(&json!({
+                "proposal_id": proposal_id,
+                "vote_message_id": msg.id,
+                "voter": voter,
+                "vote": vote,
+                "reason": reason,
+                "channel_id": channel_id,
+                "status": "vote_cast"
+            })))
+        }
+        Err(e) => Ok(ToolCallResult::error(format!("Failed to cast vote: {e}"))),
+    }
+}
+
+// ── 19. comm_temporal_consensus_status ────────────────────────────────────
+fn definition_temporal_consensus_status() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_temporal_consensus_status".into(),
+        description: Some("Get status of a temporal consensus proposal".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "proposal_id": { "type": "integer", "description": "Proposal to check status for (temporal_id)" }
+            },
+            "required": ["proposal_id"]
+        }),
+    }
+}
+
+fn handle_temporal_consensus_status(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let proposal_id = get_u64(&args, "proposal_id").ok_or("Missing proposal_id")?;
+    let store = &session.store;
+    let proposal = store.temporal_queue.iter()
+        .find(|m| m.id == proposal_id && m.content.starts_with("[consensus:proposal]"))
+        .ok_or_else(|| format!("Consensus proposal {proposal_id} not found"))?;
+    let channel_id = proposal.channel_id;
+    let proposal_text = proposal.content.strip_prefix("[consensus:proposal] ").unwrap_or(&proposal.content);
+    let delivered = proposal.delivered;
+    let channel = store.get_channel(channel_id);
+    let participant_count = channel.map_or(0, |ch| ch.participants.len());
+    // Count votes from channel messages
+    let mut approvals = 0u32;
+    let mut rejections = 0u32;
+    let mut abstentions = 0u32;
+    let mut voters: Vec<String> = Vec::new();
+    for msg in store.messages.values() {
+        if msg.channel_id == channel_id && msg.content.starts_with("[consensus:vote:") {
+            if msg.content.starts_with("[consensus:vote:approve]") {
+                approvals += 1;
+            } else if msg.content.starts_with("[consensus:vote:reject]") {
+                rejections += 1;
+            } else if msg.content.starts_with("[consensus:vote:abstain]") {
+                abstentions += 1;
+            }
+            voters.push(msg.sender.clone());
+        }
+    }
+    let total_votes = approvals + rejections + abstentions;
+    let approval_rate = if total_votes > 0 { approvals as f64 / total_votes as f64 } else { 0.0 };
+    let pending_voters = participant_count.saturating_sub(total_votes as usize);
+    let outcome = if delivered {
+        if approval_rate > 0.5 { "approved" } else { "rejected" }
+    } else {
+        "pending"
+    };
+    Ok(ToolCallResult::json(&json!({
+        "proposal_id": proposal_id,
+        "channel_id": channel_id,
+        "proposal": proposal_text,
+        "approvals": approvals,
+        "rejections": rejections,
+        "abstentions": abstentions,
+        "total_votes": total_votes,
+        "approval_rate": approval_rate,
+        "participants": participant_count,
+        "pending_voters": pending_voters,
+        "voters": voters,
+        "deadline_passed": delivered,
+        "outcome": outcome,
+        "status": "status_retrieved"
+    })))
+}
+
+// ── 20. comm_temporal_consensus_resolve ───────────────────────────────────
+fn definition_temporal_consensus_resolve() -> ToolDefinition {
+    ToolDefinition {
+        name: "comm_temporal_consensus_resolve".into(),
+        description: Some("Resolve a temporal consensus proposal early".into()),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "proposal_id": { "type": "integer", "description": "Proposal to resolve (temporal_id)" },
+                "resolution": { "type": "string", "description": "Resolution: approve, reject, withdraw" },
+                "resolver": { "type": "string", "description": "Agent resolving the proposal" }
+            },
+            "required": ["proposal_id", "resolution", "resolver"]
+        }),
+    }
+}
+
+fn handle_temporal_consensus_resolve(args: Value, session: &mut SessionManager) -> Result<ToolCallResult, String> {
+    let proposal_id = get_u64(&args, "proposal_id").ok_or("Missing proposal_id")?;
+    let resolution = get_str(&args, "resolution").ok_or("Missing resolution")?;
+    let resolver = get_str(&args, "resolver").ok_or("Missing resolver")?;
+    if !["approve", "reject", "withdraw"].contains(&resolution.as_str()) {
+        return Err("resolution must be one of: approve, reject, withdraw".into());
+    }
+    let store = &session.store;
+    let proposal = store.temporal_queue.iter()
+        .find(|m| m.id == proposal_id && m.content.starts_with("[consensus:proposal]"))
+        .ok_or_else(|| format!("Consensus proposal {proposal_id} not found"))?;
+    let channel_id = proposal.channel_id;
+    let proposal_text = proposal.content.strip_prefix("[consensus:proposal] ").unwrap_or(&proposal.content).to_string();
+    // Cancel the scheduled deadline
+    let _ = session.store.cancel_scheduled(proposal_id);
+    // Post resolution message
+    let resolution_content = format!("[consensus:resolved:{}] {}", resolution, proposal_text);
+    let _ = session.store.send_message(channel_id, &resolver, &resolution_content, agentic_comm::MessageType::Text);
+    session.record_operation("comm_temporal_consensus_resolve", Some(proposal_id));
+    Ok(ToolCallResult::json(&json!({
+        "proposal_id": proposal_id,
+        "channel_id": channel_id,
+        "resolution": resolution,
+        "resolver": resolver,
+        "proposal": proposal_text,
+        "deadline_cancelled": true,
+        "status": "consensus_resolved"
+    })))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Public API
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -760,6 +983,10 @@ pub fn all_definitions() -> Vec<ToolDefinition> {
         definition_dead_letter_analyze(),
         definition_dead_letter_phoenix(),
         definition_dead_letter_autopsy(),
+        definition_temporal_consensus_propose(),
+        definition_temporal_consensus_vote(),
+        definition_temporal_consensus_status(),
+        definition_temporal_consensus_resolve(),
     ]
 }
 
@@ -785,6 +1012,10 @@ pub fn try_execute(
         "comm_dead_letter_analyze" => Some(handle_dead_letter_analyze(args, session)),
         "comm_dead_letter_phoenix" => Some(handle_dead_letter_phoenix(args, session)),
         "comm_dead_letter_autopsy" => Some(handle_dead_letter_autopsy(args, session)),
+        "comm_temporal_consensus_propose" => Some(handle_temporal_consensus_propose(args, session)),
+        "comm_temporal_consensus_vote" => Some(handle_temporal_consensus_vote(args, session)),
+        "comm_temporal_consensus_status" => Some(handle_temporal_consensus_status(args, session)),
+        "comm_temporal_consensus_resolve" => Some(handle_temporal_consensus_resolve(args, session)),
         _ => None,
     }
 }

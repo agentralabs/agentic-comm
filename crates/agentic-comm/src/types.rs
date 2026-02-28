@@ -385,6 +385,36 @@ impl Default for TemporalTarget {
     }
 }
 
+/// Proof that a message existed at a particular time.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TemporalCommitment {
+    /// The message ID this commitment is for.
+    pub message_id: u64,
+    /// Type of temporal proof.
+    pub proof_type: TemporalProofType,
+    /// Timestamp of commitment.
+    pub committed_at: String,
+    /// Proof data (e.g. hash, signature).
+    #[serde(default)]
+    pub proof_data: String,
+    /// Witnesses who can attest.
+    #[serde(default)]
+    pub witnesses: Vec<String>,
+}
+
+/// Type of proof for temporal commitment.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum TemporalProofType {
+    /// Trusted timestamp from authority.
+    TrustedTimestamp,
+    /// Merkle proof of inclusion.
+    MerkleProof,
+    /// Multi-witness signatures.
+    WitnessSignatures,
+    /// Hash chain proof.
+    HashChain,
+}
+
 /// A time-scheduled message in the temporal queue.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TemporalMessage {
@@ -499,6 +529,32 @@ impl std::str::FromStr for FederationPolicy {
     }
 }
 
+/// Configuration for a federation gateway.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct GatewayConfig {
+    /// Gateway identifier.
+    #[serde(default)]
+    pub gateway_id: String,
+    /// Endpoint URL.
+    #[serde(default)]
+    pub endpoint: String,
+    /// Maximum concurrent connections.
+    #[serde(default)]
+    pub max_connections: u32,
+    /// Rate limit (messages per second).
+    #[serde(default)]
+    pub rate_limit_per_second: u32,
+    /// Whether TLS is required.
+    #[serde(default)]
+    pub require_tls: bool,
+    /// Allowed zones.
+    #[serde(default)]
+    pub allowed_zones: Vec<String>,
+    /// Authentication method.
+    #[serde(default)]
+    pub auth_method: String,
+}
+
 // ---------------------------------------------------------------------------
 // Hive Mind
 // ---------------------------------------------------------------------------
@@ -536,6 +592,9 @@ pub struct HiveMind {
     /// What happens when the hive separates (e.g. "graceful", "immediate", "consensus").
     #[serde(default = "default_separation_policy")]
     pub separation_policy: String,
+    /// Shared cognitive space for the hive.
+    #[serde(default)]
+    pub cognitive_space: Option<UnifiedCognitiveSpace>,
 }
 
 /// A member of a hive mind.
@@ -593,12 +652,79 @@ pub enum CollectiveDecisionMode {
     Unanimous,
     /// Consensus (soft agreement).
     Consensus,
+    /// Emergent decision from collective behavior.
+    Emergent,
+    /// Designated leader decides.
+    LeaderDecides,
 }
 
 impl Default for CollectiveDecisionMode {
     fn default() -> Self {
         Self::CoordinatorDecides
     }
+}
+
+/// Shared cognitive state for a hive mind.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UnifiedCognitiveSpace {
+    /// Merged memory from all constituents.
+    #[serde(default)]
+    pub unified_memory: Vec<MergedMemoryEntry>,
+    /// Combined skill set.
+    #[serde(default)]
+    pub unified_skills: Vec<String>,
+    /// Synthesized perspective.
+    #[serde(default)]
+    pub synthesized_perspective: Option<String>,
+    /// How conflicts are resolved.
+    #[serde(default)]
+    pub conflict_resolution: ConflictResolutionStrategy,
+    /// Individual boundaries that are preserved.
+    #[serde(default)]
+    pub preserved_individuality: Vec<PreservedBoundary>,
+}
+
+/// An entry in the merged memory of a hive mind.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergedMemoryEntry {
+    /// Which agent contributed this memory.
+    pub source_agent: String,
+    /// The memory content.
+    pub content: String,
+    /// Confidence in this memory.
+    #[serde(default)]
+    pub confidence: f64,
+    /// Timestamp.
+    #[serde(default)]
+    pub timestamp: String,
+}
+
+/// Strategy for resolving conflicts in a hive.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub enum ConflictResolutionStrategy {
+    /// Coordinator decides.
+    #[default]
+    CoordinatorDecides,
+    /// Majority vote.
+    Majority,
+    /// Unanimous agreement required.
+    Unanimous,
+    /// Weighted by trust.
+    TrustWeighted,
+    /// Most recent wins.
+    LastWriteWins,
+}
+
+/// A boundary that is preserved for an individual in a hive.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreservedBoundary {
+    /// Which agent this boundary protects.
+    pub agent_id: String,
+    /// What is preserved.
+    pub boundary_type: String,
+    /// Description.
+    #[serde(default)]
+    pub description: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -893,6 +1019,34 @@ pub struct SemanticFragment {
     pub perspective: String,
 }
 
+/// Source of a cognitive node.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NodeSource {
+    /// Agent or system that created this node.
+    pub agent_id: String,
+    /// When created (ISO 8601).
+    #[serde(default)]
+    pub timestamp: String,
+    /// Optional reference to external data.
+    #[serde(default)]
+    pub external_ref: Option<String>,
+}
+
+/// Content payload for a cognitive node.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum NodeContent {
+    /// Plain text.
+    Text(String),
+    /// Structured key-value data.
+    Structured(HashMap<String, serde_json::Value>),
+    /// Embedding vector.
+    Embedding(Vec<f64>),
+    /// Reference to external resource.
+    Reference(String),
+    /// Compound content combining multiple types.
+    Compound(Vec<NodeContent>),
+}
+
 /// A node in a cognitive graph attached to communication.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CognitiveNode {
@@ -903,6 +1057,18 @@ pub struct CognitiveNode {
     /// Node type.
     #[serde(default)]
     pub node_type: CognitiveNodeType,
+    /// Confidence score (0.0-1.0).
+    #[serde(default)]
+    pub confidence: f64,
+    /// Source of this node.
+    #[serde(default)]
+    pub source: Option<NodeSource>,
+    /// Content payload.
+    #[serde(default)]
+    pub content: Option<NodeContent>,
+    /// Arbitrary metadata.
+    #[serde(default)]
+    pub metadata: HashMap<String, String>,
 }
 
 /// Types of cognitive nodes.
@@ -949,6 +1115,13 @@ pub enum CognitiveEdgeType {
     Contradicts,
     Precedes,
     Contains,
+    Implies,
+    PartOf,
+    InstanceOf,
+    SimilarTo,
+    ContrastsWith,
+    FollowedBy,
+    DerivedFrom,
 }
 
 impl Default for CognitiveEdgeType {
@@ -2071,6 +2244,7 @@ mod tests {
             metadata: HashMap::new(),
             coherence_level: 0.85,
             separation_policy: "immediate".to_string(),
+            cognitive_space: None,
         };
         let json = serde_json::to_string(&hive).unwrap();
         let parsed: HiveMind = serde_json::from_str(&json).unwrap();
@@ -2176,6 +2350,10 @@ mod tests {
                 id: "n1".to_string(),
                 label: "concept".to_string(),
                 node_type: CognitiveNodeType::Concept,
+                confidence: 0.0,
+                source: None,
+                content: None,
+                metadata: HashMap::new(),
             }],
             edges: vec![CognitiveEdge {
                 from: "n1".to_string(),
@@ -2422,6 +2600,7 @@ mod tests {
             metadata: HashMap::new(),
             coherence_level: 0.95,
             separation_policy: "consensus".to_string(),
+            cognitive_space: None,
         };
         let json = serde_json::to_string(&hive).unwrap();
         let parsed: HiveMind = serde_json::from_str(&json).unwrap();
