@@ -1307,6 +1307,52 @@ pub fn validate_get_echo_depth(params: &Value) -> ValidationResult {
 }
 
 
+// ---------------------------------------------------------------------------
+// Rich MessageContent and CommId validation
+// ---------------------------------------------------------------------------
+
+/// Validate `comm_send_rich_message` params.
+pub fn validate_send_rich_message(params: &Value) -> ValidationResult {
+    validate_channel_id(params)?;
+    let sender = require_string(params, "sender")?;
+    validate_sender(sender)?;
+    let content_type = require_string(params, "content_type")?;
+    let valid_types = [
+        "text", "semantic", "affect", "full", "temporal",
+        "precognitive", "meta", "unspeakable",
+    ];
+    if !valid_types.contains(&content_type) {
+        return Err(ToolCallResult::error(format!(
+            "Validation error: content_type must be one of: {}",
+            valid_types.join(", ")
+        )));
+    }
+    if params.get("content_data").is_none() {
+        return Err(ToolCallResult::error(
+            "Validation error: content_data is required".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Validate `comm_get_rich_content` params.
+pub fn validate_get_rich_content(params: &Value) -> ValidationResult {
+    validate_message_id(params)?;
+    Ok(())
+}
+
+/// Validate `comm_get_by_comm_id` params.
+pub fn validate_get_by_comm_id(params: &Value) -> ValidationResult {
+    let comm_id = require_string(params, "comm_id")?;
+    // Basic UUID format check (36 chars with hyphens)
+    if comm_id.len() != 36 || comm_id.chars().filter(|c| *c == '-').count() != 4 {
+        return Err(ToolCallResult::error(
+            "Validation error: comm_id must be a valid UUID string (e.g., 550e8400-e29b-41d4-a716-446655440000)".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

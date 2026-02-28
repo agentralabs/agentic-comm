@@ -4,6 +4,7 @@
 //! Hive, Semantic, Encryption, and extended channel/participant types.
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
@@ -1672,6 +1673,243 @@ pub struct ConversationSummaryDetailed {
     #[serde(default)]
     pub has_affect_data: bool,
 }
+
+// ---------------------------------------------------------------------------
+// MessageContent — Rich message content types (SPEC-03)
+// ---------------------------------------------------------------------------
+
+/// Rich message content types as defined in SPEC-03.
+///
+/// Provides structured content beyond plain text, supporting semantic
+/// analysis, affect scoring, temporal scheduling, and more.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", content = "data")]
+pub enum MessageContent {
+    /// Plain text message.
+    Text(String),
+    /// Semantically structured content with fragments.
+    Semantic(SemanticContent),
+    /// Affect-carrying message with emotional payload.
+    Affect(AffectContent),
+    /// Full rich message combining text, semantic, and affect.
+    Full(FullContent),
+    /// Time-shifted or scheduled content.
+    Temporal(TemporalContent),
+    /// Predictive/precognitive message.
+    Precognitive(PrecognitiveContent),
+    /// Legacy plain text (backward compat).
+    Legacy(String),
+    /// Metadata-only message (no user-visible content).
+    Meta(MetaContent),
+    /// Content that cannot be represented in text.
+    Unspeakable(UnspeakableContent),
+}
+
+/// Semantically structured content with fragments and optional context.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SemanticContent {
+    /// The primary text representation.
+    pub text: String,
+    /// Semantic fragments extracted from the text.
+    pub fragments: Vec<String>,
+    /// Optional surrounding context.
+    pub context: Option<String>,
+    /// Optional perspective or viewpoint.
+    pub perspective: Option<String>,
+}
+
+/// Affect-carrying message content with VAD (Valence-Arousal-Dominance) scores.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AffectContent {
+    /// The primary text representation.
+    pub text: String,
+    /// Emotional valence: -1.0 (negative) to 1.0 (positive).
+    pub valence: f64,
+    /// Emotional arousal: 0.0 (calm) to 1.0 (excited).
+    pub arousal: f64,
+    /// Emotional dominance: 0.0 (submissive) to 1.0 (dominant).
+    pub dominance: f64,
+    /// Named emotions present in the content.
+    pub emotions: Vec<String>,
+}
+
+/// Full rich message combining text, optional semantic and affect layers.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FullContent {
+    /// The primary text representation.
+    pub text: String,
+    /// Optional semantic analysis layer.
+    pub semantic: Option<SemanticContent>,
+    /// Optional affect analysis layer.
+    pub affect: Option<AffectContent>,
+    /// File or resource attachment references.
+    pub attachments: Vec<String>,
+}
+
+/// Time-shifted or scheduled content with delivery and expiry windows.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TemporalContent {
+    /// The primary text representation.
+    pub text: String,
+    /// Unix timestamp for scheduled delivery (None = immediate).
+    pub deliver_at: Option<u64>,
+    /// Unix timestamp after which the content expires.
+    pub expire_at: Option<u64>,
+    /// Additional temporal context description.
+    pub temporal_context: Option<String>,
+}
+
+/// Predictive/precognitive message content.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PrecognitiveContent {
+    /// The prediction text.
+    pub prediction: String,
+    /// Confidence score: 0.0 to 1.0.
+    pub confidence: f64,
+    /// Evidence or reasoning basis for the prediction.
+    pub basis: Vec<String>,
+}
+
+/// Metadata-only message (no user-visible content).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MetaContent {
+    /// The action or operation name.
+    pub action: String,
+    /// Arbitrary key-value payload.
+    pub payload: HashMap<String, String>,
+}
+
+/// Content that cannot be represented in text form.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UnspeakableContent {
+    /// Marker string identifying the content type.
+    pub marker: String,
+    /// Optional encoding description (e.g., "base64", "hex").
+    pub encoding: Option<String>,
+    /// Optional reference to binary data.
+    pub binary_ref: Option<String>,
+}
+
+impl Default for MessageContent {
+    fn default() -> Self {
+        MessageContent::Text(String::new())
+    }
+}
+
+impl From<String> for MessageContent {
+    fn from(s: String) -> Self {
+        MessageContent::Text(s)
+    }
+}
+
+impl From<&str> for MessageContent {
+    fn from(s: &str) -> Self {
+        MessageContent::Text(s.to_string())
+    }
+}
+
+impl MessageContent {
+    /// Extract the text representation from any content variant.
+    pub fn as_text(&self) -> &str {
+        match self {
+            MessageContent::Text(s) => s,
+            MessageContent::Legacy(s) => s,
+            MessageContent::Semantic(c) => &c.text,
+            MessageContent::Affect(c) => &c.text,
+            MessageContent::Full(c) => &c.text,
+            MessageContent::Temporal(c) => &c.text,
+            MessageContent::Precognitive(c) => &c.prediction,
+            MessageContent::Meta(c) => &c.action,
+            MessageContent::Unspeakable(c) => &c.marker,
+        }
+    }
+
+    /// Returns `true` if the content is a rich type (not plain text or legacy).
+    pub fn is_rich(&self) -> bool {
+        !matches!(self, MessageContent::Text(_) | MessageContent::Legacy(_))
+    }
+
+    /// Serialize this MessageContent to a JSON string for storage.
+    pub fn to_json_string(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    /// Deserialize a MessageContent from a JSON string.
+    pub fn from_json_string(s: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(s)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CommId — UUID-based universal identifier
+// ---------------------------------------------------------------------------
+
+/// Universal UUID-based identifier used across the comm system.
+///
+/// Replaces numeric `u64` IDs with globally unique identifiers while
+/// maintaining backward compatibility via `from_u64` / `to_u64`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CommId(pub Uuid);
+
+impl CommId {
+    /// Generate a new random CommId (UUID v4).
+    pub fn new() -> Self {
+        CommId(Uuid::new_v4())
+    }
+
+    /// Deterministic conversion from a legacy u64 ID.
+    ///
+    /// Embeds the u64 in the lower 8 bytes of a UUID with version 8 (custom)
+    /// and RFC 4122 variant bits set.
+    pub fn from_u64(val: u64) -> Self {
+        let bytes = val.to_be_bytes();
+        let mut uuid_bytes = [0u8; 16];
+        uuid_bytes[8..16].copy_from_slice(&bytes);
+        // Set version 8 (custom) and variant bits
+        uuid_bytes[6] = (uuid_bytes[6] & 0x0f) | 0x80;
+        uuid_bytes[8] = (uuid_bytes[8] & 0x3f) | 0x80;
+        CommId(Uuid::from_bytes(uuid_bytes))
+    }
+
+    /// Extract the u64 value from the lower 8 bytes.
+    ///
+    /// Note: variant bits in byte 8 may alter the high bits of the u64 for
+    /// values >= 2^62.  For typical auto-increment IDs this is lossless.
+    pub fn to_u64(&self) -> u64 {
+        let bytes = self.0.as_bytes();
+        u64::from_be_bytes(bytes[8..16].try_into().unwrap_or([0; 8]))
+    }
+
+    /// The nil (all-zeros) CommId.
+    pub fn nil() -> Self {
+        CommId(Uuid::nil())
+    }
+}
+
+impl Default for CommId {
+    fn default() -> Self {
+        CommId::new()
+    }
+}
+
+impl std::fmt::Display for CommId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::str::FromStr for CommId {
+    type Err = uuid::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(CommId(Uuid::parse_str(s)?))
+    }
+}
+
+impl From<u64> for CommId {
+    fn from(val: u64) -> Self {
+        CommId::from_u64(val)
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2383,4 +2621,347 @@ mod tests {
         assert!(parsed.hops.is_empty());
     }
 
+
+    // -----------------------------------------------------------------------
+    // MessageContent tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_message_content_text_creation() {
+        let mc = MessageContent::Text("hello world".to_string());
+        assert_eq!(mc.as_text(), "hello world");
+        assert!(!mc.is_rich());
+    }
+
+    #[test]
+    fn test_message_content_from_string() {
+        let mc: MessageContent = "hello".to_string().into();
+        assert_eq!(mc.as_text(), "hello");
+        let mc2: MessageContent = "world".into();
+        assert_eq!(mc2.as_text(), "world");
+    }
+
+    #[test]
+    fn test_message_content_as_text_all_variants() {
+        assert_eq!(MessageContent::Text("t".into()).as_text(), "t");
+        assert_eq!(MessageContent::Legacy("l".into()).as_text(), "l");
+        assert_eq!(
+            MessageContent::Semantic(SemanticContent {
+                text: "s".into(),
+                fragments: vec![],
+                context: None,
+                perspective: None,
+            })
+            .as_text(),
+            "s"
+        );
+        assert_eq!(
+            MessageContent::Affect(AffectContent {
+                text: "a".into(),
+                valence: 0.5,
+                arousal: 0.3,
+                dominance: 0.7,
+                emotions: vec![],
+            })
+            .as_text(),
+            "a"
+        );
+        assert_eq!(
+            MessageContent::Full(FullContent {
+                text: "f".into(),
+                semantic: None,
+                affect: None,
+                attachments: vec![],
+            })
+            .as_text(),
+            "f"
+        );
+        assert_eq!(
+            MessageContent::Temporal(TemporalContent {
+                text: "t".into(),
+                deliver_at: None,
+                expire_at: None,
+                temporal_context: None,
+            })
+            .as_text(),
+            "t"
+        );
+        assert_eq!(
+            MessageContent::Precognitive(PrecognitiveContent {
+                prediction: "p".into(),
+                confidence: 0.9,
+                basis: vec![],
+            })
+            .as_text(),
+            "p"
+        );
+        assert_eq!(
+            MessageContent::Meta(MetaContent {
+                action: "m".into(),
+                payload: HashMap::new(),
+            })
+            .as_text(),
+            "m"
+        );
+        assert_eq!(
+            MessageContent::Unspeakable(UnspeakableContent {
+                marker: "u".into(),
+                encoding: None,
+                binary_ref: None,
+            })
+            .as_text(),
+            "u"
+        );
+    }
+
+    #[test]
+    fn test_message_content_is_rich() {
+        assert!(!MessageContent::Text("x".into()).is_rich());
+        assert!(!MessageContent::Legacy("x".into()).is_rich());
+        assert!(MessageContent::Semantic(SemanticContent {
+            text: "x".into(),
+            fragments: vec![],
+            context: None,
+            perspective: None,
+        })
+        .is_rich());
+        assert!(MessageContent::Affect(AffectContent {
+            text: "x".into(),
+            valence: 0.0,
+            arousal: 0.0,
+            dominance: 0.0,
+            emotions: vec![],
+        })
+        .is_rich());
+        assert!(MessageContent::Meta(MetaContent {
+            action: "ping".into(),
+            payload: HashMap::new(),
+        })
+        .is_rich());
+    }
+
+    #[test]
+    fn test_semantic_content_creation() {
+        let sc = SemanticContent {
+            text: "The weather is nice".into(),
+            fragments: vec!["weather".into(), "nice".into()],
+            context: Some("small talk".into()),
+            perspective: Some("optimistic".into()),
+        };
+        assert_eq!(sc.fragments.len(), 2);
+        assert_eq!(sc.context.as_deref(), Some("small talk"));
+        assert_eq!(sc.perspective.as_deref(), Some("optimistic"));
+    }
+
+    #[test]
+    fn test_affect_content_creation() {
+        let ac = AffectContent {
+            text: "I'm happy!".into(),
+            valence: 0.9,
+            arousal: 0.7,
+            dominance: 0.5,
+            emotions: vec!["joy".into(), "excitement".into()],
+        };
+        assert_eq!(ac.valence, 0.9);
+        assert_eq!(ac.arousal, 0.7);
+        assert_eq!(ac.emotions.len(), 2);
+    }
+
+    #[test]
+    fn test_full_content_creation() {
+        let fc = FullContent {
+            text: "Hello world".into(),
+            semantic: Some(SemanticContent {
+                text: "Hello world".into(),
+                fragments: vec!["hello".into()],
+                context: None,
+                perspective: None,
+            }),
+            affect: Some(AffectContent {
+                text: "Hello world".into(),
+                valence: 0.5,
+                arousal: 0.3,
+                dominance: 0.4,
+                emotions: vec!["neutral".into()],
+            }),
+            attachments: vec!["file.txt".into()],
+        };
+        assert!(fc.semantic.is_some());
+        assert!(fc.affect.is_some());
+        assert_eq!(fc.attachments.len(), 1);
+    }
+
+    #[test]
+    fn test_temporal_content_creation() {
+        let tc = TemporalContent {
+            text: "Reminder".into(),
+            deliver_at: Some(1700000000),
+            expire_at: Some(1700100000),
+            temporal_context: Some("meeting reminder".into()),
+        };
+        assert_eq!(tc.deliver_at, Some(1700000000));
+        assert_eq!(tc.expire_at, Some(1700100000));
+    }
+
+    #[test]
+    fn test_message_content_serde_roundtrip() {
+        let variants: Vec<MessageContent> = vec![
+            MessageContent::Text("plain text".into()),
+            MessageContent::Legacy("legacy text".into()),
+            MessageContent::Semantic(SemanticContent {
+                text: "semantic".into(),
+                fragments: vec!["frag1".into(), "frag2".into()],
+                context: Some("ctx".into()),
+                perspective: None,
+            }),
+            MessageContent::Affect(AffectContent {
+                text: "affect".into(),
+                valence: 0.5,
+                arousal: 0.3,
+                dominance: 0.7,
+                emotions: vec!["joy".into()],
+            }),
+            MessageContent::Full(FullContent {
+                text: "full".into(),
+                semantic: None,
+                affect: None,
+                attachments: vec![],
+            }),
+            MessageContent::Temporal(TemporalContent {
+                text: "temporal".into(),
+                deliver_at: Some(12345),
+                expire_at: None,
+                temporal_context: None,
+            }),
+            MessageContent::Precognitive(PrecognitiveContent {
+                prediction: "it will rain".into(),
+                confidence: 0.8,
+                basis: vec!["weather data".into()],
+            }),
+            MessageContent::Meta(MetaContent {
+                action: "ping".into(),
+                payload: {
+                    let mut m = HashMap::new();
+                    m.insert("key".into(), "value".into());
+                    m
+                },
+            }),
+            MessageContent::Unspeakable(UnspeakableContent {
+                marker: "binary_blob".into(),
+                encoding: Some("base64".into()),
+                binary_ref: Some("ref-123".into()),
+            }),
+        ];
+
+        for variant in &variants {
+            let json = serde_json::to_string(variant).unwrap();
+            let parsed: MessageContent = serde_json::from_str(&json).unwrap();
+            assert_eq!(&parsed, variant, "Round-trip failed for: {}", json);
+        }
+    }
+
+    #[test]
+    fn test_message_content_default() {
+        let mc = MessageContent::default();
+        assert_eq!(mc.as_text(), "");
+        assert!(!mc.is_rich());
+    }
+
+    #[test]
+    fn test_message_content_json_helpers() {
+        let mc = MessageContent::Semantic(SemanticContent {
+            text: "hello".into(),
+            fragments: vec!["hello".into()],
+            context: None,
+            perspective: None,
+        });
+        let json_str = mc.to_json_string().unwrap();
+        let parsed = MessageContent::from_json_string(&json_str).unwrap();
+        assert_eq!(mc, parsed);
+    }
+
+    // -----------------------------------------------------------------------
+    // CommId tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_comm_id_new_unique() {
+        let a = CommId::new();
+        let b = CommId::new();
+        assert_ne!(a, b, "Two new CommIds should be different");
+    }
+
+    #[test]
+    fn test_comm_id_from_u64_deterministic() {
+        let a = CommId::from_u64(42);
+        let b = CommId::from_u64(42);
+        assert_eq!(a, b, "Same u64 should produce same CommId");
+
+        let c = CommId::from_u64(43);
+        assert_ne!(a, c, "Different u64 should produce different CommId");
+    }
+
+    #[test]
+    fn test_comm_id_to_u64_roundtrip() {
+        // Note: variant bits in byte 8 may alter high bits, so test with small values
+        for val in [0u64, 1, 42, 1000, 999999] {
+            let id = CommId::from_u64(val);
+            let recovered = id.to_u64();
+            // The variant bits modify byte 8, so for val < 2^54 the lower bits survive
+            // For small values (< 2^54), the lower 7 bytes are untouched
+            let mask = 0x003F_FFFF_FFFF_FFFF_u64; // lower 54 bits
+            assert_eq!(
+                recovered & mask,
+                val & mask,
+                "Round-trip failed for val={}: got {}",
+                val,
+                recovered
+            );
+        }
+    }
+
+    #[test]
+    fn test_comm_id_display_and_parse() {
+        let id = CommId::from_u64(12345);
+        let display = id.to_string();
+        assert_eq!(display.len(), 36, "UUID display should be 36 chars");
+        assert_eq!(display.chars().filter(|c| *c == '-').count(), 4);
+
+        let parsed: CommId = display.parse().unwrap();
+        assert_eq!(parsed, id);
+    }
+
+    #[test]
+    fn test_comm_id_nil() {
+        let nil = CommId::nil();
+        assert_eq!(nil.0, uuid::Uuid::nil());
+        assert_eq!(nil.to_string(), "00000000-0000-0000-0000-000000000000");
+    }
+
+    #[test]
+    fn test_comm_id_from_u64_trait() {
+        let id: CommId = 42u64.into();
+        let id2 = CommId::from_u64(42);
+        assert_eq!(id, id2);
+    }
+
+    #[test]
+    fn test_comm_id_serde_roundtrip() {
+        let id = CommId::new();
+        let json = serde_json::to_string(&id).unwrap();
+        let parsed: CommId = serde_json::from_str(&json).unwrap();
+        assert_eq!(id, parsed);
+    }
+
+    #[test]
+    fn test_comm_id_hash_works() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        let a = CommId::from_u64(1);
+        let b = CommId::from_u64(2);
+        set.insert(a);
+        set.insert(b);
+        set.insert(a); // duplicate
+        assert_eq!(set.len(), 2);
+    }
 }

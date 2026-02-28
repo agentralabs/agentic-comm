@@ -2067,6 +2067,69 @@ impl ToolRegistry {
                     "required": ["channel_id"]
                 }),
             },
+            // Rich MessageContent and CommId tools
+            ToolDefinition {
+                name: "comm_send_rich_message".to_string(),
+                description: Some("Send a message with rich MessageContent to a channel".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "channel_id": {
+                            "type": "integer",
+                            "description": "Target channel ID"
+                        },
+                        "sender": {
+                            "type": "string",
+                            "description": "Sender identity"
+                        },
+                        "content_type": {
+                            "type": "string",
+                            "description": "Content type: text, semantic, affect, full, temporal, precognitive, meta, unspeakable"
+                        },
+                        "content_data": {
+                            "type": "object",
+                            "description": "Content payload matching the content_type schema"
+                        }
+                    },
+                    "required": ["channel_id", "sender", "content_type", "content_data"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_get_rich_content".to_string(),
+                description: Some("Get the rich content of a message by ID".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "message_id": {
+                            "type": "integer",
+                            "description": "Message ID to retrieve rich content for"
+                        }
+                    },
+                    "required": ["message_id"]
+                }),
+            },
+            ToolDefinition {
+                name: "comm_assign_comm_ids".to_string(),
+                description: Some("Assign UUID-based CommIds to all messages and channels".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {}
+                }),
+            },
+            ToolDefinition {
+                name: "comm_get_by_comm_id".to_string(),
+                description: Some("Look up a message or channel by its CommId UUID".to_string()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "comm_id": {
+                            "type": "string",
+                            "description": "UUID string to look up"
+                        }
+                    },
+                    "required": ["comm_id"]
+                }),
+            },
         ]
     }
 
@@ -2222,6 +2285,11 @@ impl ToolRegistry {
                 Ok(())
             })(),
             "comm_summarize_conversation" => validation::validate_summarize_conversation(params),
+            // Rich content and CommId tools
+            "comm_send_rich_message" => validation::validate_send_rich_message(params),
+            "comm_get_rich_content" => validation::validate_get_rich_content(params),
+            "comm_assign_comm_ids" => Ok(()), // No required params
+            "comm_get_by_comm_id" => validation::validate_get_by_comm_id(params),
             _ => return Err(McpError::ToolNotFound(tool_name.to_string())),
         };
 
@@ -2350,6 +2418,11 @@ impl ToolRegistry {
             "comm_query_echo_chain" => Self::handle_query_echo_chain(params, session),
             "comm_get_echo_depth" => Self::handle_get_echo_depth(params, session),
             "comm_summarize_conversation" => Self::handle_summarize_conversation(params, session),
+            // Rich content and CommId tools
+            "comm_send_rich_message" => Self::handle_send_rich_message(params, session),
+            "comm_get_rich_content" => Self::handle_get_rich_content(params, session),
+            "comm_assign_comm_ids" => Self::handle_assign_comm_ids(session),
+            "comm_get_by_comm_id" => Self::handle_get_by_comm_id(params, session),
             _ => Err(McpError::ToolNotFound(tool_name.to_string())),
         }
     }
@@ -4893,5 +4966,205 @@ impl ToolRegistry {
             }
             Err(e) => Ok(ToolCallResult::error(e)),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Rich MessageContent and CommId handlers
+    // -----------------------------------------------------------------------
+
+    fn handle_send_rich_message(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let channel_id = params
+            .get("channel_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("channel_id is required".to_string()))?;
+        let sender = params
+            .get("sender")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("sender is required".to_string()))?;
+        let content_type = params
+            .get("content_type")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("content_type is required".to_string()))?;
+        let content_data = params
+            .get("content_data")
+            .ok_or_else(|| McpError::InvalidParams("content_data is required".to_string()))?;
+
+        use agentic_comm::{
+            MessageContent, SemanticContent, AffectContent, FullContent,
+            TemporalContent, PrecognitiveContent, MetaContent, UnspeakableContent,
+        };
+
+        let content: MessageContent = match content_type {
+            "text" => {
+                let text = content_data
+                    .get("text")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                MessageContent::Text(text.to_string())
+            }
+            "semantic" => {
+                let sc: SemanticContent = serde_json::from_value(content_data.clone())
+                    .map_err(|e| McpError::InvalidParams(format!("Invalid semantic content: {}", e)))?;
+                MessageContent::Semantic(sc)
+            }
+            "affect" => {
+                let ac: AffectContent = serde_json::from_value(content_data.clone())
+                    .map_err(|e| McpError::InvalidParams(format!("Invalid affect content: {}", e)))?;
+                MessageContent::Affect(ac)
+            }
+            "full" => {
+                let fc: FullContent = serde_json::from_value(content_data.clone())
+                    .map_err(|e| McpError::InvalidParams(format!("Invalid full content: {}", e)))?;
+                MessageContent::Full(fc)
+            }
+            "temporal" => {
+                let tc: TemporalContent = serde_json::from_value(content_data.clone())
+                    .map_err(|e| McpError::InvalidParams(format!("Invalid temporal content: {}", e)))?;
+                MessageContent::Temporal(tc)
+            }
+            "precognitive" => {
+                let pc: PrecognitiveContent = serde_json::from_value(content_data.clone())
+                    .map_err(|e| McpError::InvalidParams(format!("Invalid precognitive content: {}", e)))?;
+                MessageContent::Precognitive(pc)
+            }
+            "meta" => {
+                let mc: MetaContent = serde_json::from_value(content_data.clone())
+                    .map_err(|e| McpError::InvalidParams(format!("Invalid meta content: {}", e)))?;
+                MessageContent::Meta(mc)
+            }
+            "unspeakable" => {
+                let uc: UnspeakableContent = serde_json::from_value(content_data.clone())
+                    .map_err(|e| McpError::InvalidParams(format!("Invalid unspeakable content: {}", e)))?;
+                MessageContent::Unspeakable(uc)
+            }
+            other => {
+                return Ok(ToolCallResult::error(format!(
+                    "Unknown content_type: {}. Expected: text, semantic, affect, full, temporal, precognitive, meta, unspeakable",
+                    other
+                )));
+            }
+        };
+
+        match session.store.send_rich_message(
+            channel_id,
+            sender,
+            content,
+            agentic_comm::MessageType::Text,
+        ) {
+            Ok(msg) => {
+                session.record_operation("comm_send_rich_message", Some(msg.id));
+                Ok(ToolCallResult::json(&json!({
+                    "id": msg.id,
+                    "channel_id": msg.channel_id,
+                    "sender": msg.sender,
+                    "content": msg.content,
+                    "has_rich_content": msg.rich_content_json.is_some(),
+                    "comm_id": msg.comm_id.map(|c| c.to_string()),
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_get_rich_content(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let message_id = params
+            .get("message_id")
+            .and_then(|v| v.as_u64())
+            .ok_or_else(|| McpError::InvalidParams("message_id is required".to_string()))?;
+
+        match session.store.get_rich_content(message_id) {
+            Ok(Some(content)) => {
+                session.record_operation("comm_get_rich_content", Some(message_id));
+                Ok(ToolCallResult::json(&json!({
+                    "message_id": message_id,
+                    "has_rich_content": true,
+                    "content": content,
+                })))
+            }
+            Ok(None) => {
+                session.record_operation("comm_get_rich_content", Some(message_id));
+                Ok(ToolCallResult::json(&json!({
+                    "message_id": message_id,
+                    "has_rich_content": false,
+                    "content": null,
+                })))
+            }
+            Err(e) => Ok(ToolCallResult::error(e.to_string())),
+        }
+    }
+
+    fn handle_assign_comm_ids(
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        session.store.assign_comm_ids();
+        session.record_operation("comm_assign_comm_ids", None);
+
+        let msg_count = session.store.messages.values()
+            .filter(|m| m.comm_id.is_some())
+            .count();
+        let chan_count = session.store.channels.values()
+            .filter(|c| c.comm_id.is_some())
+            .count();
+
+        Ok(ToolCallResult::json(&json!({
+            "assigned": true,
+            "messages_with_comm_id": msg_count,
+            "channels_with_comm_id": chan_count,
+        })))
+    }
+
+    fn handle_get_by_comm_id(
+        params: &Value,
+        session: &mut SessionManager,
+    ) -> Result<ToolCallResult, McpError> {
+        let comm_id_str = params
+            .get("comm_id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| McpError::InvalidParams("comm_id is required".to_string()))?;
+
+        let comm_id: agentic_comm::CommId = comm_id_str
+            .parse()
+            .map_err(|e: uuid::Error| McpError::InvalidParams(format!("Invalid UUID: {}", e)))?;
+
+        session.record_operation("comm_get_by_comm_id", None);
+
+        // Try message first, then channel
+        if let Some(msg) = session.store.get_message_by_comm_id(&comm_id) {
+            return Ok(ToolCallResult::json(&json!({
+                "found": true,
+                "type": "message",
+                "data": {
+                    "id": msg.id,
+                    "channel_id": msg.channel_id,
+                    "sender": msg.sender,
+                    "content": msg.content,
+                    "comm_id": msg.comm_id.map(|c| c.to_string()),
+                },
+            })));
+        }
+
+        if let Some(chan) = session.store.get_channel_by_comm_id(&comm_id) {
+            return Ok(ToolCallResult::json(&json!({
+                "found": true,
+                "type": "channel",
+                "data": {
+                    "id": chan.id,
+                    "name": chan.name,
+                    "channel_type": format!("{}", chan.channel_type),
+                    "comm_id": chan.comm_id.map(|c| c.to_string()),
+                },
+            })));
+        }
+
+        Ok(ToolCallResult::json(&json!({
+            "found": false,
+            "comm_id": comm_id_str,
+        })))
     }
 }

@@ -494,6 +494,13 @@ pub struct Message {
     /// Causal timestamp with Lamport/vector clocks.
     #[serde(default)]
     pub comm_timestamp: CommTimestamp,
+    /// Rich message content stored as JSON (avoids bincode enum issues).
+    /// Use `MessageContent::from_json_string` / `to_json_string` to convert.
+    #[serde(default)]
+    pub rich_content_json: Option<String>,
+    /// UUID-based universal identifier (alongside legacy u64 id).
+    #[serde(default)]
+    pub comm_id: Option<CommId>,
 }
 
 /// The type of a communication channel.
@@ -603,6 +610,9 @@ pub struct Channel {
     /// Operational state of the channel.
     #[serde(default)]
     pub state: ChannelState,
+    /// UUID-based universal identifier (alongside legacy u64 id).
+    #[serde(default)]
+    pub comm_id: Option<CommId>,
 }
 
 /// A pub/sub subscription.
@@ -1316,6 +1326,8 @@ impl CommStore {
                 correlation_id: None,
                 thread_id: None,
                 comm_timestamp: CommTimestamp::default(),
+                rich_content_json: None,
+                comm_id: None,
             };
             self.dead_letters.push(DeadLetter {
                 original_message: msg,
@@ -1355,6 +1367,8 @@ impl CommStore {
                 correlation_id: None,
                 thread_id: None,
                 comm_timestamp: CommTimestamp::default(),
+                rich_content_json: None,
+                comm_id: None,
             };
             self.dead_letters.push(DeadLetter {
                 original_message: msg,
@@ -1390,6 +1404,8 @@ impl CommStore {
             correlation_id: None,
             thread_id: None,
             comm_timestamp: ts,
+            rich_content_json: None,
+            comm_id: None,
         };
 
         self.messages.insert(id, message.clone());
@@ -1540,6 +1556,8 @@ impl CommStore {
                 correlation_id: None,
                 thread_id: None,
                 comm_timestamp: ts,
+                rich_content_json: None,
+                comm_id: None,
             };
 
             self.messages.insert(id, message.clone());
@@ -1606,6 +1624,8 @@ impl CommStore {
             correlation_id: None,
             thread_id: Some(thread_id),
             comm_timestamp: ts,
+            rich_content_json: None,
+            comm_id: None,
         };
 
         self.messages.insert(id, message.clone());
@@ -1668,6 +1688,7 @@ impl CommStore {
             participants: Vec::new(),
             config: config.unwrap_or_default(),
             state: ChannelState::Active,
+            comm_id: None,
         };
 
         self.channels.insert(id, channel.clone());
@@ -1844,6 +1865,8 @@ impl CommStore {
                 correlation_id: None,
                 thread_id: None,
                 comm_timestamp: ts,
+                rich_content_json: None,
+                comm_id: None,
             };
 
             self.messages.insert(id, message.clone());
@@ -3176,6 +3199,8 @@ impl CommStore {
             correlation_id: None,
             thread_id: None,
             comm_timestamp: ts,
+            rich_content_json: None,
+            comm_id: None,
         };
 
         self.messages.insert(id, message);
@@ -4002,6 +4027,80 @@ impl CommStore {
         suggestions.truncate(limit);
         suggestions
     }
+
+    // -----------------------------------------------------------------------
+    // CommId and MessageContent helpers
+    // -----------------------------------------------------------------------
+
+    /// Assign CommIds to all messages and channels that don't already have one.
+    ///
+    /// Deterministically derives the UUID from the legacy u64 id so that
+    /// repeated calls are idempotent.
+    pub fn assign_comm_ids(&mut self) {
+        let msg_ids: Vec<u64> = self.messages.keys().copied().collect();
+        for id in msg_ids {
+            if let Some(msg) = self.messages.get_mut(&id) {
+                if msg.comm_id.is_none() {
+                    msg.comm_id = Some(CommId::from_u64(msg.id));
+                }
+            }
+        }
+        let chan_ids: Vec<u64> = self.channels.keys().copied().collect();
+        for id in chan_ids {
+            if let Some(channel) = self.channels.get_mut(&id) {
+                if channel.comm_id.is_none() {
+                    channel.comm_id = Some(CommId::from_u64(channel.id));
+                }
+            }
+        }
+    }
+
+    /// Look up a message by its CommId.
+    pub fn get_message_by_comm_id(&self, comm_id: &CommId) -> Option<&Message> {
+        self.messages.values().find(|m| m.comm_id.as_ref() == Some(comm_id))
+    }
+
+    /// Look up a channel by its CommId.
+    pub fn get_channel_by_comm_id(&self, comm_id: &CommId) -> Option<&Channel> {
+        self.channels.values().find(|c| c.comm_id.as_ref() == Some(comm_id))
+    }
+
+    /// Send a message with rich content.
+    ///
+    /// Sends a regular message and attaches a `MessageContent` (serialized
+    /// as JSON) to the `rich_content_json` field.
+    pub fn send_rich_message(
+        &mut self,
+        channel_id: u64,
+        sender: &str,
+        content: MessageContent,
+        msg_type: MessageType,
+    ) -> CommResult<Message> {
+        let text = content.as_text().to_string();
+        let rich_json = serde_json::to_string(&content)
+            .map_err(|e| CommError::InvalidContent(format!("Failed to serialize rich content: {}", e)))?;
+        let mut msg = self.send_message(channel_id, sender, &text, msg_type)?;
+        // Update the stored message with rich content
+        if let Some(stored) = self.messages.get_mut(&msg.id) {
+            stored.rich_content_json = Some(rich_json.clone());
+            msg.rich_content_json = Some(rich_json);
+        }
+        Ok(msg)
+    }
+
+    /// Get the rich content of a message (if any).
+    pub fn get_rich_content(&self, message_id: u64) -> CommResult<Option<MessageContent>> {
+        let msg = self.messages.get(&message_id)
+            .ok_or(CommError::MessageNotFound(message_id))?;
+        match &msg.rich_content_json {
+            Some(json_str) => {
+                let content: MessageContent = serde_json::from_str(json_str)
+                    .map_err(|e| CommError::InvalidContent(format!("Failed to parse rich content: {}", e)))?;
+                Ok(Some(content))
+            }
+            None => Ok(None),
+        }
+    }
 }
 
 /// Summary statistics for a CommStore.
@@ -4685,6 +4784,8 @@ mod tests {
             correlation_id: None,
             thread_id: None,
             comm_timestamp: CommTimestamp::default(),
+            rich_content_json: None,
+            comm_id: None,
         };
         store.messages.insert(id, msg);
 
@@ -6535,5 +6636,146 @@ mod tests {
         let store = CommStore::new();
         let result = store.summarize_conversation(999);
         assert!(result.is_err());
+    }
+
+    // -----------------------------------------------------------------------
+    // CommId and Rich Content integration tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_assign_comm_ids_fills_missing() {
+        let mut store = CommStore::new();
+        let ch_id = store.create_channel("test", ChannelType::Group, None).unwrap().id;
+        store.send_message(ch_id, "alice", "hello", MessageType::Text).unwrap();
+        store.send_message(ch_id, "bob", "world", MessageType::Text).unwrap();
+
+        // Before assign, all comm_ids should be None
+        for msg in store.messages.values() {
+            assert!(msg.comm_id.is_none());
+        }
+        for chan in store.channels.values() {
+            assert!(chan.comm_id.is_none());
+        }
+
+        store.assign_comm_ids();
+
+        // After assign, all should be Some
+        for msg in store.messages.values() {
+            assert!(msg.comm_id.is_some());
+        }
+        for chan in store.channels.values() {
+            assert!(chan.comm_id.is_some());
+        }
+    }
+
+    #[test]
+    fn test_assign_comm_ids_idempotent() {
+        let mut store = CommStore::new();
+        let ch_id = store.create_channel("test", ChannelType::Group, None).unwrap().id;
+        store.send_message(ch_id, "alice", "hello", MessageType::Text).unwrap();
+
+        store.assign_comm_ids();
+        let first_id = store.messages.values().next().unwrap().comm_id;
+
+        store.assign_comm_ids();
+        let second_id = store.messages.values().next().unwrap().comm_id;
+
+        assert_eq!(first_id, second_id, "assign_comm_ids should be idempotent");
+    }
+
+    #[test]
+    fn test_get_message_by_comm_id() {
+        let mut store = CommStore::new();
+        let ch_id = store.create_channel("test", ChannelType::Group, None).unwrap().id;
+        let msg = store.send_message(ch_id, "alice", "hello", MessageType::Text).unwrap();
+
+        store.assign_comm_ids();
+
+        let comm_id = store.messages.get(&msg.id).unwrap().comm_id.unwrap();
+        let found = store.get_message_by_comm_id(&comm_id);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, msg.id);
+    }
+
+    #[test]
+    fn test_get_channel_by_comm_id() {
+        let mut store = CommStore::new();
+        let ch = store.create_channel("test", ChannelType::Group, None).unwrap().clone();
+
+        store.assign_comm_ids();
+
+        let comm_id = store.channels.get(&ch.id).unwrap().comm_id.unwrap();
+        let found = store.get_channel_by_comm_id(&comm_id);
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().id, ch.id);
+    }
+
+    #[test]
+    fn test_send_rich_message() {
+        let mut store = CommStore::new();
+        let ch_id = store.create_channel("test", ChannelType::Group, None).unwrap().id;
+        store.join_channel(ch_id, "alice").unwrap();
+
+        let content = MessageContent::Semantic(SemanticContent {
+            text: "The weather is nice".into(),
+            fragments: vec!["weather".into(), "nice".into()],
+            context: Some("small talk".into()),
+            perspective: None,
+        });
+
+        let msg = store.send_rich_message(ch_id, "alice", content, MessageType::Text).unwrap();
+        assert!(msg.rich_content_json.is_some());
+        assert_eq!(msg.content, "The weather is nice");
+
+        // Parse it back
+        let rich = store.get_rich_content(msg.id).unwrap();
+        assert!(rich.is_some());
+        let rc = rich.unwrap();
+        assert!(rc.is_rich());
+        assert_eq!(rc.as_text(), "The weather is nice");
+    }
+
+    #[test]
+    fn test_get_rich_content_none_for_plain_message() {
+        let mut store = CommStore::new();
+        let ch_id = store.create_channel("test", ChannelType::Group, None).unwrap().id;
+        let msg = store.send_message(ch_id, "alice", "plain", MessageType::Text).unwrap();
+
+        let rich = store.get_rich_content(msg.id).unwrap();
+        assert!(rich.is_none());
+    }
+
+    #[test]
+    fn test_get_rich_content_message_not_found() {
+        let store = CommStore::new();
+        let result = store.get_rich_content(9999);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_message_backward_compat_without_new_fields() {
+        // Simulate deserializing an old message without the new fields
+        let json = r#"{
+            "id": 1,
+            "channel_id": 1,
+            "sender": "alice",
+            "recipient": null,
+            "content": "hello",
+            "message_type": "Text",
+            "timestamp": "2026-01-01T00:00:00Z",
+            "metadata": {},
+            "signature": null,
+            "acknowledged_by": [],
+            "status": "Sent",
+            "priority": "Normal",
+            "reply_to": null,
+            "correlation_id": null,
+            "thread_id": null,
+            "comm_timestamp": {"wall_clock": "2026-01-01T00:00:00Z", "lamport": 0, "agent_id": "alice", "vector_clock": {}}
+        }"#;
+        let msg: Message = serde_json::from_str(json).unwrap();
+        assert!(msg.rich_content_json.is_none());
+        assert!(msg.comm_id.is_none());
+        assert_eq!(msg.content, "hello");
     }
 }
