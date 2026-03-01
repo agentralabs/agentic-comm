@@ -1,3 +1,7 @@
+---
+status: stable
+---
+
 # Capability Scenarios: AgenticComm
 
 *What happens when AI agents can communicate through structured, persistent, auditable channels?*

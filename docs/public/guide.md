@@ -1,5 +1,5 @@
 ---
-status: draft
+status: stable
 ---
 
 # Message Engine Guide
