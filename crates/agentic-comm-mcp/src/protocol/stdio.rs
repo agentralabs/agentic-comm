@@ -13,6 +13,9 @@ use tokio::sync::Mutex;
 use crate::protocol::handler::ProtocolHandler;
 use crate::types::JsonRpcMessage;
 
+const MAX_CONTENT_LENGTH_BYTES: usize = 8 * 1024 * 1024;
+const CONTENT_LENGTH_HEADER: &str = "content-length:";
+
 /// Run the stdio transport loop.
 ///
 /// Blocks until stdin is closed (EOF), a fatal read error occurs, or a

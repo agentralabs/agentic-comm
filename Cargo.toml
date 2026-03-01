@@ -33,6 +33,7 @@ blake3 = "1"
 aes-gcm = "0.10"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 clap = { version = "4", features = ["derive"] }
+agentic-sdk = { version = "0.2.0", path = "../agentic-sdk" }
 
 # Internal crates
 agentic-comm = { path = "crates/agentic-comm" }

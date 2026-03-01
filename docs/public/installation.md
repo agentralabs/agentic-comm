@@ -517,3 +517,9 @@ Messages:      1
 Subscriptions: 0
 Dead Letters:  0
 ```
+
+## npm (WASM) package
+
+```bash
+npm install @agenticamem/comm
+```

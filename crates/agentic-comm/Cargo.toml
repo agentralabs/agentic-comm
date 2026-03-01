@@ -25,6 +25,7 @@ chacha20poly1305 = { workspace = true }
 rand = { workspace = true }
 hex = { workspace = true }
 ed25519-dalek = { workspace = true }
+agentic-sdk = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

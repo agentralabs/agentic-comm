@@ -25,6 +25,7 @@ pub mod semantic;
 pub mod temporal;
 pub mod types;
 pub mod workspace;
+pub mod contracts;
 
 pub use affect::*;
 pub use bridges::*;

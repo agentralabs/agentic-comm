@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  <a href="#problems-solved">Problems Solved</a> · <a href="#quickstart">Quickstart</a> · <a href="#how-it-works">How It Works</a> · <a href="#mcp-tools">MCP Tools</a> · <a href="#benchmarks">Benchmarks</a> · <a href="#install">Install</a> · <a href="docs/public/api-reference.md">API</a>
+  <a href="#problems-solved">Problems Solved</a> · <a href="#quickstart">Quickstart</a> · <a href="#how-it-works">How It Works</a> · <a href="#mcp-tools">MCP Tools</a> · <a href="#benchmarks">Benchmarks</a> · <a href="#install">Install</a> · <a href="paper/paper-i-agentic-communication/paper.pdf">Papers</a> · <a href="docs/public/api-reference.md">API</a>
 </p>
 
 ---
@@ -138,6 +138,10 @@ Rust core. Zero-copy access. Performance targets from Criterion statistical benc
 | Broadcast (10 channels) | **0.1 ms** | per broadcast |
 | Message history | **0.4 ms** | 1K messages |
 | Save file | **25 ms** | 10K messages |
+
+<p align="center">
+  <img src="assets/benchmark-chart.svg" alt="AgenticComm benchmark chart" width="980">
+</p>
 
 > Targets measured with Criterion (100 samples) on Apple M4 Pro, 64 GB, Rust 1.90.0 `--release`.
 
@@ -401,6 +405,10 @@ The agent calls `comm_receive` and returns the message history.
 AgenticComm models agent communication through **channels and messages** in a custom binary format. Each channel has its own message ordering, subscription tracking, and delivery guarantees. The file is portable across models, clients, and deployments.
 
 The core runtime is written in Rust for performance and safety. All state lives in a portable `.acomm` binary file -- no external databases, no managed services. The MCP server exposes the full engine over JSON-RPC stdio.
+
+<p align="center">
+  <img src="assets/architecture-agentra.svg" alt="AgenticComm architecture diagram" width="980">
+</p>
 
 ---
 
