@@ -1,5 +1,5 @@
 ---
-status: draft
+status: stable
 ---
 
 # Installation
@@ -522,4 +522,14 @@ Dead Letters:  0
 
 ```bash
 npm install @agenticamem/comm
+```
+
+## One-Line Installer
+
+
+
+## One-Line Installer
+
+```bash
+curl -fsSL https://agentralabs.tech/install/comm | bash
 ```

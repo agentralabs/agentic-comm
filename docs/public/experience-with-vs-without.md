@@ -1,5 +1,5 @@
 ---
-status: draft
+status: stable
 ---
 
 # Experience With vs Without AgenticComm

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: stable
 ---
 
 # Quickstart
@@ -12,6 +12,12 @@ Get started with AgenticComm in 10 minutes. This guide walks through installatio
 - OR a pre-built binary from the releases page
 
 ## 1. Install
+
+### One-line installer
+
+```bash
+curl -fsSL https://agentralabs.tech/install/comm | bash
+```
 
 ### From crates.io (recommended)
 

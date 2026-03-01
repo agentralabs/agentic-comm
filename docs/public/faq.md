@@ -1,5 +1,5 @@
 ---
-status: draft
+status: stable
 ---
 
 # Security Hardening and FAQ
