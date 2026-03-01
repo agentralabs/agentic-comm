@@ -1,0 +1,25 @@
+[package]
+name = "agentic-comm-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "WebAssembly bindings for agentic-comm channel-based AI agent communication"
+license = "MIT"
+repository = "https://github.com/agentralabs/agentic-comm"
+homepage = "https://agentralabs.tech"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+agentic-comm = { path = "../../crates/agentic-comm", default-features = false }
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+js-sys = "0.3"
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "s"
+lto = true

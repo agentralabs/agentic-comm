@@ -1,0 +1,21 @@
+{
+  "name": "@agenticacomm/comm",
+  "description": "WebAssembly bindings for agentic-comm — channel-based communication for AI agents",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentralabs/agentic-comm",
+    "directory": "npm/wasm"
+  },
+  "homepage": "https://agentralabs.tech",
+  "author": "Agentra Labs <contact@agentralabs.tech>",
+  "keywords": ["ai", "agent", "communication", "llm", "channels", "messaging", "wasm", "webassembly"],
+  "files": [
+    "agentic_comm_wasm_bg.wasm",
+    "agentic_comm_wasm.js",
+    "agentic_comm_wasm.d.ts"
+  ],
+  "main": "agentic_comm_wasm.js",
+  "types": "agentic_comm_wasm.d.ts"
+}

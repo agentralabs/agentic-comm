@@ -1,13 +1,30 @@
 # Rust build artifacts
 /target/
 **/target/
+**/*.rs.bk
 
 # Cargo lock for libraries (keep for binaries)
 # Cargo.lock is committed for this workspace since it contains binaries
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.whl
+.venv/
+venv/
+env/
+
 # IDE files
 .idea/
 .vscode/
+*.iml
+.fleet/
 *.swp
 *.swo
 *~
@@ -24,7 +41,6 @@ Icon\r
 .Trashes
 
 # Linux
-*~
 .nfs*
 
 # Windows
@@ -33,9 +49,33 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.tox/
+*.profraw
+*.profdata
+lcov.info
+tarpaulin-report.html
+/tmp/
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
 # Environment and secrets
 .env
 .env.*
+.env.local
 *.pem
 *.key
 
@@ -45,12 +85,8 @@ $RECYCLE.BIN/
 *.acomm.tmp
 *.acomm.bak
 
-# Test artifacts
-/tmp/
-*.profraw
-*.profdata
-lcov.info
-tarpaulin-report.html
+# Agentic
+.agentic/
 
 # FFI build artifacts
 *.so
@@ -60,6 +96,7 @@ tarpaulin-report.html
 *.lib
 *.o
 *.obj
+/ffi/
 
 # Documentation build
 /site/
@@ -67,12 +104,25 @@ tarpaulin-report.html
 
 # Coverage
 coverage/
-htmlcov/
 
 # Benchmarks
 criterion/
 
-# Local development
+# Claude Code
 .claude/
+.agentra/
+
+# Planning docs (internal only)
+planning-docs/
+CLAUDE-CODE-INSTRUCTIONS*.md
+SPEC-*.md
+
+# Internal vision / roadmap documents
+docs/VISION-*.md
+docs/internal/
+
+# Local goals (internal only)
 goals/
+
+# Outputs (internal only)
 outputs/
