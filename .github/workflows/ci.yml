@@ -18,6 +18,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
+      - name: Clone agentic-sdk (sibling dependency)
+        run: git clone --depth 1 https://github.com/agentralabs/agentic-sdk.git ../agentic-sdk
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
