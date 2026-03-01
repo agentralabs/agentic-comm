@@ -19,20 +19,26 @@ tmpdir="$(mktemp -d)"
 acomm_file="$tmpdir/primary.acomm"
 
 echo "[1/6] Initialize store"
-init_out="$(run_acomm init --path "$acomm_file")"
+init_out="$(run_acomm init "$acomm_file")"
 printf '%s\n' "$init_out" | (rg -q "Initialized|created|Created" || true)
 
 echo "[2/6] Basic channel lifecycle"
-run_acomm channel create --path "$acomm_file" --name control --type direct >/dev/null
-run_acomm channel list --path "$acomm_file" >/dev/null
+create_out="$(run_acomm channel create --file "$acomm_file" --type direct --json control)"
+channel_id="$(
+  printf '%s' "$create_out" \
+  | tr -d '\n' \
+  | sed -E 's/.*"channel_id":[[:space:]]*([0-9]+).*/\1/'
+)"
+[ -n "$channel_id" ] || fail "Failed to parse channel_id from channel create output"
+run_acomm channel list --file "$acomm_file" >/dev/null
 
 echo "[3/6] Send/receive path"
-run_acomm send --path "$acomm_file" --channel control --sender planner "deploy approved" >/dev/null
-run_acomm receive --path "$acomm_file" --channel control --limit 10 >/dev/null
+run_acomm send --file "$acomm_file" --sender planner "$channel_id" "deploy approved" >/dev/null
+run_acomm receive --file "$acomm_file" "$channel_id" >/dev/null
 
 echo "[4/6] Search/history path"
-run_acomm search --path "$acomm_file" "deploy" >/dev/null
-run_acomm history --path "$acomm_file" --channel control --limit 10 >/dev/null
+run_acomm message search --file "$acomm_file" --channel "$channel_id" --query "deploy" >/dev/null
+run_acomm history --file "$acomm_file" --limit 10 "$channel_id" >/dev/null
 
 echo "[5/6] Focused regression tests"
 cargo test --quiet -p agentic-comm --lib
