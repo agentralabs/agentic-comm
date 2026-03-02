@@ -138,10 +138,7 @@ fn build_comm_context(session: &SessionManager) -> String {
         let mut msgs: Vec<_> = store.messages.values().collect();
         msgs.sort_by(|a, b| b.id.cmp(&a.id));
         for m in msgs.iter().take(10) {
-            let recipient = m
-                .recipient
-                .as_deref()
-                .unwrap_or("broadcast");
+            let recipient = m.recipient.as_deref().unwrap_or("broadcast");
             md.push_str(&format!(
                 "- [ch:{}] **{}** → {}: {}\n",
                 m.channel_id,
