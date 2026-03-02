@@ -168,6 +168,16 @@ pub trait ContractBridge: Send + Sync {
     }
 }
 
+/// Adapter trait for future Hydra orchestrator integration.
+pub trait HydraAdapter: Send + Sync {
+    /// Unique identifier for this adapter
+    fn adapter_id(&self) -> &str;
+    /// List of capabilities this adapter provides
+    fn capabilities(&self) -> Vec<String>;
+    /// Handle an orchestrator request
+    fn handle_request(&self, method: &str, params: &str) -> Result<String, String>;
+}
+
 /// No-op implementation of all bridges for standalone use.
 #[derive(Debug, Clone, Default)]
 pub struct NoOpBridges;
@@ -178,6 +188,24 @@ impl TimeBridge for NoOpBridges {}
 impl CodebaseBridge for NoOpBridges {}
 impl VisionBridge for NoOpBridges {}
 impl ContractBridge for NoOpBridges {}
+
+impl HydraAdapter for NoOpBridges {
+    fn adapter_id(&self) -> &str {
+        "comm-noop"
+    }
+    fn capabilities(&self) -> Vec<String> {
+        vec![
+            "channel_management".to_string(),
+            "message_routing".to_string(),
+            "semantic_messaging".to_string(),
+            "affect_tracking".to_string(),
+            "hive_mind".to_string(),
+        ]
+    }
+    fn handle_request(&self, _method: &str, _params: &str) -> Result<String, String> {
+        Err("Comm adapter not connected to Hydra".to_string())
+    }
+}
 
 /// Configuration for which bridges are active.
 #[derive(Debug, Clone)]
@@ -225,6 +253,8 @@ mod tests {
         let _: &dyn CodebaseBridge = &b;
         // VisionBridge
         let _: &dyn VisionBridge = &b;
+        // HydraAdapter
+        let _: &dyn HydraAdapter = &b;
         // ContractBridge
         let _: &dyn ContractBridge = &b;
     }
