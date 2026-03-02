@@ -4,6 +4,7 @@
 //! for agent-to-agent and agent-to-human communication.
 
 mod config;
+mod ghost_bridge;
 mod prompts;
 mod protocol;
 mod resources;
@@ -26,6 +27,10 @@ async fn main() {
 
     let session = SessionManager::new(store_path);
     let session = Arc::new(Mutex::new(session));
+
+    // Ghost bridge — sync context to AI coding assistants in background
+    let _ghost_handle = ghost_bridge::spawn_ghost_writer(session.clone());
+
     let handler = Arc::new(ProtocolHandler::new(session));
 
     run_stdio(handler).await;
