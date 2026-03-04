@@ -341,6 +341,11 @@ Output:
 
 The `delivered_count` indicates how many subscribers received the message. If no subscribers are registered for the topic, the count is 0 and no messages are created.
 
+**Coordination tip (multi-agent teams):**
+- Use `subscribe` + `publish` for routing/fan-out.
+- Before sending a follow-up response in collaborative channels, run a poll/read step first so you do not post a duplicate parallel reply.
+- See runnable example: `examples/pubsub-fanout-recipient-delivery.sh`.
+
 ---
 
 ### acomm history
