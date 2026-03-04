@@ -99,6 +99,11 @@ enum Commands {
         #[command(subcommand)]
         action: RecvAction,
     },
+    /// Chat subcommands (poll, send)
+    Chat {
+        #[command(subcommand)]
+        action: ChatAction,
+    },
     /// Query subcommands (messages, channels, relationships, echoes, conversations)
     Query {
         #[command(subcommand)]
@@ -387,6 +392,38 @@ enum RecvAction {
         /// Channel ID
         #[arg(long)]
         channel: u64,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Chat subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum ChatAction {
+    /// Poll messages from a channel in one shot
+    Poll {
+        /// Channel ID
+        #[arg(long)]
+        channel: u64,
+        /// Optional Unix timestamp (seconds) lower bound
+        #[arg(long)]
+        since: Option<i64>,
+        /// Maximum messages to return
+        #[arg(long, default_value = "50")]
+        limit: usize,
+    },
+    /// Send one message to a channel
+    Send {
+        /// Channel ID
+        #[arg(long)]
+        channel: u64,
+        /// Message payload/content
+        #[arg(long)]
+        message: String,
+        /// Sender identifier
+        #[arg(long)]
+        sender: String,
     },
 }
 
@@ -1432,6 +1469,57 @@ fn main() {
                             .filter(|m| m.acknowledged_by.is_empty())
                             .collect();
                         output(&serde_json::to_value(&unread).unwrap(), json_mode);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+        },
+
+        // -----------------------------------------------------------------
+        // Chat subcommands (one-shot poll/send)
+        // -----------------------------------------------------------------
+        Commands::Chat { action } => match action {
+            ChatAction::Poll {
+                channel,
+                since,
+                limit,
+            } => {
+                let mut store = load_or_create(&store_path);
+                let since_dt = since.and_then(|ts| chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0));
+                match store.receive_messages(channel, None, since_dt) {
+                    Ok(mut msgs) => {
+                        msgs.truncate(limit);
+                        output(&serde_json::to_value(&msgs).unwrap(), json_mode);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            ChatAction::Send {
+                channel,
+                message,
+                sender,
+            } => {
+                let mut store = load_or_create(&store_path);
+                match store.send_message(channel, &sender, &message, MessageType::Text) {
+                    Ok(msg) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "sent",
+                                "message_id": msg.id,
+                                "channel_id": msg.channel_id,
+                                "timestamp": msg.timestamp.to_rfc3339(),
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
                     }
                     Err(e) => {
                         eprintln!("Error: {e}");
