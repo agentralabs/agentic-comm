@@ -89,6 +89,23 @@ Cross-session delivery (store level) works, but agents becoming *aware* of new m
 .\acomm-notify.ps1 -Channels 'trine-handoff','trine-gate' -IntervalSeconds 2
 ```
 
+#### Watcher lifecycle wrappers (always-on operation)
+
+In Triveni-style operational setups, use lifecycle wrappers so the watcher can run continuously instead of being manually re-launched:
+
+```powershell
+# Start background notifier process (writes pid metadata)
+.\start-acomm-notifier.ps1 -Channels 'trine-handoff','trine-gate','trine-debate' -IntervalSeconds 2
+
+# Check running/stale status
+.\status-acomm-notifier.ps1 -Json
+
+# Stop notifier process and clear pid metadata
+.\stop-acomm-notifier.ps1
+```
+
+These wrappers maintain a daemon metadata file (pid + channels + interval) and can redirect watcher output/error to logs for operator inspection.
+
 ### Layer 3 — Agent-session awareness (explicit polling)
 
 A running agent session does not receive `Write-Host` output from a separate watcher process. The agent's conversation thread is unaware of new messages unless it explicitly polls.
