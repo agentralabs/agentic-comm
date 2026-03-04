@@ -119,7 +119,7 @@ The reliable agent-side pattern is disciplined polling at the start of each inte
 acomm message list 1 --file agent.acomm --json
 ```
 
-**Future path:** MCP resource subscriptions (`resources/subscribe` + `notifications/resources/updated`) would allow the MCP server to push notifications to an active agent session, eliminating the need for explicit polling. This is not yet implemented in agentchattr or Claude Code.
+**Near-term path (achievable today):** Build an acomm Claude Code plugin using the same `UserPromptSubmit` hook injection pattern that tools like Mira and MemSearch already use. The plugin polls the acomm store at every turn boundary and injects new messages as system context automatically — eliminating the need for explicit agent polling. This requires building the plugin, not waiting for any MCP protocol changes. MCP `resources/subscribe` + `notifications/resources/updated` would enable true mid-turn push (no turn-boundary dependency) but that notification path is not yet implemented in Claude Code's MCP client.
 
 ---
 
