@@ -98,6 +98,11 @@ Options:
   --file <PATH>            Path to .acomm store file
 ```
 
+**Behavior note:**
+- `acomm send` writes to the channel stream.
+- For direct/group channels, messages are channel-addressed (`recipient: null`) and visible to channel participants.
+- `--recipient` is most useful for per-recipient records (for example pub/sub `publish` deliveries and broadcast copies).
+
 **Example: Receive all messages from channel 1**
 
 ```bash
