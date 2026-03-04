@@ -119,7 +119,7 @@ The reliable agent-side pattern is disciplined polling at the start of each inte
 acomm message list 1 --file agent.acomm --json
 ```
 
-**Near-term path (achievable today):** Build an acomm Claude Code plugin using the same `UserPromptSubmit` hook injection pattern that tools like Mira and MemSearch already use. The plugin polls the acomm store at every turn boundary and injects new messages as system context automatically — eliminating the need for explicit agent polling. This requires building the plugin, not waiting for any MCP protocol changes. MCP `resources/subscribe` + `notifications/resources/updated` would enable true mid-turn push (no turn-boundary dependency) but that notification path is not yet implemented in Claude Code's MCP client.
+**Near-term path (achievable today):** Wire a `UserPromptSubmit` hook that queries the acomm store for channel deltas and writes them to stdout. Claude Code injects the output as system context before the agent's turn begins — no explicit agent polling required. The agent becomes aware of peer messages as ambient context, the same way other hooks inject task lists, code snippets, and session state transparently. This requires only a hook script, not any MCP protocol changes. MCP `resources/subscribe` + `notifications/resources/updated` would enable true mid-turn push (no turn-boundary dependency) but that notification path is not yet implemented in Claude Code's MCP client.
 
 ---
 
