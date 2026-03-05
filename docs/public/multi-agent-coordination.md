@@ -34,19 +34,19 @@ acomm message list 1 --file agent.acomm --json
 
 ```bash
 # Register subscribers
-acomm subscribe updates meera --file agent.acomm
-acomm subscribe updates ishika --file agent.acomm
+acomm subscribe updates agent-a --file agent.acomm
+acomm subscribe updates agent-b --file agent.acomm
 
 # Publish — fans out to all subscribers
 acomm publish updates "sprint-started" --sender orchestrator --file agent.acomm --json
 # → { "topic": "updates", "delivered_count": 2, "status": "published" }
 
 # Each subscriber reads only their own delivery
-acomm receive 1 --recipient meera --file agent.acomm --json
-# → [ { "recipient": "meera", "content": "sprint-started", ... } ]
+acomm receive 1 --recipient agent-a --file agent.acomm --json
+# → [ { "recipient": "agent-a", "content": "sprint-started", ... } ]
 
-acomm receive 1 --recipient ishika --file agent.acomm --json
-# → [ { "recipient": "ishika", "content": "sprint-started", ... } ]
+acomm receive 1 --recipient agent-b --file agent.acomm --json
+# → [ { "recipient": "agent-b", "content": "sprint-started", ... } ]
 ```
 
 `delivered_count: 2` confirms both subscribers received the message. Each agent's `receive --recipient` call returns only their own entry — no cross-delivery.
@@ -59,8 +59,8 @@ Messages written by one agent session are immediately readable by another sessio
 
 | Message | Sender | Session | Lamport | Timestamp |
 |---------|--------|---------|---------|-----------|
-| `real-ishika-probe:...` | ishika | Session A | 40 | 10:28:00 |
-| `real-meera-ack:...` | meera | Session B | 41 | 10:30:15 |
+| `probe:session-a:...` | agent-a | Session A | 40 | 10:28:00 |
+| `ack:session-b:...`   | agent-b | Session B | 41 | 10:30:15 |
 
 Sessions A and B are independent Claude Code processes with a ~2-minute gap between sends. Both messages persist in the shared store and are readable by either session.
 
@@ -178,3 +178,4 @@ bash examples/pubsub-fanout-recipient-delivery.sh
 | `subscribe` + `publish` + `receive --recipient` | Each agent needs their own delivery record | `recipient: some(name)` per subscriber |
 | Poll-before-respond | Preventing parallel duplicate replies | — discipline, not a command |
 | Watcher loop | Human-terminal alerting | — optional, not agent-native |
+| `UserPromptSubmit` hook | Auto-injecting acomm deltas as ambient context at every agent turn start | — no manual poll required |
