@@ -13,8 +13,8 @@ fi
 
 STORE_INPUT="${1:-}"
 TOPIC="${TOPIC:-updates}"
-SUBSCRIBER_A="${SUBSCRIBER_A:-meera}"
-SUBSCRIBER_B="${SUBSCRIBER_B:-ishika}"
+SUBSCRIBER_A="${SUBSCRIBER_A:-agent-a}"
+SUBSCRIBER_B="${SUBSCRIBER_B:-agent-b}"
 SENDER="${SENDER:-ci-agent}"
 CONTENT="${CONTENT:-hello-topic}"
 CHANNEL_ID=1
