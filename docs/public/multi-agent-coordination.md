@@ -86,22 +86,22 @@ Cross-session delivery (store level) works, but agents becoming *aware* of new m
 
 ```powershell
 # Start watcher for specific channels
-.\acomm-notify.ps1 -Channels 'trine-handoff','trine-gate' -IntervalSeconds 2
+.\acomm-notify.ps1 -Channels 'handoff','gate' -IntervalSeconds 2
 ```
 
 #### Watcher lifecycle wrappers (always-on operation)
 
-In Triveni-style operational setups, use lifecycle wrappers so the watcher can run continuously instead of being manually re-launched:
+In operational setups, use lifecycle wrappers so the watcher can run continuously instead of being manually re-launched:
 
 ```powershell
 # Start background notifier process (writes pid metadata)
-.\start-acomm-notifier.ps1 -Channels 'trine-handoff','trine-gate','trine-debate' -IntervalSeconds 2
+.\start-notifier.ps1 -Channels 'handoff','gate','debate' -IntervalSeconds 2
 
 # Check running/stale status
-.\status-acomm-notifier.ps1 -Json
+.\status-notifier.ps1 -Json
 
 # Stop notifier process and clear pid metadata
-.\stop-acomm-notifier.ps1
+.\stop-notifier.ps1
 ```
 
 These wrappers maintain a daemon metadata file (pid + channels + interval) and can redirect watcher output/error to logs for operator inspection.
@@ -152,7 +152,7 @@ The watcher only surfaces messages from channels in its watch list. If a channel
 
 ```powershell
 # Watcher that covers both standard and dynamic channels
-.\acomm-notify.ps1 -Channels 'trine-handoff','trine-gate','trine-debate','my-new-channel'
+.\acomm-notify.ps1 -Channels 'handoff','gate','debate','my-new-channel'
 ```
 
 Channel name resolution depends on the channel being registered in the store. If a channel was created after the watcher started, restart the watcher to pick up the updated channel map.
