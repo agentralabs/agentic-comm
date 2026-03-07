@@ -1216,18 +1216,7 @@ fn collect_new_daemon_messages(path: &Path, last_seen_message_id: &mut u64) -> V
             continue;
         }
 
-        let payload = serde_json::json!({
-            "sender": msg.sender,
-            "text": msg.content,
-            "timestamp": msg.timestamp.to_rfc3339(),
-            "channel": store
-                .get_channel(msg.channel_id)
-                .map(|channel| channel.name)
-                .unwrap_or_else(|| msg.channel_id.to_string()),
-            "lamport": msg.comm_timestamp.lamport,
-        });
-
-        match serde_json::to_string(&payload) {
+        match serialize_daemon_message(&store, &msg) {
             Ok(json) => payloads.push(json),
             Err(e) => eprintln!("Warning: daemon could not serialize message {}: {e}", msg.id),
         }
@@ -1236,6 +1225,54 @@ fn collect_new_daemon_messages(path: &Path, last_seen_message_id: &mut u64) -> V
     }
 
     payloads
+}
+
+fn collect_recent_daemon_messages(path: &Path, limit: usize) -> Vec<String> {
+    if !path.exists() {
+        return Vec::new();
+    }
+
+    let store = match CommStore::load(path) {
+        Ok(store) => store,
+        Err(e) => {
+            eprintln!("Warning: daemon could not load store {}: {e}", path.display());
+            return Vec::new();
+        }
+    };
+
+    let mut messages: Vec<_> = store.messages.values().cloned().collect();
+    messages.sort_by_key(|msg| msg.id);
+
+    let start = messages.len().saturating_sub(limit);
+    messages
+        .into_iter()
+        .skip(start)
+        .filter_map(|msg| match serialize_daemon_message(&store, &msg) {
+            Ok(json) => Some(json),
+            Err(e) => {
+                eprintln!("Warning: daemon could not serialize message {}: {e}", msg.id);
+                None
+            }
+        })
+        .collect()
+}
+
+fn serialize_daemon_message(
+    store: &CommStore,
+    msg: &agentic_comm::Message,
+) -> Result<String, serde_json::Error> {
+    let payload = serde_json::json!({
+        "sender": msg.sender,
+        "text": msg.content,
+        "timestamp": msg.timestamp.to_rfc3339(),
+        "channel": store
+            .get_channel(msg.channel_id)
+            .map(|channel| channel.name)
+            .unwrap_or_else(|| msg.channel_id.to_string()),
+        "lamport": msg.comm_timestamp.lamport,
+    });
+
+    serde_json::to_string(&payload)
 }
 
 fn pid_is_alive(pid: u32) -> bool {
@@ -2906,7 +2943,16 @@ fn main() {
                             accept_result = listener.accept() => {
                                 let (mut stream, _) = accept_result?;
                                 let mut receiver = sender.subscribe();
+                                let recent_messages = collect_recent_daemon_messages(&data_path, 50);
                                 tokio::spawn(async move {
+                                    for message in recent_messages {
+                                        if stream.write_all(message.as_bytes()).await.is_err() {
+                                            return;
+                                        }
+                                        if stream.write_all(b"\n").await.is_err() {
+                                            return;
+                                        }
+                                    }
                                     while let Ok(message) = receiver.recv().await {
                                         if stream.write_all(message.as_bytes()).await.is_err() {
                                             break;
