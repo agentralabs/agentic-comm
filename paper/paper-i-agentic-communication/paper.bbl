@@ -1,0 +1,178 @@
+\begin{thebibliography}{10}
+
+\bibitem{agenticmemory2026}
+{Agentra Labs}.
+\newblock Agenticmemory: A binary graph format for persistent, portable, and
+  navigable ai agent memory.
+\newblock \url{https://github.com/agentralabs/agentic-memory}, 2026.
+\newblock Part of the Agentra sister ecosystem.
+
+\bibitem{mcp2024}
+Anthropic.
+\newblock Model context protocol specification.
+\newblock \url{https://modelcontextprotocol.io/}, 2024.
+\newblock Protocol for connecting AI models to external tools and data.
+
+\bibitem{bernstein2012chacha}
+Daniel~J Bernstein.
+\newblock Chacha, a variant of salsa20.
+\newblock In {\em Workshop Record of SASC 2008}, 2008.
+\newblock Basis for the ChaCha20-Poly1305 AEAD cipher.
+
+\bibitem{ed25519_2012}
+Daniel~J Bernstein, Niels Duif, Tanja Lange, Peter Schwabe, and Bo-Yin Yang.
+\newblock High-speed high-security signatures, 2012.
+\newblock Ed25519 signature scheme specification.
+
+\bibitem{bincode2023}
+{Bincode Contributors}.
+\newblock Bincode: A binary encoder/decoder for rust.
+\newblock \url{https://github.com/bincode-org/bincode}, 2023.
+\newblock Compact binary serialization for Rust structs.
+
+\bibitem{langchain2023}
+Harrison Chase.
+\newblock Langchain: Building applications with llms through composability.
+\newblock \url{https://github.com/langchain-ai/langchain}, 2023.
+\newblock Accessed: 2026-02-27.
+
+\bibitem{zstd2016}
+Yann Collet and Murray Kucherawy.
+\newblock Zstandard: Fast real-time compression algorithm.
+\newblock RFC 8478, 2016.
+\newblock Facebook's Zstandard compression, optimized for speed-to-ratio
+  tradeoffs.
+
+\bibitem{kqml1994}
+Tim Finin, Richard Fritzson, Don McKay, and Robin McEntire.
+\newblock Kqml as an agent communication language.
+\newblock In {\em Proceedings of the Third International Conference on
+  Information and Knowledge Management}, pages 456--463. ACM, 1994.
+
+\bibitem{fipa2002}
+{Foundation for Intelligent Physical Agents}.
+\newblock Fipa acl message structure specification.
+\newblock Technical Report SC00061G, FIPA, 2002.
+\newblock Specification document for the FIPA Agent Communication Language.
+
+\bibitem{hatfield1993emotional}
+Elaine Hatfield, John~T Cacioppo, and Richard~L Rapson.
+\newblock Emotional contagion.
+\newblock {\em Current Directions in Psychological Science}, 2(3):96--100,
+  1993.
+
+\bibitem{zeromq2013}
+Pieter Hintjens.
+\newblock {\em ZeroMQ: Messaging for Many Applications}.
+\newblock O'Reilly Media, 2013.
+
+\bibitem{hong2023metagpt}
+Sirui Hong, Mingchen Zhuge, Jonathan Chen, Xiawu Zheng, Yuheng Cheng, Ceyao
+  Zhang, Jinlin Wang, Zili Wang, Steven Ka~Shing Yau, Zijuan Lin, et~al.
+\newblock Metagpt: Meta programming for a multi-agent collaborative framework.
+\newblock In {\em International Conference on Learning Representations}, 2024.
+
+\bibitem{kafka2011}
+Jay Kreps, Neha Narkhede, and Jun Rao.
+\newblock Kafka: A distributed messaging system for log processing.
+\newblock In {\em Proceedings of the NetDB Workshop}, 2011.
+
+\bibitem{lamport1978time}
+Leslie Lamport.
+\newblock Time, clocks, and the ordering of events in a distributed system.
+\newblock {\em Communications of the ACM}, 21(7):558--565, 1978.
+
+\bibitem{li2023camel}
+Guohao Li, Hasan Abed Al~Kader Hammoud, Hani Itani, Dmitrii Khizbullin, and
+  Bernard Ghanem.
+\newblock Camel: Communicative agents for ``mind'' exploration of large
+  language model society.
+\newblock {\em Advances in Neural Information Processing Systems}, 36, 2023.
+
+\bibitem{mattern1989virtual}
+Friedemann Mattern.
+\newblock Virtual time and global states of distributed systems.
+\newblock Technical report, University of Kaiserslautern, 1989.
+
+\bibitem{mehrabian1996pleasure}
+Albert Mehrabian.
+\newblock Pleasure-arousal-dominance: A general framework for describing and
+  measuring individual differences in temperament.
+\newblock {\em Current Psychology}, 14(4):261--292, 1996.
+
+\bibitem{crewai2024}
+Joao Moura.
+\newblock Crewai: Framework for orchestrating role-playing, autonomous ai
+  agents.
+\newblock \url{https://github.com/crewAIInc/crewAI}, 2024.
+\newblock Accessed: 2026-02-27.
+
+\bibitem{aes_gcm_2007}
+{National Institute of Standards and Technology}.
+\newblock Recommendation for block cipher modes of operation: Galois/counter
+  mode (gcm) and gmac, 2007.
+\newblock NIST Special Publication 800-38D.
+
+\bibitem{mqtt2019}
+{OASIS}.
+\newblock Mqtt version 5.0: Oasis standard.
+\newblock \url{https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html},
+  2019.
+\newblock Topic-based publish-subscribe messaging protocol.
+
+\bibitem{blake3_2020}
+Jack O'Connor, Jean-Philippe Aumasson, Samuel Neves, and Zooko Wilcox-O'Hearn.
+\newblock Blake3: One function, fast everywhere.
+\newblock \url{https://github.com/BLAKE3-team/BLAKE3}, 2020.
+\newblock Cryptographic hash function optimized for parallelism.
+
+\bibitem{park2023generative}
+Joon~Sung Park, Joseph~C O'Brien, Carrie~J Cai, Meredith~Ringel Morris, Percy
+  Liang, and Michael~S Bernstein.
+\newblock Generative agents: Interactive simulacra of human behavior.
+\newblock In {\em Proceedings of the 36th Annual ACM Symposium on User
+  Interface Software and Technology}, 2023.
+
+\bibitem{russell1980circumplex}
+James~A Russell.
+\newblock A circumplex model of affect.
+\newblock {\em Journal of Personality and Social Psychology}, 39(6):1161--1178,
+  1980.
+
+\bibitem{shoham1993agent}
+Yoav Shoham.
+\newblock Agent-oriented programming.
+\newblock {\em Artificial Intelligence}, 60(1):51--92, 1993.
+
+\bibitem{nats2021}
+{Synadia Communications}.
+\newblock Nats: Cloud native messaging system.
+\newblock \url{https://nats.io/}, 2021.
+\newblock High-performance messaging for cloud-native applications.
+
+\bibitem{rabbitmq2012}
+Alvaro Videla and Jason~JW Williams.
+\newblock {\em RabbitMQ in Action: Distributed Messaging for Everyone}.
+\newblock Manning Publications, 2012.
+
+\bibitem{woolridge1995intelligent}
+Michael Wooldridge and Nicholas~R Jennings.
+\newblock Intelligent agents: Theory and practice.
+\newblock {\em The Knowledge Engineering Review}, 10(2):115--152, 1995.
+
+\bibitem{autogen2023}
+Qingyun Wu, Gagan Bansal, Jieyu Zhang, Yiran Wu, Beibin Li, Erkang Zhu,
+  Li~Jiang, Xiaoyun Zhang, Shaoke Zhang, Jiale Liu, et~al.
+\newblock Autogen: Enabling next-gen llm applications via multi-agent
+  conversation.
+\newblock In {\em International Conference on Learning Representations}, 2024.
+\newblock arXiv:2308.08155.
+
+\bibitem{xi2023rise}
+Zhiheng Xi, Wenxiang Chen, Xin Guo, Wei He, Yiwen Ding, Boyang Hong, Ming
+  Zhang, Junzhe Wang, Senjie Jin, Enyu Zhou, et~al.
+\newblock The rise and potential of large language model based agents: A
+  survey.
+\newblock {\em arXiv preprint arXiv:2309.07864}, 2023.
+
+\end{thebibliography}

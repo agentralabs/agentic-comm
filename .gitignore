@@ -1,10 +1,7 @@
-# Rust build artifacts
-/target/
-**/target/
-**/*.rs.bk
-
-# Cargo lock for libraries (keep for binaries)
-# Cargo.lock is committed for this workspace since it contains binaries
+# Rust
+target/
+*.swp
+*.swo
 
 # Python
 __pycache__/
@@ -20,111 +17,14 @@ build/
 venv/
 env/
 
-# IDE files
-.idea/
+# IDE
 .vscode/
+.idea/
 *.iml
 .fleet/
-*.swp
-*.swo
-*~
-\#*\#
-.\#*
 
-# macOS
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon\r
-._*
-.Spotlight-V100
-.Trashes
-
-# Linux
-.nfs*
-
-# Windows
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.tox/
-*.profraw
-*.profdata
-lcov.info
-tarpaulin-report.html
-/tmp/
-
-# LaTeX build artifacts
-*.aux
-*.bbl
-*.blg
-*.log
-*.out
-*.toc
-*.fls
-*.fdb_latexmk
-*.synctex.gz
-
-# Environment and secrets
-.env
-.env.*
-.env.local
-*.pem
-*.key
-
-# AgenticComm store files (user data, not source)
-*.acomm
-*.acomm.lock
-*.acomm.tmp
-*.acomm.bak
-
-# Agentic
-.agentic/
-
-# FFI build artifacts
-*.so
-*.dylib
-*.dll
-*.a
-*.lib
-*.o
-*.obj
-/ffi/
-
-# Documentation build
-/site/
-/book/
-
-# Coverage
-coverage/
-
-# Benchmarks
-criterion/
-benchmark-output.txt
-filesize-output.txt
-
-# Claude Code
-.claude/
-.agentra/
-
-# Planning docs (internal only)
-planning-docs/
-CLAUDE-CODE-INSTRUCTIONS*.md
-SPEC-*.md
-
-# Internal vision / roadmap documents
-docs/VISION-*.md
-docs/internal/
-
-# Local goals (internal only)
-goals/
-
-# Outputs (internal only)
-outputs/
+*.swp
+*~

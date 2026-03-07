@@ -1,0 +1,1805 @@
+warning: unused import: `crate::tools::validation`
+ --> crates/agentic-comm-mcp/src/tools/registry.rs:9:5
+  |
+9 | use crate::tools::validation;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: function `resolve_comm_path` is never used
+  --> crates/agentic-comm-mcp/src/config/loader.rs:19:8
+   |
+19 | pub fn resolve_comm_path() -> PathBuf {
+   |        ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: method `cleanup` is never used
+   --> crates/agentic-comm-mcp/src/protocol/handler.rs:102:18
+    |
+ 51 | impl ProtocolHandler {
+    | -------------------- method in this implementation
+...
+102 |     pub async fn cleanup(&self) {
+    |                  ^^^^^^^
+
+warning: method `is_active` is never used
+   --> crates/agentic-comm-mcp/src/session/manager.rs:296:12
+    |
+146 | impl SessionManager {
+    | ------------------- method in this implementation
+...
+296 |     pub fn is_active(&self) -> bool {
+    |            ^^^^^^^^^
+
+warning: function `definition_affect_contagion_model` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:23:4
+   |
+23 | fn definition_affect_contagion_model() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_contagion_simulate` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:74:4
+   |
+74 | fn definition_affect_contagion_simulate() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_contagion_immunize` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:145:4
+    |
+145 | fn definition_affect_contagion_immunize() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_contagion_outbreak` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:173:4
+    |
+173 | fn definition_affect_contagion_outbreak() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_dig` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:217:4
+    |
+217 | fn definition_affect_archaeology_dig() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_reconstruct` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:262:4
+    |
+262 | fn definition_affect_archaeology_reconstruct() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_timeline` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:348:4
+    |
+348 | fn definition_affect_archaeology_timeline() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_artifacts` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:402:4
+    |
+402 | fn definition_affect_archaeology_artifacts() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_predict` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:479:4
+    |
+479 | fn definition_affect_prophecy_predict() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_warn` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:534:4
+    |
+534 | fn definition_affect_prophecy_warn() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_track` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:598:4
+    |
+598 | fn definition_affect_prophecy_track() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_similar` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:644:4
+    |
+644 | fn definition_affect_prophecy_similar() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_encode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:700:4
+    |
+700 | fn definition_unspeakable_encode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_decode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:748:4
+    |
+748 | fn definition_unspeakable_decode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:788:4
+    |
+788 | fn definition_unspeakable_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_translate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:829:4
+    |
+829 | fn definition_unspeakable_translate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_predict` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:898:4
+    |
+898 | fn definition_anticipate_predict() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_prepare` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:978:4
+    |
+978 | fn definition_anticipate_prepare() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_calibrate` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:1024:4
+     |
+1024 | fn definition_anticipate_calibrate() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_accuracy` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:1074:4
+     |
+1074 | fn definition_anticipate_accuracy() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:1154:8
+     |
+1154 | pub fn all_definitions() -> Vec<ToolDefinition> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_status` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:24:4
+   |
+24 | fn definition_hive_consciousness_status() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_sync` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:60:4
+   |
+60 | fn definition_hive_consciousness_sync() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_merge` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:96:4
+   |
+96 | fn definition_hive_consciousness_merge() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_split` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:138:4
+    |
+138 | fn definition_hive_consciousness_split() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_query` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:178:4
+    |
+178 | fn definition_collective_intelligence_query() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_contribute` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:232:4
+    |
+232 | fn definition_collective_intelligence_contribute() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_consensus` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:275:4
+    |
+275 | fn definition_collective_intelligence_consensus() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_dissent` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:324:4
+    |
+324 | fn definition_collective_intelligence_dissent() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_trace` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:380:4
+    |
+380 | fn definition_ancestor_trace() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_inherit` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:419:4
+    |
+419 | fn definition_ancestor_inherit() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_lineage` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:461:4
+    |
+461 | fn definition_ancestor_lineage() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_verify` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:502:4
+    |
+502 | fn definition_ancestor_verify() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_link` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:559:4
+    |
+559 | fn definition_telepathy_link() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_broadcast` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:603:4
+    |
+603 | fn definition_telepathy_broadcast() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_listen` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:642:4
+    |
+642 | fn definition_telepathy_listen() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_consensus` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:682:4
+    |
+682 | fn definition_telepathy_consensus() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_enter` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:758:4
+    |
+758 | fn definition_silence_enter() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_presence` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:811:4
+    |
+811 | fn definition_silence_presence() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_attend` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:860:4
+    |
+860 | fn definition_silence_attend() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_leave` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:918:4
+    |
+918 | fn definition_silence_leave() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_initiate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:956:4
+    |
+956 | fn definition_mind_meld_initiate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_sync` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1018:4
+     |
+1018 | fn definition_mind_meld_sync() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_status` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1097:4
+     |
+1097 | fn definition_mind_meld_status() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_separate` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1154:4
+     |
+1154 | fn definition_mind_meld_separate() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_start` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1197:4
+     |
+1197 | fn definition_dream_start() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_contribute` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1249:4
+     |
+1249 | fn definition_dream_contribute() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_insights` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1296:4
+     |
+1296 | fn definition_dream_insights() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_wake` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1356:4
+     |
+1356 | fn definition_dream_wake() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1400:8
+     |
+1400 | pub fn all_definitions() -> Vec<ToolDefinition> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_status` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:26:4
+   |
+26 | fn definition_federation_gateway_status() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_create` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:64:4
+   |
+64 | fn definition_federation_gateway_create() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_connect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:113:4
+    |
+113 | fn definition_federation_gateway_connect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_disconnect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:146:4
+    |
+146 | fn definition_federation_gateway_disconnect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_message` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:180:4
+    |
+180 | fn definition_federation_route_message() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_trace` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:228:4
+    |
+228 | fn definition_federation_route_trace() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_optimize` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:270:4
+    |
+270 | fn definition_federation_route_optimize() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_policy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:313:4
+    |
+313 | fn definition_federation_route_policy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:356:4
+    |
+356 | fn definition_federation_zone_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_policy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:399:4
+    |
+399 | fn definition_federation_zone_policy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:438:4
+    |
+438 | fn definition_federation_zone_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_merge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:472:4
+    |
+472 | fn definition_federation_zone_merge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_bend` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:517:4
+    |
+517 | fn definition_reality_bend() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_fork` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:566:4
+    |
+566 | fn definition_reality_fork() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_merge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:615:4
+    |
+615 | fn definition_reality_merge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:659:4
+    |
+659 | fn definition_reality_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:721:4
+    |
+721 | fn definition_destiny_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_align` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:778:4
+    |
+778 | fn definition_destiny_align() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_probability` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:851:4
+    |
+851 | fn definition_destiny_probability() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_converge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:917:4
+    |
+917 | fn definition_destiny_converge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:970:8
+    |
+970 | pub fn all_definitions() -> Vec<ToolDefinition> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_investigate` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:24:4
+   |
+24 | fn definition_forensics_investigate() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_timeline` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:83:4
+   |
+83 | fn definition_forensics_timeline() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_evidence` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:138:4
+    |
+138 | fn definition_forensics_evidence() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_report` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:193:4
+    |
+193 | fn definition_forensics_report() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:264:4
+    |
+264 | fn definition_pattern_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_recurring` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:331:4
+    |
+331 | fn definition_pattern_recurring() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_anomaly` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:383:4
+    |
+383 | fn definition_pattern_anomaly() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_predict` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:457:4
+    |
+457 | fn definition_pattern_predict() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_status` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:530:4
+    |
+530 | fn definition_health_status() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_diagnose` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:570:4
+    |
+570 | fn definition_health_diagnose() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_prescribe` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:662:4
+    |
+662 | fn definition_health_prescribe() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_history` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:734:4
+    |
+734 | fn definition_health_history() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_query` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:778:4
+    |
+778 | fn definition_oracle_query() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_prophecy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:835:4
+    |
+835 | fn definition_oracle_prophecy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_verify` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:888:4
+    |
+888 | fn definition_oracle_verify() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_calibrate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:932:4
+    |
+932 | fn definition_oracle_calibrate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:980:8
+    |
+980 | pub fn all_definitions() -> Vec<ToolDefinition> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `get_f64` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:14:4
+   |
+14 | fn get_f64(a: &Value, k: &str) -> Option<f64> {
+   |    ^^^^^^^
+
+warning: function `definition_semantic_graft` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:23:4
+   |
+23 | fn definition_semantic_graft() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_semantic_extract` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:65:4
+   |
+65 | fn definition_semantic_extract() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_semantic_merge` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:98:4
+   |
+98 | fn definition_semantic_merge() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_semantic_cluster` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:151:4
+    |
+151 | fn definition_semantic_cluster() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:208:4
+    |
+208 | fn definition_echo_chamber_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_analyze` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:258:4
+    |
+258 | fn definition_echo_chamber_analyze() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_break` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:310:4
+    |
+310 | fn definition_echo_chamber_break() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_health` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:373:4
+    |
+373 | fn definition_echo_chamber_health() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:429:4
+    |
+429 | fn definition_ghost_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_reveal` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:487:4
+    |
+487 | fn definition_ghost_reveal() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:534:4
+    |
+534 | fn definition_ghost_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_dissolve` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:569:4
+    |
+569 | fn definition_ghost_dissolve() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_encode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:612:4
+    |
+612 | fn definition_metamessage_encode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_decode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:657:4
+    |
+657 | fn definition_metamessage_decode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_trace` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:707:4
+    |
+707 | fn definition_metamessage_trace() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_inject` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:770:4
+    |
+770 | fn definition_metamessage_inject() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:816:4
+    |
+816 | fn definition_fork_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_explore` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:878:4
+    |
+878 | fn definition_fork_explore() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_merge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:932:4
+    |
+932 | fn definition_fork_merge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:980:4
+    |
+980 | fn definition_fork_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:1039:8
+     |
+1039 | pub fn all_definitions() -> Vec<ToolDefinition> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_predict` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:24:4
+   |
+24 | fn definition_precognition_predict() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_prepare` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:82:4
+   |
+82 | fn definition_precognition_prepare() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_accuracy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:132:4
+    |
+132 | fn definition_precognition_accuracy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_calibrate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:182:4
+    |
+182 | fn definition_precognition_calibrate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_schedule` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:231:4
+    |
+231 | fn definition_temporal_schedule() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_reschedule` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:278:4
+    |
+278 | fn definition_temporal_reschedule() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_cancel` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:324:4
+    |
+324 | fn definition_temporal_cancel() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_pending` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:351:4
+    |
+351 | fn definition_temporal_pending() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_compose` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:395:4
+    |
+395 | fn definition_legacy_compose() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_seal` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:437:4
+    |
+437 | fn definition_legacy_seal() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:473:4
+    |
+473 | fn definition_legacy_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_unseal` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:511:4
+    |
+511 | fn definition_legacy_unseal() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_resurrect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:554:4
+    |
+554 | fn definition_dead_letter_resurrect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_analyze` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:587:4
+    |
+587 | fn definition_dead_letter_analyze() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_phoenix` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:633:4
+    |
+633 | fn definition_dead_letter_phoenix() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_autopsy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:686:4
+    |
+686 | fn definition_dead_letter_autopsy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_propose` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:746:4
+    |
+746 | fn definition_temporal_consensus_propose() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_vote` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:798:4
+    |
+798 | fn definition_temporal_consensus_vote() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_status` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:849:4
+    |
+849 | fn definition_temporal_consensus_status() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_resolve` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:918:4
+    |
+918 | fn definition_temporal_consensus_resolve() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:968:8
+    |
+968 | pub fn all_definitions() -> Vec<ToolDefinition> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `validate_participant` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:289:8
+    |
+289 | pub fn validate_participant(name: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple variants are never constructed
+   --> crates/agentic-comm-mcp/src/types/error.rs:48:5
+    |
+ 45 | pub enum McpError {
+    |          -------- variants in this enum
+...
+ 48 |     ParseError(String),
+    |     ^^^^^^^^^^
+...
+ 68 |     RequestCancelled,
+    |     ^^^^^^^^^^^^^^^^
+...
+ 72 |     ContentTooLarge {
+    |     ^^^^^^^^^^^^^^^
+...
+ 93 |     ChannelNotFound(u64),
+    |     ^^^^^^^^^^^^^^^
+...
+ 97 |     MessageNotFound(u64),
+    |     ^^^^^^^^^^^^^^^
+...
+101 |     SubscriptionNotFound(u64),
+    |     ^^^^^^^^^^^^^^^^^^^^
+...
+105 |     Transport(String),
+    |     ^^^^^^^^^
+    |
+    = note: `McpError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `is_protocol_error` is never used
+   --> crates/agentic-comm-mcp/src/types/error.rs:128:12
+    |
+124 | impl McpError {
+    | ------------- method in this implementation
+...
+128 |     pub fn is_protocol_error(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> crates/agentic-comm-mcp/src/types/message.rs:118:12
+    |
+116 | impl JsonRpcError {
+    | ----------------- associated function in this implementation
+117 |     /// Create a new error response.
+118 |     pub fn new(id: RequestId, code: i32, message: String) -> Self {
+    |            ^^^
+
+warning: associated function `new` is never used
+   --> crates/agentic-comm-mcp/src/types/message.rs:133:12
+    |
+131 | impl JsonRpcNotification {
+    | ------------------------ associated function in this implementation
+132 |     /// Create a new notification.
+133 |     pub fn new(method: String, params: Option<Value>) -> Self {
+    |            ^^^
+
+   Compiling agentic-comm v0.1.0 (/Users/omoshola/Documents/agentralabs-tech/agentic-comm/crates/agentic-comm)
+warning: `agentic-comm-mcp` (bin "agentic-comm-mcp" test) generated 140 warnings (run `cargo fix --bin "agentic-comm-mcp" --tests` to apply 1 suggestion)
+warning: unused `Result` that must be used
+   --> crates/agentic-comm/benches/comm_benchmarks.rs:214:21
+    |
+214 | /                     black_box(
+215 | |                         store.publish("topic-25", "publisher", "benchmark payload"),
+216 | |                     );
+    | |_____________________^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+    = note: `#[warn(unused_must_use)]` on by default
+help: use `let _ = ...` to ignore the resulting value
+    |
+214 |                     let _ = black_box(
+    |                     +++++++
+
+warning: `agentic-comm` (bench "comm_benchmarks") generated 1 warning
+    Finished `bench` profile [optimized] target(s) in 1.55s
+     Running unittests src/lib.rs (target/release/deps/agentic_comm-21e5d286586b16bf)
+
+running 347 tests
+test affect::tests::test_affect_distance ... ignored
+test affect::tests::test_contagion_applies_with_no_resistance ... ignored
+test affect::tests::test_contagion_blocked_by_high_resistance ... ignored
+test affect::tests::test_contagion_history_recorded ... ignored
+test affect::tests::test_contagion_partial_resistance ... ignored
+test affect::tests::test_decay_moves_toward_baseline ... ignored
+test affect::tests::test_register_and_get_state ... ignored
+test affect::tests::test_set_resistance ... ignored
+test bridges::tests::bridge_config_clone ... ignored
+test bridges::tests::bridge_config_defaults_all_false ... ignored
+test bridges::tests::codebase_bridge_defaults ... ignored
+test bridges::tests::contract_bridge_defaults ... ignored
+test bridges::tests::identity_bridge_defaults ... ignored
+test bridges::tests::memory_bridge_defaults ... ignored
+test bridges::tests::noop_bridges_clone ... ignored
+test bridges::tests::noop_bridges_default ... ignored
+test bridges::tests::noop_bridges_implements_all_traits ... ignored
+test bridges::tests::noop_bridges_is_send_sync ... ignored
+test bridges::tests::time_bridge_defaults ... ignored
+test bridges::tests::vision_bridge_defaults ... ignored
+test channel::tests::channel_full ... ignored
+test channel::tests::channels_accessor ... ignored
+test channel::tests::close_channel ... ignored
+test channel::tests::config_update ... ignored
+test channel::tests::create_channel ... ignored
+test channel::tests::create_channel_invalid_name ... ignored
+test channel::tests::join_and_leave ... ignored
+test channel::tests::join_nonexistent_channel ... ignored
+test channel::tests::list_channels ... ignored
+test channel::tests::next_id_advances ... ignored
+test channel::tests::state_transitions ... ignored
+test crypto::tests::test_clone_key_pair ... ignored
+test crypto::tests::test_from_bytes_roundtrip ... ignored
+test crypto::tests::test_generate_key_pair ... ignored
+test crypto::tests::test_sha256_hash ... ignored
+test crypto::tests::test_sign_and_verify ... ignored
+test crypto::tests::test_signature_is_128_hex_chars ... ignored
+test crypto::tests::test_verify_invalid_hex_returns_false ... ignored
+test crypto::tests::test_verify_wrong_content_fails ... ignored
+test crypto::tests::test_verify_wrong_key_fails ... ignored
+test encryption::tests::encryption_scheme_default_is_none ... ignored
+test encryption::tests::encryption_scheme_serde_roundtrip ... ignored
+test encryption::tests::test_aes_cipher_empty_data ... ignored
+test encryption::tests::test_aes_cipher_roundtrip ... ignored
+test encryption::tests::test_aes_cipher_too_short_data ... ignored
+test encryption::tests::test_aes_cipher_wrong_key_fails ... ignored
+test encryption::tests::test_aes_empty_data ... ignored
+test encryption::tests::test_aes_encrypt_decrypt_roundtrip ... ignored
+test encryption::tests::test_aes_large_content ... ignored
+test encryption::tests::test_aes_wrong_key_fails ... ignored
+test encryption::tests::test_chacha_cipher_empty_data ... ignored
+test encryption::tests::test_chacha_cipher_roundtrip ... ignored
+test encryption::tests::test_chacha_cipher_too_short_data ... ignored
+test encryption::tests::test_chacha_cipher_wrong_key_fails ... ignored
+test encryption::tests::test_cross_algorithm_fails ... ignored
+test encryption::tests::test_decrypt_wrong_key_fails ... ignored
+test encryption::tests::test_encrypt_decrypt_roundtrip ... ignored
+test encryption::tests::test_encrypt_empty_string ... ignored
+test encryption::tests::test_encrypt_large_content ... ignored
+test encryption::tests::test_fingerprint_deterministic ... ignored
+test encryption::tests::test_from_bytes_roundtrip ... ignored
+test encryption::tests::test_generate_key ... ignored
+test encryption::tests::test_generate_key_for_aes ... ignored
+test encryption::tests::test_key_rotation ... ignored
+test format::tests::blake3_corrupted_data_detection ... ignored
+test format::tests::blake3_verification ... ignored
+test format::tests::corrupted_data_detection_legacy ... ignored
+test format::tests::crc_verification_legacy ... ignored
+test format::tests::empty_data_v3 ... ignored
+test format::tests::header_roundtrip_v2_legacy ... ignored
+test format::tests::header_roundtrip_v3 ... ignored
+test format::tests::header_too_short ... ignored
+test format::tests::invalid_magic_detection ... ignored
+test format::tests::large_data_blake3 ... ignored
+test format::tests::legacy_format_detection ... ignored
+test format::tests::truncated_file_detection_v3 ... ignored
+test format::tests::v3_header_is_48_bytes ... ignored
+test format::tests::version_field_is_3 ... ignored
+test format::tests::write_read_roundtrip_legacy ... ignored
+test format::tests::write_read_roundtrip_v3 ... ignored
+test query::tests::test_combined_filters ... ignored
+test query::tests::test_empty_query_returns_all ... ignored
+test query::tests::test_full_text_search ... ignored
+test query::tests::test_index_and_query_by_channel ... ignored
+test query::tests::test_index_and_query_by_sender ... ignored
+test query::tests::test_messages_per_channel ... ignored
+test query::tests::test_query_channels ... ignored
+test query::tests::test_query_limit_and_truncation ... ignored
+test query::tests::test_time_range_query ... ignored
+test semantic::tests::test_detect_conflicts_without_grafting ... ignored
+test semantic::tests::test_empty_graph_extract ... ignored
+test semantic::tests::test_extract_fragment_basic ... ignored
+test semantic::tests::test_extract_respects_depth ... ignored
+test semantic::tests::test_graft_fragment_no_conflicts ... ignored
+test semantic::tests::test_graft_fragment_with_conflicts ... ignored
+test temporal::tests::test_cancel_pending ... ignored
+test temporal::tests::test_conditional_delivery ... ignored
+test temporal::tests::test_expire_old ... ignored
+test temporal::tests::test_mark_delivered ... ignored
+test temporal::tests::test_retroactive_target ... ignored
+test temporal::tests::test_schedule_future ... ignored
+test temporal::tests::test_schedule_immediate ... ignored
+test temporal::tests::test_stats ... ignored
+test tests::affect_contagion_basic ... ignored
+test tests::affect_contagion_empty_channel ... ignored
+test tests::affect_decay_reduces_state ... ignored
+test tests::affect_history_empty ... ignored
+test tests::affect_history_with_state ... ignored
+test tests::affect_message_send ... ignored
+test tests::audit_log_and_retrieve ... ignored
+test tests::audit_log_in_stats ... ignored
+test tests::audit_log_records_operations ... ignored
+test tests::channel_state_archived_blocks_send_allows_receive ... ignored
+test tests::channel_state_new_variants_display ... ignored
+test tests::channel_state_pending_consent_blocks_both ... ignored
+test tests::comm_log_entries ... ignored
+test tests::comm_log_limit ... ignored
+test tests::comm_log_with_affect ... ignored
+test tests::comm_timestamp_happens_before_basic ... ignored
+test tests::comm_timestamp_increment_and_merge ... ignored
+test tests::consent_empty_grantor_error ... ignored
+test tests::consent_enforcement_allows_with_grant ... ignored
+test tests::consent_enforcement_blocks_semantic_without_consent ... ignored
+test tests::consent_grant_and_check ... ignored
+test tests::consent_grant_with_reason_and_expiry ... ignored
+test tests::consent_list_empty_returns_empty ... ignored
+test tests::consent_list_filtered ... ignored
+test tests::consent_revoke ... ignored
+test tests::consent_revoke_nonexistent_error ... ignored
+test tests::consent_update_existing ... ignored
+test tests::echo_chain_and_depth ... ignored
+test tests::federation_add_remove_zone ... ignored
+test tests::federation_configure ... ignored
+test tests::federation_duplicate_zone_error ... ignored
+test tests::federation_empty_zone_error ... ignored
+test tests::federation_remove_nonexistent_zone_error ... ignored
+test tests::federation_zone_with_trust_level ... ignored
+test tests::file_locking_drop_releases_lock ... ignored
+test tests::file_locking_exclusive_blocks_second_try ... ignored
+test tests::file_locking_no_lock_file_recovery ... ignored
+test tests::file_locking_release_allows_reacquire ... ignored
+test tests::file_locking_save_load_with_locks ... ignored
+test tests::file_locking_shared_allows_multiple_readers ... ignored
+test tests::file_locking_stale_recovery ... ignored
+test tests::file_locking_stale_recovery_not_stale ... ignored
+test tests::forward_message_basic ... ignored
+test tests::forward_message_not_found ... ignored
+test tests::forward_message_target_not_found ... ignored
+test tests::grounding_consent_evidence ... ignored
+test tests::grounding_hive_name ... ignored
+test tests::grounding_message_content ... ignored
+test tests::grounding_trust_evidence ... ignored
+test tests::grounding_ungrounded ... ignored
+test tests::grounding_verified_channel ... ignored
+test tests::hive_dissolve ... ignored
+test tests::hive_dissolve_nonexistent_error ... ignored
+test tests::hive_form_and_list ... ignored
+test tests::hive_form_empty_name_error ... ignored
+test tests::hive_join_and_leave ... ignored
+test tests::hive_join_duplicate_error ... ignored
+test tests::hive_leave_nonexistent_member_error ... ignored
+test tests::hive_multiple_members ... ignored
+test tests::rate_limit_config_defaults_in_store ... ignored
+test tests::rate_limiting_blocks_after_threshold ... ignored
+test tests::rate_limiting_resets_after_window ... ignored
+test tests::save_load_consent_roundtrip ... ignored
+test tests::save_load_hive_roundtrip ... ignored
+test tests::save_load_temporal_roundtrip ... ignored
+test tests::save_load_trust_roundtrip ... ignored
+test tests::signature_verification_detects_tampering ... ignored
+test tests::stats_comprehensive ... ignored
+test tests::stats_include_new_fields ... ignored
+test tests::summarize_conversation_basic ... ignored
+test tests::summarize_conversation_not_found ... ignored
+test tests::temporal_cancel ... ignored
+test tests::temporal_cancel_delivered_error ... ignored
+test tests::temporal_cancel_nonexistent_error ... ignored
+test tests::temporal_deliver_future_relative_not_delivered ... ignored
+test tests::temporal_deliver_immediate ... ignored
+test tests::temporal_multiple_immediate ... ignored
+test tests::temporal_schedule_and_list ... ignored
+test tests::temporal_schedule_to_nonexistent_channel ... ignored
+test tests::test_acknowledge_message ... ignored
+test tests::test_acknowledge_nonexistent ... ignored
+test tests::test_agent_availability_update ... ignored
+test tests::test_agent_registry_audit_log ... ignored
+test tests::test_agent_registry_basic ... ignored
+test tests::test_agent_unregister ... ignored
+test tests::test_agent_update_nonexistent ... ignored
+test tests::test_agents_serde_backward_compat ... ignored
+test tests::test_assign_comm_ids_fills_missing ... ignored
+test tests::test_assign_comm_ids_idempotent ... ignored
+test tests::test_bridge_config_set ... ignored
+test tests::test_broadcast ... ignored
+test tests::test_channel_config_backward_compat_no_min_trust ... ignored
+test tests::test_channel_resume_after_pause ... ignored
+test tests::test_channel_state_close_blocks_all ... ignored
+test tests::test_channel_state_display ... ignored
+test tests::test_channel_state_drain_allows_receive ... ignored
+test tests::test_channel_state_pause_blocks_send ... ignored
+test tests::test_channel_type_roundtrip ... ignored
+test tests::test_compact_enforces_retention_policy ... ignored
+test tests::test_compact_removes_closed_channel_messages ... ignored
+test tests::test_consent_configure_federation_blocked ... ignored
+test tests::test_consent_configure_federation_open_by_default ... ignored
+test tests::test_consent_form_hive_blocked ... ignored
+test tests::test_consent_form_hive_open_by_default ... ignored
+test tests::test_consent_join_channel_blocked ... ignored
+test tests::test_consent_join_channel_open_by_default ... ignored
+test tests::test_consent_join_hive_blocked ... ignored
+test tests::test_consent_schedule_message_blocked ... ignored
+test tests::test_consent_schedule_message_open_by_default ... ignored
+test tests::test_create_channel ... ignored
+test tests::test_create_channel_invalid_name_empty ... ignored
+test tests::test_create_channel_invalid_name_special_chars ... ignored
+test tests::test_create_channel_long_name ... ignored
+test tests::test_dead_letter_clear ... ignored
+test tests::test_dead_letter_on_closed_channel ... ignored
+test tests::test_dead_letter_on_nonexistent_channel ... ignored
+test tests::test_dead_letter_replay ... ignored
+test tests::test_delivery_mode_default ... ignored
+test tests::test_enhanced_stats ... ignored
+test tests::test_expire_messages ... ignored
+test tests::test_get_channel ... ignored
+test tests::test_get_channel_by_comm_id ... ignored
+test tests::test_get_message ... ignored
+test tests::test_get_message_by_comm_id ... ignored
+test tests::test_get_replies ... ignored
+test tests::test_get_rich_content_message_not_found ... ignored
+test tests::test_get_rich_content_none_for_plain_message ... ignored
+test tests::test_get_thread ... ignored
+test tests::test_join_channel ... ignored
+test tests::test_join_channel_duplicate ... ignored
+test tests::test_join_channel_full ... ignored
+test tests::test_leave_channel ... ignored
+test tests::test_leave_channel_not_member ... ignored
+test tests::test_list_channels ... ignored
+test tests::test_load_invalid_file ... ignored
+test tests::test_message_backward_compat_without_new_fields ... ignored
+test tests::test_message_priority_ordering ... ignored
+test tests::test_message_status_transitions ... ignored
+test tests::test_message_type_roundtrip ... ignored
+test tests::test_publish ... ignored
+test tests::test_query_history_with_filter ... ignored
+test tests::test_receive_messages ... ignored
+test tests::test_receive_messages_merges_lamport ... ignored
+test tests::test_receive_messages_with_since ... ignored
+test tests::test_save_and_load ... ignored
+test tests::test_save_and_load_with_new_fields ... ignored
+test tests::test_search_messages ... ignored
+test tests::test_send_message ... ignored
+test tests::test_send_message_empty_content ... ignored
+test tests::test_send_message_empty_sender ... ignored
+test tests::test_send_message_nonexistent_channel ... ignored
+test tests::test_send_message_with_priority ... ignored
+test tests::test_send_reply ... ignored
+test tests::test_send_rich_message ... ignored
+test tests::test_set_channel_config ... ignored
+test tests::test_stats ... ignored
+test tests::test_subscribe ... ignored
+test tests::test_trust_enforcement_broadcast_blocked ... ignored
+test tests::test_trust_enforcement_join_channel_blocked ... ignored
+test tests::test_trust_enforcement_no_min_trust_allows_all ... ignored
+test tests::test_trust_enforcement_publish_blocked ... ignored
+test tests::test_trust_enforcement_send_message_allowed ... ignored
+test tests::test_trust_enforcement_send_message_blocked ... ignored
+test tests::test_unsubscribe ... ignored
+test tests::test_vector_clock_concurrent ... ignored
+test tests::test_vector_clock_happens_before ... ignored
+test tests::test_vector_clock_increment ... ignored
+test tests::test_vector_clock_merge ... ignored
+test tests::test_vector_clock_populated_in_broadcast ... ignored
+test tests::test_vector_clock_populated_in_send_message ... ignored
+test tests::trust_default_is_standard ... ignored
+test tests::trust_empty_agent_error ... ignored
+test tests::trust_list ... ignored
+test tests::trust_override_existing ... ignored
+test tests::trust_set_and_get ... ignored
+test types::tests::affect_state_defaults ... ignored
+test types::tests::audit_entry_serde_roundtrip ... ignored
+test types::tests::audit_event_type_serde ... ignored
+test types::tests::cognitive_graph_serde ... ignored
+test types::tests::comm_timestamp_happens_before ... ignored
+test types::tests::comm_timestamp_increment ... ignored
+test types::tests::comm_timestamp_merge ... ignored
+test types::tests::comm_timestamp_serde_roundtrip ... ignored
+test types::tests::communicating_agent_backward_compatible_defaults ... ignored
+test types::tests::communicating_agent_serde ... ignored
+test types::tests::communicating_agent_with_new_fields_roundtrip ... ignored
+test types::tests::consent_scope_affect_and_hive_json_serde ... ignored
+test types::tests::consent_scope_affect_and_hive_roundtrip ... ignored
+test types::tests::consent_scope_roundtrip ... ignored
+test types::tests::encryption_scheme_display ... ignored
+test types::tests::federation_config_defaults ... ignored
+test types::tests::federation_gateway_default ... ignored
+test types::tests::federation_gateway_serde_roundtrip ... ignored
+test types::tests::federation_message_empty_hops ... ignored
+test types::tests::federation_message_serde_roundtrip ... ignored
+test types::tests::federation_policy_roundtrip ... ignored
+test types::tests::grounding_result_serde ... ignored
+test types::tests::hive_mind_custom_coherence_and_policy ... ignored
+test types::tests::hive_mind_new_fields_default_on_missing ... ignored
+test types::tests::hive_mind_serde ... ignored
+test types::tests::hive_role_mediator_serde ... ignored
+test types::tests::identity_anchor_default ... ignored
+test types::tests::identity_anchor_deserialize_defaults ... ignored
+test types::tests::identity_anchor_serde_roundtrip ... ignored
+test types::tests::participant_role_display ... ignored
+test types::tests::rate_limit_config_defaults ... ignored
+test types::tests::rate_limit_config_serde_with_defaults ... ignored
+test types::tests::rich_channel_type_display ... ignored
+test types::tests::rich_message_content_new_variants_serde ... ignored
+test types::tests::semantic_fragment_new_fields_default_on_missing ... ignored
+test types::tests::semantic_fragment_new_fields_serde ... ignored
+test types::tests::temporal_target_new_variants_serde ... ignored
+test types::tests::temporal_target_serde ... ignored
+test types::tests::test_affect_content_creation ... ignored
+test types::tests::test_comm_id_display_and_parse ... ignored
+test types::tests::test_comm_id_from_u64_deterministic ... ignored
+test types::tests::test_comm_id_from_u64_trait ... ignored
+test types::tests::test_comm_id_hash_works ... ignored
+test types::tests::test_comm_id_new_unique ... ignored
+test types::tests::test_comm_id_nil ... ignored
+test types::tests::test_comm_id_serde_roundtrip ... ignored
+test types::tests::test_comm_id_to_u64_roundtrip ... ignored
+test types::tests::test_full_content_creation ... ignored
+test types::tests::test_message_content_as_text_all_variants ... ignored
+test types::tests::test_message_content_default ... ignored
+test types::tests::test_message_content_from_string ... ignored
+test types::tests::test_message_content_is_rich ... ignored
+test types::tests::test_message_content_json_helpers ... ignored
+test types::tests::test_message_content_serde_roundtrip ... ignored
+test types::tests::test_message_content_text_creation ... ignored
+test types::tests::test_semantic_content_creation ... ignored
+test types::tests::test_temporal_content_creation ... ignored
+test types::tests::trust_level_ordering ... ignored
+test types::tests::trust_level_roundtrip ... ignored
+test types::tests::urgency_level_roundtrip ... ignored
+test workspace::tests::test_workspace_add_context_and_list ... ignored
+test workspace::tests::test_workspace_add_context_bad_path ... ignored
+test workspace::tests::test_workspace_compare_item ... ignored
+test workspace::tests::test_workspace_empty_query ... ignored
+test workspace::tests::test_workspace_new_deterministic_id ... ignored
+test workspace::tests::test_workspace_query_across_contexts ... ignored
+test workspace::tests::test_workspace_query_max_per_context_limit ... ignored
+test workspace::tests::test_workspace_role_display_and_parse ... ignored
+test workspace::tests::test_workspace_xref ... ignored
+
+test result: ok. 0 passed; 0 failed; 347 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running benches/comm_benchmarks.rs (target/release/deps/comm_benchmarks-a9f5a4fa287086f2)
+Gnuplot not found, using plotters backend
+Benchmarking file_io/create/100
+Benchmarking file_io/create/100: Warming up for 3.0000 s
+Benchmarking file_io/create/100: Collecting 10 samples in estimated 5.0019 s (51k iterations)
+Benchmarking file_io/create/100: Analyzing
+file_io/create/100      time:   [95.497 µs 95.811 µs 96.166 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking file_io/create/1000
+Benchmarking file_io/create/1000: Warming up for 3.0000 s
+Benchmarking file_io/create/1000: Collecting 10 samples in estimated 5.0312 s (5115 iterations)
+Benchmarking file_io/create/1000: Analyzing
+file_io/create/1000     time:   [959.44 µs 967.98 µs 979.26 µs]
+Benchmarking file_io/create/10000
+Benchmarking file_io/create/10000: Warming up for 3.0000 s
+Benchmarking file_io/create/10000: Collecting 10 samples in estimated 5.3758 s (495 iterations)
+Benchmarking file_io/create/10000: Analyzing
+file_io/create/10000    time:   [10.885 ms 11.003 ms 11.129 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+Benchmarking file_io/save/100
+Benchmarking file_io/save/100: Warming up for 3.0000 s
+Benchmarking file_io/save/100: Collecting 10 samples in estimated 5.0116 s (22k iterations)
+Benchmarking file_io/save/100: Analyzing
+file_io/save/100        time:   [202.09 µs 208.28 µs 214.39 µs]
+Benchmarking file_io/save/1000
+Benchmarking file_io/save/1000: Warming up for 3.0000 s
+Benchmarking file_io/save/1000: Collecting 10 samples in estimated 5.0070 s (5390 iterations)
+Benchmarking file_io/save/1000: Analyzing
+file_io/save/1000       time:   [919.81 µs 929.65 µs 944.88 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high severe
+Benchmarking file_io/save/10000
+Benchmarking file_io/save/10000: Warming up for 3.0000 s
+Benchmarking file_io/save/10000: Collecting 10 samples in estimated 5.4111 s (550 iterations)
+Benchmarking file_io/save/10000: Analyzing
+file_io/save/10000      time:   [9.5437 ms 9.7115 ms 9.8772 ms]
+Benchmarking file_io/load/100
+Benchmarking file_io/load/100: Warming up for 3.0000 s
+Benchmarking file_io/load/100: Collecting 10 samples in estimated 5.0026 s (30k iterations)
+Benchmarking file_io/load/100: Analyzing
+file_io/load/100        time:   [164.10 µs 171.96 µs 182.07 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking file_io/load/1000
+Benchmarking file_io/load/1000: Warming up for 3.0000 s
+Benchmarking file_io/load/1000: Collecting 10 samples in estimated 5.0057 s (6160 iterations)
+Benchmarking file_io/load/1000: Analyzing
+file_io/load/1000       time:   [795.61 µs 808.13 µs 818.62 µs]
+Benchmarking file_io/load/10000
+Benchmarking file_io/load/10000: Warming up for 3.0000 s
+Benchmarking file_io/load/10000: Collecting 10 samples in estimated 5.2048 s (605 iterations)
+Benchmarking file_io/load/10000: Analyzing
+file_io/load/10000      time:   [8.5138 ms 8.6689 ms 8.7754 ms]
+
+Benchmarking entity_ops/message_send/100
+Benchmarking entity_ops/message_send/100: Warming up for 3.0000 s
+Benchmarking entity_ops/message_send/100: Collecting 100 samples in estimated 5.0099 s (56k iterations)
+Benchmarking entity_ops/message_send/100: Analyzing
+entity_ops/message_send/100
+                        time:   [88.697 µs 89.256 µs 89.881 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+Benchmarking entity_ops/message_send/1000
+Benchmarking entity_ops/message_send/1000: Warming up for 3.0000 s
+Benchmarking entity_ops/message_send/1000: Collecting 100 samples in estimated 9.2198 s (10k iterations)
+Benchmarking entity_ops/message_send/1000: Analyzing
+entity_ops/message_send/1000
+                        time:   [911.67 µs 918.80 µs 928.44 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+Benchmarking entity_ops/message_send/10000
+Benchmarking entity_ops/message_send/10000: Warming up for 3.0000 s
+Benchmarking entity_ops/message_send/10000: Collecting 100 samples in estimated 5.1002 s (500 iterations)
+Benchmarking entity_ops/message_send/10000: Analyzing
+entity_ops/message_send/10000
+                        time:   [10.221 ms 10.275 ms 10.328 ms]
+Found 3 outliers among 100 measurements (3.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+Benchmarking entity_ops/channel_create/100
+Benchmarking entity_ops/channel_create/100: Warming up for 3.0000 s
+Benchmarking entity_ops/channel_create/100: Collecting 100 samples in estimated 5.1140 s (167k iterations)
+Benchmarking entity_ops/channel_create/100: Analyzing
+entity_ops/channel_create/100
+                        time:   [30.871 µs 31.002 µs 31.122 µs]
+Benchmarking entity_ops/channel_create/1000
+Benchmarking entity_ops/channel_create/1000: Warming up for 3.0000 s
+Benchmarking entity_ops/channel_create/1000: Collecting 100 samples in estimated 6.4362 s (20k iterations)
+Benchmarking entity_ops/channel_create/1000: Analyzing
+entity_ops/channel_create/1000
+                        time:   [316.30 µs 323.54 µs 334.55 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking entity_ops/channel_create/10000
+Benchmarking entity_ops/channel_create/10000: Warming up for 3.0000 s
+Benchmarking entity_ops/channel_create/10000: Collecting 100 samples in estimated 5.0605 s (1500 iterations)
+Benchmarking entity_ops/channel_create/10000: Analyzing
+entity_ops/channel_create/10000
+                        time:   [3.3824 ms 3.3996 ms 3.4171 ms]
+Found 7 outliers among 100 measurements (7.00%)
+  1 (1.00%) low mild
+  6 (6.00%) high mild
+Benchmarking entity_ops/hive_form_join/10
+Benchmarking entity_ops/hive_form_join/10: Warming up for 3.0000 s
+Benchmarking entity_ops/hive_form_join/10: Collecting 100 samples in estimated 5.0094 s (2.1M iterations)
+Benchmarking entity_ops/hive_form_join/10: Analyzing
+entity_ops/hive_form_join/10
+                        time:   [2.3660 µs 2.3782 µs 2.3904 µs]
+Benchmarking entity_ops/hive_form_join/50
+Benchmarking entity_ops/hive_form_join/50: Warming up for 3.0000 s
+Benchmarking entity_ops/hive_form_join/50: Collecting 100 samples in estimated 5.0189 s (485k iterations)
+Benchmarking entity_ops/hive_form_join/50: Analyzing
+entity_ops/hive_form_join/50
+                        time:   [10.340 µs 10.457 µs 10.650 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high severe
+Benchmarking entity_ops/hive_form_join/100
+Benchmarking entity_ops/hive_form_join/100: Warming up for 3.0000 s
+Benchmarking entity_ops/hive_form_join/100: Collecting 100 samples in estimated 5.0876 s (217k iterations)
+Benchmarking entity_ops/hive_form_join/100: Analyzing
+entity_ops/hive_form_join/100
+                        time:   [23.348 µs 23.432 µs 23.519 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking core_computations/topic_match_publish/100
+Benchmarking core_computations/topic_match_publish/100: Warming up for 3.0000 s
+Benchmarking core_computations/topic_match_publish/100: Collecting 100 samples in estimated 5.0079 s (2.2M iterations)
+Benchmarking core_computations/topic_match_publish/100: Analyzing
+core_computations/topic_match_publish/100
+                        time:   [1.7520 µs 1.7628 µs 1.7757 µs]
+Found 10 outliers among 100 measurements (10.00%)
+  1 (1.00%) low severe
+  4 (4.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking core_computations/topic_match_publish/1000
+Benchmarking core_computations/topic_match_publish/1000: Warming up for 3.0000 s
+Benchmarking core_computations/topic_match_publish/1000: Collecting 100 samples in estimated 5.0973 s (258k iterations)
+Benchmarking core_computations/topic_match_publish/1000: Analyzing
+core_computations/topic_match_publish/1000
+                        time:   [17.573 µs 17.635 µs 17.699 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low severe
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking core_computations/topic_match_publish/10000
+Benchmarking core_computations/topic_match_publish/10000: Warming up for 3.0000 s
+Benchmarking core_computations/topic_match_publish/10000: Collecting 100 samples in estimated 5.6325 s (30k iterations)
+Benchmarking core_computations/topic_match_publish/10000: Analyzing
+core_computations/topic_match_publish/10000
+                        time:   [176.10 µs 183.06 µs 196.23 µs]
+Found 13 outliers among 100 measurements (13.00%)
+  2 (2.00%) low severe
+  3 (3.00%) low mild
+  4 (4.00%) high mild
+  4 (4.00%) high severe
+Benchmarking core_computations/trust_lookup/100
+Benchmarking core_computations/trust_lookup/100: Warming up for 3.0000 s
+Benchmarking core_computations/trust_lookup/100: Collecting 100 samples in estimated 5.0001 s (152M iterations)
+Benchmarking core_computations/trust_lookup/100: Analyzing
+core_computations/trust_lookup/100
+                        time:   [32.757 ns 33.205 ns 33.826 ns]
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking core_computations/trust_lookup/1000
+Benchmarking core_computations/trust_lookup/1000: Warming up for 3.0000 s
+Benchmarking core_computations/trust_lookup/1000: Collecting 100 samples in estimated 5.0001 s (150M iterations)
+Benchmarking core_computations/trust_lookup/1000: Analyzing
+core_computations/trust_lookup/1000
+                        time:   [33.397 ns 33.501 ns 33.605 ns]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking core_computations/trust_lookup/10000
+Benchmarking core_computations/trust_lookup/10000: Warming up for 3.0000 s
+Benchmarking core_computations/trust_lookup/10000: Collecting 100 samples in estimated 5.0000 s (144M iterations)
+Benchmarking core_computations/trust_lookup/10000: Analyzing
+core_computations/trust_lookup/10000
+                        time:   [34.615 ns 34.734 ns 34.863 ns]
+Found 4 outliers among 100 measurements (4.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  1 (1.00%) high severe
+Benchmarking core_computations/consent_check/100
+Benchmarking core_computations/consent_check/100: Warming up for 3.0000 s
+Benchmarking core_computations/consent_check/100: Collecting 100 samples in estimated 5.0001 s (49M iterations)
+Benchmarking core_computations/consent_check/100: Analyzing
+core_computations/consent_check/100
+                        time:   [102.61 ns 102.98 ns 103.36 ns]
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+Benchmarking core_computations/consent_check/1000
+Benchmarking core_computations/consent_check/1000: Warming up for 3.0000 s
+Benchmarking core_computations/consent_check/1000: Collecting 100 samples in estimated 5.0026 s (7.3M iterations)
+Benchmarking core_computations/consent_check/1000: Analyzing
+core_computations/consent_check/1000
+                        time:   [688.15 ns 692.81 ns 698.93 ns]
+Found 12 outliers among 100 measurements (12.00%)
+  7 (7.00%) high mild
+  5 (5.00%) high severe
+Benchmarking core_computations/consent_check/10000
+Benchmarking core_computations/consent_check/10000: Warming up for 3.0000 s
+Benchmarking core_computations/consent_check/10000: Collecting 100 samples in estimated 5.0023 s (727k iterations)
+Benchmarking core_computations/consent_check/10000: Analyzing
+core_computations/consent_check/10000
+                        time:   [6.8291 µs 6.8850 µs 6.9662 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) high mild
+  5 (5.00%) high severe
+Benchmarking core_computations/encrypt_chacha20
+Benchmarking core_computations/encrypt_chacha20: Warming up for 3.0000 s
+Benchmarking core_computations/encrypt_chacha20: Collecting 100 samples in estimated 5.0029 s (5.8M iterations)
+Benchmarking core_computations/encrypt_chacha20: Analyzing
+core_computations/encrypt_chacha20
+                        time:   [862.88 ns 894.63 ns 941.57 ns]
+Found 8 outliers among 100 measurements (8.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  5 (5.00%) high severe
+Benchmarking core_computations/decrypt_chacha20
+Benchmarking core_computations/decrypt_chacha20: Warming up for 3.0000 s
+Benchmarking core_computations/decrypt_chacha20: Collecting 100 samples in estimated 5.0025 s (5.3M iterations)
+Benchmarking core_computations/decrypt_chacha20: Analyzing
+core_computations/decrypt_chacha20
+                        time:   [941.81 ns 949.24 ns 960.79 ns]
+Found 9 outliers among 100 measurements (9.00%)
+  2 (2.00%) low mild
+  1 (1.00%) high mild
+  6 (6.00%) high severe
+Benchmarking core_computations/encrypt_aes256gcm
+Benchmarking core_computations/encrypt_aes256gcm: Warming up for 3.0000 s
+Benchmarking core_computations/encrypt_aes256gcm: Collecting 100 samples in estimated 5.0002 s (2.1M iterations)
+Benchmarking core_computations/encrypt_aes256gcm: Analyzing
+core_computations/encrypt_aes256gcm
+                        time:   [2.4121 µs 2.4235 µs 2.4399 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) high mild
+  2 (2.00%) high severe
+Benchmarking core_computations/decrypt_aes256gcm
+Benchmarking core_computations/decrypt_aes256gcm: Warming up for 3.0000 s
+Benchmarking core_computations/decrypt_aes256gcm: Collecting 100 samples in estimated 5.0122 s (2.0M iterations)
+Benchmarking core_computations/decrypt_aes256gcm: Analyzing
+core_computations/decrypt_aes256gcm
+                        time:   [2.5207 µs 2.5296 µs 2.5384 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+Benchmarking queries/search/100
+Benchmarking queries/search/100: Warming up for 3.0000 s
+Benchmarking queries/search/100: Collecting 10 samples in estimated 5.0001 s (708k iterations)
+Benchmarking queries/search/100: Analyzing
+queries/search/100      time:   [7.0764 µs 7.1629 µs 7.2329 µs]
+Benchmarking queries/search/1000
+Benchmarking queries/search/1000: Warming up for 3.0000 s
+Benchmarking queries/search/1000: Collecting 10 samples in estimated 5.0005 s (73k iterations)
+Benchmarking queries/search/1000: Analyzing
+queries/search/1000     time:   [67.236 µs 67.593 µs 68.099 µs]
+Benchmarking queries/search/10000
+Benchmarking queries/search/10000: Warming up for 3.0000 s
+Benchmarking queries/search/10000: Collecting 10 samples in estimated 5.0048 s (6710 iterations)
+Benchmarking queries/search/10000: Analyzing
+queries/search/10000    time:   [793.56 µs 819.42 µs 838.69 µs]
+Benchmarking queries/relationships/100
+Benchmarking queries/relationships/100: Warming up for 3.0000 s
+Benchmarking queries/relationships/100: Collecting 10 samples in estimated 5.0027 s (71k iterations)
+Benchmarking queries/relationships/100: Analyzing
+queries/relationships/100
+                        time:   [68.032 µs 68.636 µs 69.105 µs]
+Benchmarking queries/relationships/1000
+Benchmarking queries/relationships/1000: Warming up for 3.0000 s
+Benchmarking queries/relationships/1000: Collecting 10 samples in estimated 5.0243 s (7480 iterations)
+Benchmarking queries/relationships/1000: Analyzing
+queries/relationships/1000
+                        time:   [674.46 µs 708.66 µs 758.54 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+Benchmarking queries/relationships/10000
+Benchmarking queries/relationships/10000: Warming up for 3.0000 s
+Benchmarking queries/relationships/10000: Collecting 10 samples in estimated 5.0277 s (715 iterations)
+Benchmarking queries/relationships/10000: Analyzing
+queries/relationships/10000
+                        time:   [7.0578 ms 7.1725 ms 7.3050 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking queries/timeline/100
+Benchmarking queries/timeline/100: Warming up for 3.0000 s
+Benchmarking queries/timeline/100: Collecting 10 samples in estimated 5.0001 s (4.3M iterations)
+Benchmarking queries/timeline/100: Analyzing
+queries/timeline/100    time:   [1.1506 µs 1.1645 µs 1.1817 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low severe
+  1 (10.00%) high severe
+Benchmarking queries/timeline/1000
+Benchmarking queries/timeline/1000: Warming up for 3.0000 s
+Benchmarking queries/timeline/1000: Collecting 10 samples in estimated 5.0001 s (1.4M iterations)
+Benchmarking queries/timeline/1000: Analyzing
+queries/timeline/1000   time:   [3.4640 µs 3.5293 µs 3.6694 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high severe
+Benchmarking queries/timeline/10000
+Benchmarking queries/timeline/10000: Warming up for 3.0000 s
+Benchmarking queries/timeline/10000: Collecting 10 samples in estimated 5.0008 s (172k iterations)
+Benchmarking queries/timeline/10000: Analyzing
+queries/timeline/10000  time:   [28.715 µs 28.977 µs 29.166 µs]
+Benchmarking queries/history/100
+Benchmarking queries/history/100: Warming up for 3.0000 s
+Benchmarking queries/history/100: Collecting 10 samples in estimated 5.0000 s (2.0M iterations)
+Benchmarking queries/history/100: Analyzing
+queries/history/100     time:   [2.5518 µs 2.5809 µs 2.6071 µs]
+Benchmarking queries/history/1000
+Benchmarking queries/history/1000: Warming up for 3.0000 s
+Benchmarking queries/history/1000: Collecting 10 samples in estimated 5.0002 s (149k iterations)
+Benchmarking queries/history/1000: Analyzing
+queries/history/1000    time:   [32.531 µs 32.995 µs 33.571 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking queries/history/10000
+Benchmarking queries/history/10000: Warming up for 3.0000 s
+Benchmarking queries/history/10000: Collecting 10 samples in estimated 5.0051 s (13k iterations)
+Benchmarking queries/history/10000: Analyzing
+queries/history/10000   time:   [388.70 µs 395.23 µs 400.28 µs]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low severe
+  1 (10.00%) high mild
+
+Benchmarking write_engine/e2e_write/100
+Benchmarking write_engine/e2e_write/100: Warming up for 3.0000 s
+Benchmarking write_engine/e2e_write/100: Collecting 10 samples in estimated 15.024 s (28k iterations)
+Benchmarking write_engine/e2e_write/100: Analyzing
+write_engine/e2e_write/100
+                        time:   [504.26 µs 511.27 µs 517.40 µs]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+Benchmarking write_engine/e2e_write/1000
+Benchmarking write_engine/e2e_write/1000: Warming up for 3.0000 s
+Benchmarking write_engine/e2e_write/1000: Collecting 10 samples in estimated 15.090 s (6710 iterations)
+Benchmarking write_engine/e2e_write/1000: Analyzing
+write_engine/e2e_write/1000
+                        time:   [2.1929 ms 2.2427 ms 2.2855 ms]
+Benchmarking write_engine/e2e_write/10000
+Benchmarking write_engine/e2e_write/10000: Warming up for 3.0000 s
+Benchmarking write_engine/e2e_write/10000: Collecting 10 samples in estimated 15.313 s (715 iterations)
+Benchmarking write_engine/e2e_write/10000: Analyzing
+write_engine/e2e_write/10000
+                        time:   [21.228 ms 21.356 ms 21.585 ms]
+Benchmarking write_engine/e2e_write_rich/100
+Benchmarking write_engine/e2e_write_rich/100: Warming up for 3.0000 s
+Benchmarking write_engine/e2e_write_rich/100: Collecting 10 samples in estimated 15.014 s (24k iterations)
+Benchmarking write_engine/e2e_write_rich/100: Analyzing
+write_engine/e2e_write_rich/100
+                        time:   [629.34 µs 642.16 µs 656.48 µs]
+Benchmarking write_engine/e2e_write_rich/1000
+Benchmarking write_engine/e2e_write_rich/1000: Warming up for 3.0000 s
+Benchmarking write_engine/e2e_write_rich/1000: Collecting 10 samples in estimated 15.074 s (5885 iterations)
+Benchmarking write_engine/e2e_write_rich/1000: Analyzing
+write_engine/e2e_write_rich/1000
+                        time:   [2.5246 ms 2.5594 ms 2.5829 ms]
+Benchmarking write_engine/e2e_write_rich/10000
+Benchmarking write_engine/e2e_write_rich/10000: Warming up for 3.0000 s
+Benchmarking write_engine/e2e_write_rich/10000: Collecting 10 samples in estimated 15.362 s (715 iterations)
+Benchmarking write_engine/e2e_write_rich/10000: Analyzing
+write_engine/e2e_write_rich/10000
+                        time:   [21.187 ms 21.252 ms 21.365 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Benchmarking semantic_transfer/send_and_search/10
+Benchmarking semantic_transfer/send_and_search/10: Warming up for 3.0000 s
+Benchmarking semantic_transfer/send_and_search/10: Collecting 100 samples in estimated 5.0315 s (404k iterations)
+Benchmarking semantic_transfer/send_and_search/10: Analyzing
+semantic_transfer/send_and_search/10
+                        time:   [12.570 µs 12.606 µs 12.643 µs]
+Found 4 outliers among 100 measurements (4.00%)
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking semantic_transfer/send_and_search/100
+Benchmarking semantic_transfer/send_and_search/100: Warming up for 3.0000 s
+Benchmarking semantic_transfer/send_and_search/100: Collecting 100 samples in estimated 5.0499 s (40k iterations)
+Benchmarking semantic_transfer/send_and_search/100: Analyzing
+semantic_transfer/send_and_search/100
+                        time:   [126.99 µs 127.44 µs 127.89 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  1 (1.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking semantic_transfer/send_and_search/500
+Benchmarking semantic_transfer/send_and_search/500: Warming up for 3.0000 s
+Benchmarking semantic_transfer/send_and_search/500: Collecting 100 samples in estimated 6.4730 s (10k iterations)
+Benchmarking semantic_transfer/send_and_search/500: Analyzing
+semantic_transfer/send_and_search/500
+                        time:   [650.79 µs 667.38 µs 694.51 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+Benchmarking semantic_transfer/graft_semantic/10
+Benchmarking semantic_transfer/graft_semantic/10: Warming up for 3.0000 s
+Benchmarking semantic_transfer/graft_semantic/10: Collecting 100 samples in estimated 5.0004 s (4.3M iterations)
+Benchmarking semantic_transfer/graft_semantic/10: Analyzing
+semantic_transfer/graft_semantic/10
+                        time:   [1.1376 µs 1.1429 µs 1.1482 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  1 (1.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+Benchmarking semantic_transfer/graft_semantic/50
+Benchmarking semantic_transfer/graft_semantic/50: Warming up for 3.0000 s
+Benchmarking semantic_transfer/graft_semantic/50: Collecting 100 samples in estimated 5.0008 s (954k iterations)
+Benchmarking semantic_transfer/graft_semantic/50: Analyzing
+semantic_transfer/graft_semantic/50
+                        time:   [5.2172 µs 5.2906 µs 5.4254 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  1 (1.00%) low mild
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+Benchmarking semantic_transfer/graft_semantic/100
+Benchmarking semantic_transfer/graft_semantic/100: Warming up for 3.0000 s
+Benchmarking semantic_transfer/graft_semantic/100: Collecting 100 samples in estimated 5.0358 s (490k iterations)
+Benchmarking semantic_transfer/graft_semantic/100: Analyzing
+semantic_transfer/graft_semantic/100
+                        time:   [10.353 µs 10.385 µs 10.419 µs]
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) low mild
+Benchmarking semantic_transfer/extract_fragment_50_nodes
+Benchmarking semantic_transfer/extract_fragment_50_nodes: Warming up for 3.0000 s
+Benchmarking semantic_transfer/extract_fragment_50_nodes: Collecting 100 samples in estimated 5.0042 s (1.4M iterations)
+Benchmarking semantic_transfer/extract_fragment_50_nodes: Analyzing
+semantic_transfer/extract_fragment_50_nodes
+                        time:   [3.5404 µs 3.5512 µs 3.5620 µs]
+
+Benchmarking affect_pipeline/encode_affect_state_100
+Benchmarking affect_pipeline/encode_affect_state_100: Warming up for 3.0000 s
+Benchmarking affect_pipeline/encode_affect_state_100: Collecting 100 samples in estimated 5.0188 s (899k iterations)
+Benchmarking affect_pipeline/encode_affect_state_100: Analyzing
+affect_pipeline/encode_affect_state_100
+                        time:   [5.5621 µs 5.5766 µs 5.5911 µs]
+Benchmarking affect_pipeline/read_affect_states_100
+Benchmarking affect_pipeline/read_affect_states_100: Warming up for 3.0000 s
+Benchmarking affect_pipeline/read_affect_states_100: Collecting 100 samples in estimated 5.0127 s (1.4M iterations)
+Benchmarking affect_pipeline/read_affect_states_100: Analyzing
+affect_pipeline/read_affect_states_100
+                        time:   [3.4767 µs 3.4968 µs 3.5183 µs]
+Found 6 outliers among 100 measurements (6.00%)
+  5 (5.00%) high mild
+  1 (1.00%) high severe
+Benchmarking affect_pipeline/affect_contagion_pipeline
+Benchmarking affect_pipeline/affect_contagion_pipeline: Warming up for 3.0000 s
+Benchmarking affect_pipeline/affect_contagion_pipeline: Collecting 100 samples in estimated 5.1335 s (192k iterations)
+Benchmarking affect_pipeline/affect_contagion_pipeline: Analyzing
+affect_pipeline/affect_contagion_pipeline
+                        time:   [26.762 µs 26.829 µs 26.893 µs]
+Found 8 outliers among 100 measurements (8.00%)
+  4 (4.00%) low mild
+  3 (3.00%) high mild
+  1 (1.00%) high severe
+Benchmarking affect_pipeline/affect_processor_register_100
+Benchmarking affect_pipeline/affect_processor_register_100: Warming up for 3.0000 s
+Benchmarking affect_pipeline/affect_processor_register_100: Collecting 100 samples in estimated 5.0179 s (566k iterations)
+Benchmarking affect_pipeline/affect_processor_register_100: Analyzing
+affect_pipeline/affect_processor_register_100
+                        time:   [8.9084 µs 8.9391 µs 8.9710 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+
+Benchmarking affect_processor/register_100_agents
+Benchmarking affect_processor/register_100_agents: Warming up for 3.0000 s
+Benchmarking affect_processor/register_100_agents: Collecting 100 samples in estimated 5.0386 s (571k iterations)
+Benchmarking affect_processor/register_100_agents: Analyzing
+affect_processor/register_100_agents
+                        time:   [8.7810 µs 8.8203 µs 8.8650 µs]
+Found 2 outliers among 100 measurements (2.00%)
+  2 (2.00%) high mild
+Benchmarking affect_processor/lookup_in_100_agents
+Benchmarking affect_processor/lookup_in_100_agents: Warming up for 3.0000 s
+Benchmarking affect_processor/lookup_in_100_agents: Collecting 100 samples in estimated 5.0035 s (1.4M iterations)
+Benchmarking affect_processor/lookup_in_100_agents: Analyzing
+affect_processor/lookup_in_100_agents
+                        time:   [3.6692 µs 3.6914 µs 3.7138 µs]
+Found 5 outliers among 100 measurements (5.00%)
+  4 (4.00%) low mild
+  1 (1.00%) high mild
+Benchmarking affect_processor/set_resistance_100
+Benchmarking affect_processor/set_resistance_100: Warming up for 3.0000 s
+Benchmarking affect_processor/set_resistance_100: Collecting 100 samples in estimated 5.0090 s (1.3M iterations)
+Benchmarking affect_processor/set_resistance_100: Analyzing
+affect_processor/set_resistance_100
+                        time:   [3.7355 µs 3.8188 µs 3.9592 µs]
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high severe
+
+     Running unittests src/main.rs (target/release/deps/acomm-169fb38d61160a3d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/release/deps/agentic_comm_ffi-44527eadb1e74e22)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/release/deps/agentic_comm_mcp-3cfd10370590134e)
+
+running 36 tests
+test config::loader::tests::test_project_identity_is_deterministic ... ignored
+test config::loader::tests::test_project_store_path_cli_overrides ... ignored
+test config::loader::tests::test_project_store_path_fallback ... ignored
+test tools::validation::tests::test_validate_affect_send ... ignored
+test tools::validation::tests::test_validate_agent_register ... ignored
+test tools::validation::tests::test_validate_channel_create ... ignored
+test tools::validation::tests::test_validate_channel_id ... ignored
+test tools::validation::tests::test_validate_channel_join ... ignored
+test tools::validation::tests::test_validate_channel_name_invalid ... ignored
+test tools::validation::tests::test_validate_channel_name_valid ... ignored
+test tools::validation::tests::test_validate_collaboration_requires_operation ... ignored
+test tools::validation::tests::test_validate_consent_grant ... ignored
+test tools::validation::tests::test_validate_content_invalid ... ignored
+test tools::validation::tests::test_validate_content_valid ... ignored
+test tools::validation::tests::test_validate_federation_configure ... ignored
+test tools::validation::tests::test_validate_forensics_requires_operation ... ignored
+test tools::validation::tests::test_validate_hive_form ... ignored
+test tools::validation::tests::test_validate_keys_generate ... ignored
+test tools::validation::tests::test_validate_limit ... ignored
+test tools::validation::tests::test_validate_message_id ... ignored
+test tools::validation::tests::test_validate_message_search ... ignored
+test tools::validation::tests::test_validate_message_send ... ignored
+test tools::validation::tests::test_validate_missing_operation ... ignored
+test tools::validation::tests::test_validate_query ... ignored
+test tools::validation::tests::test_validate_query_relationships ... ignored
+test tools::validation::tests::test_validate_sender_empty ... ignored
+test tools::validation::tests::test_validate_sender_valid ... ignored
+test tools::validation::tests::test_validate_session_resume ... ignored
+test tools::validation::tests::test_validate_store_save ... ignored
+test tools::validation::tests::test_validate_subscription_id ... ignored
+test tools::validation::tests::test_validate_temporal_schedule ... ignored
+test tools::validation::tests::test_validate_topic_invalid ... ignored
+test tools::validation::tests::test_validate_topic_valid ... ignored
+test tools::validation::tests::test_validate_trust_set ... ignored
+test tools::validation::tests::test_validate_unknown_tool ... ignored
+test tools::validation::tests::test_validate_workspace_create ... ignored
+
+test result: ok. 0 passed; 0 failed; 36 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

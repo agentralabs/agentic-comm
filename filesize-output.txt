@@ -1,0 +1,1412 @@
+   Compiling libc v0.2.182
+   Compiling find-msvc-tools v0.1.9
+   Compiling shlex v1.3.0
+   Compiling zeroize v1.8.2
+   Compiling subtle v2.6.1
+   Compiling getrandom v0.2.17
+   Compiling pkg-config v0.3.32
+   Compiling opaque-debug v0.3.1
+   Compiling semver v1.0.27
+   Compiling inout v0.1.4
+   Compiling zstd-safe v7.2.4
+   Compiling ppv-lite86 v0.2.21
+   Compiling signature v2.2.0
+   Compiling arrayvec v0.7.6
+   Compiling arrayref v0.3.9
+   Compiling ed25519 v2.2.3
+   Compiling rand_core v0.6.4
+   Compiling rustc_version v0.4.1
+   Compiling constant_time_eq v0.4.2
+   Compiling uuid v1.21.0
+   Compiling hex v0.4.3
+   Compiling crypto-common v0.1.7
+   Compiling rand_chacha v0.3.1
+   Compiling curve25519-dalek v4.1.3
+   Compiling universal-hash v0.5.1
+   Compiling cipher v0.4.4
+   Compiling digest v0.10.7
+   Compiling aead v0.5.2
+   Compiling polyval v0.6.2
+   Compiling poly1305 v0.8.0
+   Compiling rand v0.8.5
+   Compiling ghash v0.5.1
+   Compiling sha2 v0.10.9
+   Compiling aes v0.8.4
+   Compiling ctr v0.9.2
+   Compiling chacha20 v0.9.1
+   Compiling jobserver v0.1.34
+   Compiling chacha20poly1305 v0.10.1
+   Compiling aes-gcm v0.10.3
+   Compiling cc v1.2.56
+   Compiling ed25519-dalek v2.2.0
+   Compiling zstd-sys v2.0.16+zstd.1.5.7
+   Compiling blake3 v1.8.3
+   Compiling zstd v0.13.3
+   Compiling agentic-comm v0.1.0 (/Users/omoshola/Documents/agentralabs-tech/agentic-comm/crates/agentic-comm)
+   Compiling agentic-comm-ffi v0.1.0 (/Users/omoshola/Documents/agentralabs-tech/agentic-comm/crates/agentic-comm-ffi)
+   Compiling agentic-comm-mcp v0.1.0 (/Users/omoshola/Documents/agentralabs-tech/agentic-comm/crates/agentic-comm-mcp)
+   Compiling agentic-comm-cli v0.1.0 (/Users/omoshola/Documents/agentralabs-tech/agentic-comm/crates/agentic-comm-cli)
+warning: comparison is useless due to type limits
+   --> crates/agentic-comm/tests/integration_tests.rs:190:9
+    |
+190 |         contagion_results.len() >= 0,
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_comparisons)]` on by default
+
+warning: unused `Result` that must be used
+   --> crates/agentic-comm/tests/spec_hardening.rs:214:5
+    |
+214 |     store.set_trust_level("alice", CommTrustLevel::High);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+    = note: `#[warn(unused_must_use)]` on by default
+help: use `let _ = ...` to ignore the resulting value
+    |
+214 |     let _ = store.set_trust_level("alice", CommTrustLevel::High);
+    |     +++++++
+
+warning: unused `Result` that must be used
+   --> crates/agentic-comm/tests/spec_hardening.rs:237:5
+    |
+237 |     store.set_trust_level("bob", CommTrustLevel::Standard);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: this `Result` may be an `Err` variant, which should be handled
+help: use `let _ = ...` to ignore the resulting value
+    |
+237 |     let _ = store.set_trust_level("bob", CommTrustLevel::Standard);
+    |     +++++++
+
+warning: unused import: `crate::tools::validation`
+ --> crates/agentic-comm-mcp/src/tools/registry.rs:9:5
+  |
+9 | use crate::tools::validation;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: `agentic-comm` (test "integration_tests") generated 1 warning
+warning: `agentic-comm` (test "spec_hardening") generated 2 warnings
+warning: function `resolve_comm_path` is never used
+  --> crates/agentic-comm-mcp/src/config/loader.rs:19:8
+   |
+19 | pub fn resolve_comm_path() -> PathBuf {
+   |        ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: method `cleanup` is never used
+   --> crates/agentic-comm-mcp/src/protocol/handler.rs:102:18
+    |
+ 51 | impl ProtocolHandler {
+    | -------------------- method in this implementation
+...
+102 |     pub async fn cleanup(&self) {
+    |                  ^^^^^^^
+
+warning: method `is_active` is never used
+   --> crates/agentic-comm-mcp/src/session/manager.rs:296:12
+    |
+146 | impl SessionManager {
+    | ------------------- method in this implementation
+...
+296 |     pub fn is_active(&self) -> bool {
+    |            ^^^^^^^^^
+
+warning: function `definition_affect_contagion_model` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:23:4
+   |
+23 | fn definition_affect_contagion_model() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_contagion_simulate` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:74:4
+   |
+74 | fn definition_affect_contagion_simulate() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_contagion_immunize` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:145:4
+    |
+145 | fn definition_affect_contagion_immunize() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_contagion_outbreak` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:173:4
+    |
+173 | fn definition_affect_contagion_outbreak() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_dig` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:217:4
+    |
+217 | fn definition_affect_archaeology_dig() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_reconstruct` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:262:4
+    |
+262 | fn definition_affect_archaeology_reconstruct() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_timeline` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:348:4
+    |
+348 | fn definition_affect_archaeology_timeline() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_archaeology_artifacts` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:402:4
+    |
+402 | fn definition_affect_archaeology_artifacts() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_predict` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:479:4
+    |
+479 | fn definition_affect_prophecy_predict() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_warn` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:534:4
+    |
+534 | fn definition_affect_prophecy_warn() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_track` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:598:4
+    |
+598 | fn definition_affect_prophecy_track() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_affect_prophecy_similar` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:644:4
+    |
+644 | fn definition_affect_prophecy_similar() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_encode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:700:4
+    |
+700 | fn definition_unspeakable_encode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_decode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:748:4
+    |
+748 | fn definition_unspeakable_decode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:788:4
+    |
+788 | fn definition_unspeakable_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_unspeakable_translate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:829:4
+    |
+829 | fn definition_unspeakable_translate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_predict` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:898:4
+    |
+898 | fn definition_anticipate_predict() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_prepare` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:978:4
+    |
+978 | fn definition_anticipate_prepare() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_calibrate` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:1024:4
+     |
+1024 | fn definition_anticipate_calibrate() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_anticipate_accuracy` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:1074:4
+     |
+1074 | fn definition_anticipate_accuracy() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_affect.rs:1154:8
+     |
+1154 | pub fn all_definitions() -> Vec<ToolDefinition> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_status` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:24:4
+   |
+24 | fn definition_hive_consciousness_status() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_sync` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:60:4
+   |
+60 | fn definition_hive_consciousness_sync() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_merge` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:96:4
+   |
+96 | fn definition_hive_consciousness_merge() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_hive_consciousness_split` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:138:4
+    |
+138 | fn definition_hive_consciousness_split() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_query` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:178:4
+    |
+178 | fn definition_collective_intelligence_query() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_contribute` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:232:4
+    |
+232 | fn definition_collective_intelligence_contribute() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_consensus` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:275:4
+    |
+275 | fn definition_collective_intelligence_consensus() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_collective_intelligence_dissent` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:324:4
+    |
+324 | fn definition_collective_intelligence_dissent() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_trace` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:380:4
+    |
+380 | fn definition_ancestor_trace() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_inherit` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:419:4
+    |
+419 | fn definition_ancestor_inherit() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_lineage` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:461:4
+    |
+461 | fn definition_ancestor_lineage() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ancestor_verify` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:502:4
+    |
+502 | fn definition_ancestor_verify() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_link` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:559:4
+    |
+559 | fn definition_telepathy_link() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_broadcast` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:603:4
+    |
+603 | fn definition_telepathy_broadcast() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_listen` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:642:4
+    |
+642 | fn definition_telepathy_listen() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_telepathy_consensus` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:682:4
+    |
+682 | fn definition_telepathy_consensus() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_enter` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:758:4
+    |
+758 | fn definition_silence_enter() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_presence` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:811:4
+    |
+811 | fn definition_silence_presence() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_attend` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:860:4
+    |
+860 | fn definition_silence_attend() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_silence_leave` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:918:4
+    |
+918 | fn definition_silence_leave() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_initiate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:956:4
+    |
+956 | fn definition_mind_meld_initiate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_sync` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1018:4
+     |
+1018 | fn definition_mind_meld_sync() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_status` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1097:4
+     |
+1097 | fn definition_mind_meld_status() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_mind_meld_separate` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1154:4
+     |
+1154 | fn definition_mind_meld_separate() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_start` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1197:4
+     |
+1197 | fn definition_dream_start() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_contribute` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1249:4
+     |
+1249 | fn definition_dream_contribute() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_insights` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1296:4
+     |
+1296 | fn definition_dream_insights() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dream_wake` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1356:4
+     |
+1356 | fn definition_dream_wake() -> ToolDefinition {
+     |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_collaboration.rs:1400:8
+     |
+1400 | pub fn all_definitions() -> Vec<ToolDefinition> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_status` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:26:4
+   |
+26 | fn definition_federation_gateway_status() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_create` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:64:4
+   |
+64 | fn definition_federation_gateway_create() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_connect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:113:4
+    |
+113 | fn definition_federation_gateway_connect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_gateway_disconnect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:146:4
+    |
+146 | fn definition_federation_gateway_disconnect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_message` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:180:4
+    |
+180 | fn definition_federation_route_message() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_trace` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:228:4
+    |
+228 | fn definition_federation_route_trace() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_optimize` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:270:4
+    |
+270 | fn definition_federation_route_optimize() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_route_policy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:313:4
+    |
+313 | fn definition_federation_route_policy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:356:4
+    |
+356 | fn definition_federation_zone_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_policy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:399:4
+    |
+399 | fn definition_federation_zone_policy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:438:4
+    |
+438 | fn definition_federation_zone_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_federation_zone_merge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:472:4
+    |
+472 | fn definition_federation_zone_merge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_bend` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:517:4
+    |
+517 | fn definition_reality_bend() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_fork` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:566:4
+    |
+566 | fn definition_reality_fork() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_merge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:615:4
+    |
+615 | fn definition_reality_merge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_reality_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:659:4
+    |
+659 | fn definition_reality_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:721:4
+    |
+721 | fn definition_destiny_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_align` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:778:4
+    |
+778 | fn definition_destiny_align() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_probability` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:851:4
+    |
+851 | fn definition_destiny_probability() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_destiny_converge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:917:4
+    |
+917 | fn definition_destiny_converge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_federation.rs:970:8
+    |
+970 | pub fn all_definitions() -> Vec<ToolDefinition> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_investigate` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:24:4
+   |
+24 | fn definition_forensics_investigate() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_timeline` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:83:4
+   |
+83 | fn definition_forensics_timeline() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_evidence` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:138:4
+    |
+138 | fn definition_forensics_evidence() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_forensics_report` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:193:4
+    |
+193 | fn definition_forensics_report() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:264:4
+    |
+264 | fn definition_pattern_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_recurring` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:331:4
+    |
+331 | fn definition_pattern_recurring() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_anomaly` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:383:4
+    |
+383 | fn definition_pattern_anomaly() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_pattern_predict` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:457:4
+    |
+457 | fn definition_pattern_predict() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_status` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:530:4
+    |
+530 | fn definition_health_status() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_diagnose` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:570:4
+    |
+570 | fn definition_health_diagnose() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_prescribe` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:662:4
+    |
+662 | fn definition_health_prescribe() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_health_history` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:734:4
+    |
+734 | fn definition_health_history() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_query` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:778:4
+    |
+778 | fn definition_oracle_query() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_prophecy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:835:4
+    |
+835 | fn definition_oracle_prophecy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_verify` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:888:4
+    |
+888 | fn definition_oracle_verify() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_oracle_calibrate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:932:4
+    |
+932 | fn definition_oracle_calibrate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_forensics.rs:980:8
+    |
+980 | pub fn all_definitions() -> Vec<ToolDefinition> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `get_f64` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:14:4
+   |
+14 | fn get_f64(a: &Value, k: &str) -> Option<f64> {
+   |    ^^^^^^^
+
+warning: function `definition_semantic_graft` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:23:4
+   |
+23 | fn definition_semantic_graft() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_semantic_extract` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:65:4
+   |
+65 | fn definition_semantic_extract() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_semantic_merge` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:98:4
+   |
+98 | fn definition_semantic_merge() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_semantic_cluster` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:151:4
+    |
+151 | fn definition_semantic_cluster() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_detect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:208:4
+    |
+208 | fn definition_echo_chamber_detect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_analyze` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:258:4
+    |
+258 | fn definition_echo_chamber_analyze() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_break` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:310:4
+    |
+310 | fn definition_echo_chamber_break() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_echo_chamber_health` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:373:4
+    |
+373 | fn definition_echo_chamber_health() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:429:4
+    |
+429 | fn definition_ghost_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_reveal` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:487:4
+    |
+487 | fn definition_ghost_reveal() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:534:4
+    |
+534 | fn definition_ghost_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_ghost_dissolve` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:569:4
+    |
+569 | fn definition_ghost_dissolve() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_encode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:612:4
+    |
+612 | fn definition_metamessage_encode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_decode` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:657:4
+    |
+657 | fn definition_metamessage_decode() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_trace` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:707:4
+    |
+707 | fn definition_metamessage_trace() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_metamessage_inject` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:770:4
+    |
+770 | fn definition_metamessage_inject() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_create` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:816:4
+    |
+816 | fn definition_fork_create() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_explore` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:878:4
+    |
+878 | fn definition_fork_explore() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_merge` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:932:4
+    |
+932 | fn definition_fork_merge() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_fork_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:980:4
+    |
+980 | fn definition_fork_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+    --> crates/agentic-comm-mcp/src/tools/invention_semantics.rs:1039:8
+     |
+1039 | pub fn all_definitions() -> Vec<ToolDefinition> {
+     |        ^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_predict` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:24:4
+   |
+24 | fn definition_precognition_predict() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_prepare` is never used
+  --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:82:4
+   |
+82 | fn definition_precognition_prepare() -> ToolDefinition {
+   |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_accuracy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:132:4
+    |
+132 | fn definition_precognition_accuracy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_precognition_calibrate` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:182:4
+    |
+182 | fn definition_precognition_calibrate() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_schedule` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:231:4
+    |
+231 | fn definition_temporal_schedule() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_reschedule` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:278:4
+    |
+278 | fn definition_temporal_reschedule() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_cancel` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:324:4
+    |
+324 | fn definition_temporal_cancel() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_pending` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:351:4
+    |
+351 | fn definition_temporal_pending() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_compose` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:395:4
+    |
+395 | fn definition_legacy_compose() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_seal` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:437:4
+    |
+437 | fn definition_legacy_seal() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_list` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:473:4
+    |
+473 | fn definition_legacy_list() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_legacy_unseal` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:511:4
+    |
+511 | fn definition_legacy_unseal() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_resurrect` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:554:4
+    |
+554 | fn definition_dead_letter_resurrect() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_analyze` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:587:4
+    |
+587 | fn definition_dead_letter_analyze() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_phoenix` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:633:4
+    |
+633 | fn definition_dead_letter_phoenix() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_dead_letter_autopsy` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:686:4
+    |
+686 | fn definition_dead_letter_autopsy() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_propose` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:746:4
+    |
+746 | fn definition_temporal_consensus_propose() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_vote` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:798:4
+    |
+798 | fn definition_temporal_consensus_vote() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_status` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:849:4
+    |
+849 | fn definition_temporal_consensus_status() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `definition_temporal_consensus_resolve` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:918:4
+    |
+918 | fn definition_temporal_consensus_resolve() -> ToolDefinition {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `all_definitions` is never used
+   --> crates/agentic-comm-mcp/src/tools/invention_temporal.rs:968:8
+    |
+968 | pub fn all_definitions() -> Vec<ToolDefinition> {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `validate_participant` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:289:8
+    |
+289 | pub fn validate_participant(name: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: multiple variants are never constructed
+   --> crates/agentic-comm-mcp/src/types/error.rs:48:5
+    |
+ 45 | pub enum McpError {
+    |          -------- variants in this enum
+...
+ 48 |     ParseError(String),
+    |     ^^^^^^^^^^
+...
+ 68 |     RequestCancelled,
+    |     ^^^^^^^^^^^^^^^^
+...
+ 72 |     ContentTooLarge {
+    |     ^^^^^^^^^^^^^^^
+...
+ 93 |     ChannelNotFound(u64),
+    |     ^^^^^^^^^^^^^^^
+...
+ 97 |     MessageNotFound(u64),
+    |     ^^^^^^^^^^^^^^^
+...
+101 |     SubscriptionNotFound(u64),
+    |     ^^^^^^^^^^^^^^^^^^^^
+...
+105 |     Transport(String),
+    |     ^^^^^^^^^
+    |
+    = note: `McpError` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: method `is_protocol_error` is never used
+   --> crates/agentic-comm-mcp/src/types/error.rs:128:12
+    |
+124 | impl McpError {
+    | ------------- method in this implementation
+...
+128 |     pub fn is_protocol_error(&self) -> bool {
+    |            ^^^^^^^^^^^^^^^^^
+
+warning: associated function `new` is never used
+   --> crates/agentic-comm-mcp/src/types/message.rs:118:12
+    |
+116 | impl JsonRpcError {
+    | ----------------- associated function in this implementation
+117 |     /// Create a new error response.
+118 |     pub fn new(id: RequestId, code: i32, message: String) -> Self {
+    |            ^^^
+
+warning: associated function `new` is never used
+   --> crates/agentic-comm-mcp/src/types/message.rs:133:12
+    |
+131 | impl JsonRpcNotification {
+    | ------------------------ associated function in this implementation
+132 |     /// Create a new notification.
+133 |     pub fn new(method: String, params: Option<Value>) -> Self {
+    |            ^^^
+
+warning: constant `MAX_CONTENT_BYTES` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:15:7
+   |
+15 | const MAX_CONTENT_BYTES: usize = 1_048_576;
+   |       ^^^^^^^^^^^^^^^^^
+
+warning: constant `MAX_NAME_LEN` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:18:7
+   |
+18 | const MAX_NAME_LEN: usize = 128;
+   |       ^^^^^^^^^^^^
+
+warning: constant `MAX_LIMIT` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:21:7
+   |
+21 | const MAX_LIMIT: u64 = 10_000;
+   |       ^^^^^^^^^
+
+warning: type alias `ValidationResult` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:24:10
+   |
+24 | pub type ValidationResult = Result<(), ToolCallResult>;
+   |          ^^^^^^^^^^^^^^^^
+
+warning: function `validate` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:34:8
+   |
+34 | pub fn validate(tool_name: &str, params: &Value) -> ValidationResult {
+   |        ^^^^^^^^
+
+warning: function `require_operation` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:66:4
+   |
+66 | fn require_operation(op: Option<&str>) -> Result<&str, ToolCallResult> {
+   |    ^^^^^^^^^^^^^^^^^
+
+warning: function `require_channel_id` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:71:4
+   |
+71 | fn require_channel_id(params: &Value) -> ValidationResult {
+   |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `require_str` is never used
+  --> crates/agentic-comm-mcp/src/tools/validation.rs:90:4
+   |
+90 | fn require_str(params: &Value, field: &str) -> ValidationResult {
+   |    ^^^^^^^^^^^
+
+warning: function `require_positive_id` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:105:4
+    |
+105 | fn require_positive_id(params: &Value, field: &str) -> ValidationResult {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_channel_name` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:124:8
+    |
+124 | pub fn validate_channel_name(name: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_content` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:148:8
+    |
+148 | pub fn validate_content(content: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `validate_sender` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:165:8
+    |
+165 | pub fn validate_sender(sender: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^
+
+warning: function `validate_topic` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:175:8
+    |
+175 | pub fn validate_topic(topic: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `validate_channel_id` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:199:8
+    |
+199 | pub fn validate_channel_id(params: &Value) -> Result<u64, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_message_id` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:218:8
+    |
+218 | pub fn validate_message_id(params: &Value) -> Result<u64, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_subscription_id` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:237:8
+    |
+237 | pub fn validate_subscription_id(params: &Value) -> Result<u64, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_limit` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:256:8
+    |
+256 | pub fn validate_limit(params: &Value, field: &str) -> Result<Option<u64>, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `validate_query` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:279:8
+    |
+279 | pub fn validate_query(query: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `require_string` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:299:8
+    |
+299 | pub fn require_string<'a>(params: &'a Value, field: &str) -> Result<&'a str, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^
+
+warning: function `validate_agent_id` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:308:8
+    |
+308 | pub fn validate_agent_id(agent_id: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: constant `VALID_CONSENT_SCOPES` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:318:7
+    |
+318 | const VALID_CONSENT_SCOPES: &[&str] = &[
+    |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_consent_scope` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:330:8
+    |
+330 | pub fn validate_consent_scope(scope: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `VALID_TRUST_LEVELS` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:342:7
+    |
+342 | const VALID_TRUST_LEVELS: &[&str] = &[
+    |       ^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_trust_level` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:347:8
+    |
+347 | pub fn validate_trust_level(level: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_valence` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:359:8
+    |
+359 | pub fn validate_valence(params: &Value) -> Result<Option<f64>, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `validate_arousal` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:370:8
+    |
+370 | pub fn validate_arousal(params: &Value) -> Result<Option<f64>, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: constant `VALID_URGENCY_LEVELS` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:381:7
+    |
+381 | const VALID_URGENCY_LEVELS: &[&str] =
+    |       ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_urgency` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:385:8
+    |
+385 | pub fn validate_urgency(params: &Value) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: constant `VALID_FEDERATION_POLICIES` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:399:7
+    |
+399 | const VALID_FEDERATION_POLICIES: &[&str] = &["allow", "deny", "selective"];
+    |       ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_federation_policy` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:402:8
+    |
+402 | pub fn validate_federation_policy(policy: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `VALID_HIVE_ROLES` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:414:7
+    |
+414 | const VALID_HIVE_ROLES: &[&str] = &["coordinator", "member", "observer"];
+    |       ^^^^^^^^^^^^^^^^
+
+warning: function `validate_hive_role` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:417:8
+    |
+417 | pub fn validate_hive_role(role: &str) -> ValidationResult {
+    |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_temporal_id` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:429:8
+    |
+429 | pub fn validate_temporal_id(params: &Value) -> Result<u64, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_hive_id` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:448:8
+    |
+448 | pub fn validate_hive_id(params: &Value) -> Result<u64, ToolCallResult> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `require_bool` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:466:8
+    |
+466 | pub fn require_bool(params: &Value, field: &str) -> Result<bool, ToolCallResult> {
+    |        ^^^^^^^^^^^^
+
+warning: constant `VALID_PRIORITIES` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:475:7
+    |
+475 | const VALID_PRIORITIES: &[&str] = &["low", "normal", "high", "urgent", "critical"];
+    |       ^^^^^^^^^^^^^^^^
+
+warning: function `validate_channel` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:485:4
+    |
+485 | fn validate_channel(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `validate_message` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:547:4
+    |
+547 | fn validate_message(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `validate_semantic` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:704:4
+    |
+704 | fn validate_semantic(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^^^^^
+
+warning: function `validate_affect` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:740:4
+    |
+740 | fn validate_affect(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `validate_hive` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:812:4
+    |
+812 | fn validate_hive(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^
+
+warning: function `validate_consent` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:902:4
+    |
+902 | fn validate_consent(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^^^^
+
+warning: function `validate_trust` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:966:4
+    |
+966 | fn validate_trust(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `validate_keys` is never used
+   --> crates/agentic-comm-mcp/src/tools/validation.rs:992:4
+    |
+992 | fn validate_keys(op: Option<&str>, params: &Value) -> ValidationResult {
+    |    ^^^^^^^^^^^^^
+
+warning: function `validate_federation` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1056:4
+     |
+1056 | fn validate_federation(op: Option<&str>, params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_temporal` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1108:4
+     |
+1108 | fn validate_temporal(op: Option<&str>, params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^^^^
+
+warning: function `validate_query_tool` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1133:4
+     |
+1133 | fn validate_query_tool(op: Option<&str>, params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_forensics` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1182:4
+     |
+1182 | fn validate_forensics(op: Option<&str>, _params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_collaboration` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1192:4
+     |
+1192 | fn validate_collaboration(op: Option<&str>, _params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_workspace` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1202:4
+     |
+1202 | fn validate_workspace(op: Option<&str>, params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^^^^^
+
+warning: function `validate_session` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1257:4
+     |
+1257 | fn validate_session(tool_name: &str, _op: Option<&str>, params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^^^
+
+warning: function `validate_agent` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1307:4
+     |
+1307 | fn validate_agent(op: Option<&str>, params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^
+
+warning: function `validate_store` is never used
+    --> crates/agentic-comm-mcp/src/tools/validation.rs:1360:4
+     |
+1360 | fn validate_store(op: Option<&str>, params: &Value) -> ValidationResult {
+     |    ^^^^^^^^^^^^^^
+
+warning: `agentic-comm-mcp` (bin "agentic-comm-mcp" test) generated 140 warnings (run `cargo fix --bin "agentic-comm-mcp" --tests` to apply 1 suggestion)
+warning: `agentic-comm-mcp` (bin "agentic-comm-mcp") generated 193 warnings (140 duplicates)
+    Finished `release` profile [optimized] target(s) in 15.68s
+     Running unittests src/lib.rs (target/release/deps/agentic_comm-21e5d286586b16bf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 347 filtered out; finished in 0.00s
+
+     Running tests/filesize_measurement.rs (target/release/deps/filesize_measurement-72a0dce6c4cc3256)
+
+running 4 tests
+
+╔══════════════════════════════════════════════════════╗
+║        .acomm File Size Summary                     ║
+╠═══════════╦══════════════╦══════════════════════════╣
+║  Messages ║  File Bytes  ║  Bytes per Message       ║
+╠═══════════╬══════════════╬══════════════════════════╣
+
+=== File Size: 100 messages ===
+  Total bytes : 6462
+  Bytes/msg   : 64.6
+
+test filesize_100_messages ... ok
+║      100 ║        6519 ║                    65.2 ║
+║     1000 ║       70095 ║                    70.1 ║
+
+=== File Size: 1000 messages ===
+  Total bytes : 70456
+  Bytes/msg   : 70.5
+
+test filesize_1k_messages ... ok
+
+=== File Size: 10000 messages ===
+  Total bytes : 718096
+  Bytes/msg   : 71.8
+
+test filesize_10k_messages ... ok
+║    10000 ║      717509 ║                    71.8 ║
+╚═══════════╩══════════════╩══════════════════════════╝
+
+test filesize_summary_table ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/integration_advanced.rs (target/release/deps/integration_advanced-540672a05bb3c3f9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests/integration_tests.rs (target/release/deps/integration_tests-eb0d4a8321305755)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/memory_profiling.rs (target/release/deps/memory_profiling-ddebeff5799a2e76)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests/pipeline_tests.rs (target/release/deps/pipeline_tests-fa882124e3f6e8ee)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s
+
+     Running tests/sla_targets.rs (target/release/deps/sla_targets-f235ac2c55e1ed30)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests/spec_hardening.rs (target/release/deps/spec_hardening-4953f070bd931464)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+     Running tests/spec_scenarios.rs (target/release/deps/spec_scenarios-724dd6ab5c85544e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests/stress_tests.rs (target/release/deps/stress_tests-26a572959a65aa59)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/release/deps/acomm-169fb38d61160a3d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/release/deps/agentic_comm_ffi-44527eadb1e74e22)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (target/release/deps/agentic_comm_mcp-3cfd10370590134e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.00s
+
+     Running tests/edge_cases_inventions.rs (target/release/deps/edge_cases_inventions-eeb728179ec2a712)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+   Doc-tests agentic_comm
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests agentic_comm_ffi
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
