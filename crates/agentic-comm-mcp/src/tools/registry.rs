@@ -31,432 +31,1470 @@ impl ToolRegistry {
                 name: "comm_channel".to_string(),
                 description: Some("Manage communication channels".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["create", "list", "join", "leave", "info", "config", "pause", "resume", "drain", "close", "expire", "compact"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "create",
+                                    "list",
+                                    "join",
+                                    "leave",
+                                    "info",
+                                    "config",
+                                    "pause",
+                                    "resume",
+                                    "drain",
+                                    "close",
+                                    "expire",
+                                    "compact"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "name": {
+                                "type": "string",
+                                "description": "Channel name (for create)"
+                            },
+                            "channel_type": {
+                                "type": "string",
+                                "description": "direct, group, broadcast, pubsub (for create). Default: group"
+                            },
+                            "channel_id": {
+                                "type": "integer",
+                                "description": "Channel ID (for most operations)"
+                            },
+                            "participant": {
+                                "type": "string",
+                                "description": "Participant identity (for join/leave)"
+                            },
+                            "max_participants": {
+                                "type": "integer",
+                                "description": "Max participants (for create)"
+                            },
+                            "ttl_seconds": {
+                                "type": "integer",
+                                "description": "Message TTL in seconds (for create)"
+                            },
+                            "persistence": {
+                                "type": "boolean",
+                                "description": "Persist messages (for create)"
+                            },
+                            "encryption_required": {
+                                "type": "boolean",
+                                "description": "Require encryption (for create/config)"
+                            },
+                            "config": {
+                                "type": "object",
+                                "description": "Channel configuration (for config)"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "name": { "type": "string", "description": "Channel name (for create)" },
-                        "channel_type": { "type": "string", "description": "direct, group, broadcast, pubsub (for create). Default: group" },
-                        "channel_id": { "type": "integer", "description": "Channel ID (for most operations)" },
-                        "participant": { "type": "string", "description": "Participant identity (for join/leave)" },
-                        "max_participants": { "type": "integer", "description": "Max participants (for create)" },
-                        "ttl_seconds": { "type": "integer", "description": "Message TTL in seconds (for create)" },
-                        "persistence": { "type": "boolean", "description": "Persist messages (for create)" },
-                        "encryption_required": { "type": "boolean", "description": "Require encryption (for create/config)" },
-                        "config": { "type": "object", "description": "Channel configuration (for config)" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 2. comm_message
             ToolDefinition {
                 name: "comm_message".to_string(),
                 description: Some("Send, receive, search, and manage messages".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["send", "receive", "get", "search", "acknowledge", "broadcast", "publish", "subscribe", "unsubscribe", "query_history", "forward", "reply", "get_thread", "get_replies", "send_priority", "send_rich", "get_rich_content", "query_echo_chain", "get_echo_depth", "summarize"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "send",
+                                    "receive",
+                                    "get",
+                                    "search",
+                                    "acknowledge",
+                                    "broadcast",
+                                    "publish",
+                                    "subscribe",
+                                    "unsubscribe",
+                                    "query_history",
+                                    "forward",
+                                    "reply",
+                                    "get_thread",
+                                    "get_replies",
+                                    "send_priority",
+                                    "send_rich",
+                                    "get_rich_content",
+                                    "query_echo_chain",
+                                    "get_echo_depth",
+                                    "summarize"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "channel_id": {
+                                "type": "integer",
+                                "description": "Channel ID"
+                            },
+                            "message_id": {
+                                "type": "integer",
+                                "description": "Message ID"
+                            },
+                            "sender": {
+                                "type": "string",
+                                "description": "Sender identity"
+                            },
+                            "recipient": {
+                                "type": "string",
+                                "description": "Recipient identity"
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Message content"
+                            },
+                            "message_type": {
+                                "type": "string",
+                                "description": "text, command, event, data. Default: text"
+                            },
+                            "topic": {
+                                "type": "string",
+                                "description": "PubSub topic (for publish/subscribe)"
+                            },
+                            "subscriber": {
+                                "type": "string",
+                                "description": "Subscriber identity"
+                            },
+                            "subscription_id": {
+                                "type": "integer",
+                                "description": "Subscription ID (for unsubscribe)"
+                            },
+                            "query": {
+                                "type": "string",
+                                "description": "Search query"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "description": "Max results for search"
+                            },
+                            "since": {
+                                "type": "string",
+                                "description": "ISO 8601 timestamp filter"
+                            },
+                            "before": {
+                                "type": "string",
+                                "description": "ISO 8601 timestamp filter"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Result limit"
+                            },
+                            "parent_message_id": {
+                                "type": "integer",
+                                "description": "Parent message for reply"
+                            },
+                            "priority": {
+                                "type": "string",
+                                "description": "low, normal, high, critical"
+                            },
+                            "urgency": {
+                                "type": "string",
+                                "description": "Urgency level"
+                            },
+                            "target_channel_id": {
+                                "type": "integer",
+                                "description": "Target channel for forward"
+                            },
+                            "forwarder": {
+                                "type": "string",
+                                "description": "Forwarding identity"
+                            },
+                            "content_type": {
+                                "type": "string",
+                                "description": "MIME type for rich messages"
+                            },
+                            "metadata": {
+                                "type": "object",
+                                "description": "Additional metadata"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "channel_id": { "type": "integer", "description": "Channel ID" },
-                        "message_id": { "type": "integer", "description": "Message ID" },
-                        "sender": { "type": "string", "description": "Sender identity" },
-                        "recipient": { "type": "string", "description": "Recipient identity" },
-                        "content": { "type": "string", "description": "Message content" },
-                        "message_type": { "type": "string", "description": "text, command, event, data. Default: text" },
-                        "topic": { "type": "string", "description": "PubSub topic (for publish/subscribe)" },
-                        "subscriber": { "type": "string", "description": "Subscriber identity" },
-                        "subscription_id": { "type": "integer", "description": "Subscription ID (for unsubscribe)" },
-                        "query": { "type": "string", "description": "Search query" },
-                        "max_results": { "type": "integer", "description": "Max results for search" },
-                        "since": { "type": "string", "description": "ISO 8601 timestamp filter" },
-                        "before": { "type": "string", "description": "ISO 8601 timestamp filter" },
-                        "limit": { "type": "integer", "description": "Result limit" },
-                        "parent_message_id": { "type": "integer", "description": "Parent message for reply" },
-                        "priority": { "type": "string", "description": "low, normal, high, critical" },
-                        "urgency": { "type": "string", "description": "Urgency level" },
-                        "target_channel_id": { "type": "integer", "description": "Target channel for forward" },
-                        "forwarder": { "type": "string", "description": "Forwarding identity" },
-                        "content_type": { "type": "string", "description": "MIME type for rich messages" },
-                        "metadata": { "type": "object", "description": "Additional metadata" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 3. comm_semantic
             ToolDefinition {
                 name: "comm_semantic".to_string(),
                 description: Some("Semantic messaging and NLP analysis".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": [
-                                "send", "extract", "graft", "list_conflicts",
-                                "comm_semantic_compress", "comm_semantic_decompress", "comm_semantic_translate", "comm_semantic_align",
-                                "comm_echo_chamber_create", "comm_echo_chamber_detect", "comm_echo_chamber_break", "comm_echo_chamber_analyze",
-                                "comm_ghost_create", "comm_ghost_detect", "comm_ghost_exorcise", "comm_ghost_history",
-                                "comm_metamessage_encode", "comm_metamessage_decode", "comm_metamessage_layer", "comm_metamessage_strip",
-                                "comm_fork_create", "comm_fork_explore", "comm_fork_merge", "comm_fork_list"
-                            ],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "send",
+                                    "extract",
+                                    "graft",
+                                    "list_conflicts",
+                                    "comm_semantic_compress",
+                                    "comm_semantic_decompress",
+                                    "comm_semantic_translate",
+                                    "comm_semantic_align",
+                                    "comm_echo_chamber_create",
+                                    "comm_echo_chamber_detect",
+                                    "comm_echo_chamber_break",
+                                    "comm_echo_chamber_analyze",
+                                    "comm_ghost_create",
+                                    "comm_ghost_detect",
+                                    "comm_ghost_exorcise",
+                                    "comm_ghost_history",
+                                    "comm_metamessage_encode",
+                                    "comm_metamessage_decode",
+                                    "comm_metamessage_layer",
+                                    "comm_metamessage_strip",
+                                    "comm_fork_create",
+                                    "comm_fork_explore",
+                                    "comm_fork_merge",
+                                    "comm_fork_list"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "message_id": {
+                                "type": "integer"
+                            },
+                            "content": {
+                                "type": "string"
+                            },
+                            "sender": {
+                                "type": "string"
+                            },
+                            "intent": {
+                                "type": "string"
+                            },
+                            "entities": {
+                                "type": "array"
+                            },
+                            "sentiment": {
+                                "type": "string"
+                            },
+                            "source_message_id": {
+                                "type": "integer"
+                            },
+                            "target_message_id": {
+                                "type": "integer"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "channel_id": { "type": "integer" },
-                        "message_id": { "type": "integer" },
-                        "content": { "type": "string" },
-                        "sender": { "type": "string" },
-                        "intent": { "type": "string" },
-                        "entities": { "type": "array" },
-                        "sentiment": { "type": "string" },
-                        "source_message_id": { "type": "integer" },
-                        "target_message_id": { "type": "integer" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 4. comm_affect
             ToolDefinition {
                 name: "comm_affect".to_string(),
                 description: Some("Emotional state tracking and affect propagation".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": [
-                                "send", "get_state", "set_resistance", "process_contagion", "get_history", "apply_decay",
-                                "comm_affect_contagion_simulate", "comm_affect_contagion_immunize", "comm_affect_contagion_trace", "comm_affect_contagion_predict",
-                                "comm_affect_archaeology_dig", "comm_affect_archaeology_artifacts", "comm_affect_archaeology_reconstruct",
-                                "comm_affect_prophecy_predict", "comm_affect_prophecy_similar", "comm_affect_prophecy_track", "comm_affect_prophecy_warn",
-                                "comm_unspeakable_encode", "comm_unspeakable_decode", "comm_unspeakable_detect", "comm_unspeakable_translate",
-                                "comm_anticipate_predict", "comm_anticipate_prepare", "comm_anticipate_calibrate", "comm_anticipate_accuracy"
-                            ],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "send",
+                                    "get_state",
+                                    "set_resistance",
+                                    "process_contagion",
+                                    "get_history",
+                                    "apply_decay",
+                                    "comm_affect_contagion_simulate",
+                                    "comm_affect_contagion_immunize",
+                                    "comm_affect_contagion_trace",
+                                    "comm_affect_contagion_predict",
+                                    "comm_affect_archaeology_dig",
+                                    "comm_affect_archaeology_artifacts",
+                                    "comm_affect_archaeology_reconstruct",
+                                    "comm_affect_prophecy_predict",
+                                    "comm_affect_prophecy_similar",
+                                    "comm_affect_prophecy_track",
+                                    "comm_affect_prophecy_warn",
+                                    "comm_unspeakable_encode",
+                                    "comm_unspeakable_decode",
+                                    "comm_unspeakable_detect",
+                                    "comm_unspeakable_translate",
+                                    "comm_anticipate_predict",
+                                    "comm_anticipate_prepare",
+                                    "comm_anticipate_calibrate",
+                                    "comm_anticipate_accuracy"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "agent": {
+                                "type": "string"
+                            },
+                            "affect_state": {
+                                "type": "string"
+                            },
+                            "intensity": {
+                                "type": "number"
+                            },
+                            "source_agent": {
+                                "type": "string"
+                            },
+                            "decay_rate": {
+                                "type": "number"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "channel_id": { "type": "integer" },
-                        "agent": { "type": "string" },
-                        "affect_state": { "type": "string" },
-                        "intensity": { "type": "number" },
-                        "source_agent": { "type": "string" },
-                        "decay_rate": { "type": "number" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 5. comm_hive
             ToolDefinition {
                 name: "comm_hive".to_string(),
                 description: Some("Hive-mind collective intelligence operations".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": [
-                                "form", "dissolve", "join", "leave", "list", "get", "think", "meld",
-                                "comm_hive_consciousness_create", "comm_hive_consciousness_dissolve", "comm_hive_consciousness_join", "comm_hive_consciousness_think",
-                                "comm_collective_intelligence_vote", "comm_collective_intelligence_consensus", "comm_collective_intelligence_swarm", "comm_collective_intelligence_decide",
-                                "comm_ancestor_invoke", "comm_ancestor_listen", "comm_ancestor_honor", "comm_ancestor_lineage",
-                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever",
-                                "comm_silence_enter", "comm_silence_presence", "comm_silence_attend", "comm_silence_leave",
-                                "comm_mind_meld_initiate", "comm_mind_meld_sync", "comm_mind_meld_status", "comm_mind_meld_separate",
-                                "comm_dream_start", "comm_dream_contribute", "comm_dream_insights", "comm_dream_wake"
-                            ],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "form",
+                                    "dissolve",
+                                    "join",
+                                    "leave",
+                                    "list",
+                                    "get",
+                                    "think",
+                                    "meld",
+                                    "comm_hive_consciousness_create",
+                                    "comm_hive_consciousness_dissolve",
+                                    "comm_hive_consciousness_join",
+                                    "comm_hive_consciousness_think",
+                                    "comm_collective_intelligence_vote",
+                                    "comm_collective_intelligence_consensus",
+                                    "comm_collective_intelligence_swarm",
+                                    "comm_collective_intelligence_decide",
+                                    "comm_ancestor_invoke",
+                                    "comm_ancestor_listen",
+                                    "comm_ancestor_honor",
+                                    "comm_ancestor_lineage",
+                                    "comm_telepathy_connect",
+                                    "comm_telepathy_transmit",
+                                    "comm_telepathy_receive",
+                                    "comm_telepathy_sever",
+                                    "comm_silence_enter",
+                                    "comm_silence_presence",
+                                    "comm_silence_attend",
+                                    "comm_silence_leave",
+                                    "comm_mind_meld_initiate",
+                                    "comm_mind_meld_sync",
+                                    "comm_mind_meld_status",
+                                    "comm_mind_meld_separate",
+                                    "comm_dream_start",
+                                    "comm_dream_contribute",
+                                    "comm_dream_insights",
+                                    "comm_dream_wake"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "name": {
+                                "type": "string",
+                                "description": "Hive name"
+                            },
+                            "hive_id": {
+                                "type": "integer",
+                                "description": "Hive ID"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "agent": {
+                                "type": "string"
+                            },
+                            "role": {
+                                "type": "string"
+                            },
+                            "thought": {
+                                "type": "string"
+                            },
+                            "decision_mode": {
+                                "type": "string"
+                            },
+                            "members": {
+                                "type": "array"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "name": { "type": "string", "description": "Hive name" },
-                        "hive_id": { "type": "integer", "description": "Hive ID" },
-                        "channel_id": { "type": "integer" },
-                        "agent": { "type": "string" },
-                        "role": { "type": "string" },
-                        "thought": { "type": "string" },
-                        "decision_mode": { "type": "string" },
-                        "members": { "type": "array" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 6. comm_consent
             ToolDefinition {
                 name: "comm_consent".to_string(),
                 description: Some("Consent management and privacy gates".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["grant", "revoke", "check", "list_gates", "list_pending", "respond"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "grant",
+                                    "revoke",
+                                    "check",
+                                    "list_gates",
+                                    "list_pending",
+                                    "respond"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "grantor": {
+                                "type": "string"
+                            },
+                            "grantee": {
+                                "type": "string"
+                            },
+                            "scope": {
+                                "type": "string"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "consent_id": {
+                                "type": "integer"
+                            },
+                            "response": {
+                                "type": "string"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "grantor": { "type": "string" },
-                        "grantee": { "type": "string" },
-                        "scope": { "type": "string" },
-                        "channel_id": { "type": "integer" },
-                        "consent_id": { "type": "integer" },
-                        "response": { "type": "string" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 7. comm_trust
             ToolDefinition {
                 name: "comm_trust".to_string(),
                 description: Some("Trust level management between agents".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["set", "get", "list"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "set",
+                                    "get",
+                                    "list"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "agent_a": {
+                                "type": "string"
+                            },
+                            "agent_b": {
+                                "type": "string"
+                            },
+                            "trust_level": {
+                                "type": "string"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "agent_a": { "type": "string" },
-                        "agent_b": { "type": "string" },
-                        "trust_level": { "type": "string" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 8. comm_keys
             ToolDefinition {
                 name: "comm_keys".to_string(),
                 description: Some("Cryptographic key and encryption operations".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["generate_keypair", "get_public_key", "encrypt", "decrypt", "verify_signature", "generate", "list", "rotate", "revoke", "export", "get"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "generate_keypair",
+                                    "get_public_key",
+                                    "encrypt",
+                                    "decrypt",
+                                    "verify_signature",
+                                    "generate",
+                                    "list",
+                                    "rotate",
+                                    "revoke",
+                                    "export",
+                                    "get"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "key_id": {
+                                "type": "integer"
+                            },
+                            "message_id": {
+                                "type": "integer"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "content": {
+                                "type": "string"
+                            },
+                            "sender": {
+                                "type": "string"
+                            },
+                            "recipient": {
+                                "type": "string"
+                            },
+                            "algorithm": {
+                                "type": "string"
+                            },
+                            "key_size": {
+                                "type": "integer"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "key_id": { "type": "integer" },
-                        "message_id": { "type": "integer" },
-                        "channel_id": { "type": "integer" },
-                        "content": { "type": "string" },
-                        "sender": { "type": "string" },
-                        "recipient": { "type": "string" },
-                        "algorithm": { "type": "string" },
-                        "key_size": { "type": "integer" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 9. comm_federation
             ToolDefinition {
                 name: "comm_federation".to_string(),
                 description: Some("Federation, zones, and cross-instance routing".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": [
-                                "configure", "status", "set_policy", "add_zone", "remove_zone", "list_zones", "set_zone_policy",
-                                "comm_federation_gateway_create", "comm_federation_gateway_connect", "comm_federation_gateway_disconnect", "comm_federation_gateway_status",
-                                "comm_federation_route_message", "comm_federation_route_trace", "comm_federation_route_optimize", "comm_federation_route_policy",
-                                "comm_federation_zone_create", "comm_federation_zone_list", "comm_federation_zone_merge", "comm_federation_zone_policy",
-                                "comm_reality_fork", "comm_reality_merge", "comm_reality_detect", "comm_reality_bend",
-                                "comm_destiny_create", "comm_destiny_align", "comm_destiny_probability", "comm_destiny_converge"
-                            ],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "configure",
+                                    "status",
+                                    "set_policy",
+                                    "add_zone",
+                                    "remove_zone",
+                                    "list_zones",
+                                    "set_zone_policy",
+                                    "comm_federation_gateway_create",
+                                    "comm_federation_gateway_connect",
+                                    "comm_federation_gateway_disconnect",
+                                    "comm_federation_gateway_status",
+                                    "comm_federation_route_message",
+                                    "comm_federation_route_trace",
+                                    "comm_federation_route_optimize",
+                                    "comm_federation_route_policy",
+                                    "comm_federation_zone_create",
+                                    "comm_federation_zone_list",
+                                    "comm_federation_zone_merge",
+                                    "comm_federation_zone_policy",
+                                    "comm_reality_fork",
+                                    "comm_reality_merge",
+                                    "comm_reality_detect",
+                                    "comm_reality_bend",
+                                    "comm_destiny_create",
+                                    "comm_destiny_align",
+                                    "comm_destiny_probability",
+                                    "comm_destiny_converge"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "zone_name": {
+                                "type": "string"
+                            },
+                            "zone_id": {
+                                "type": "string"
+                            },
+                            "policy": {
+                                "type": "object"
+                            },
+                            "endpoint": {
+                                "type": "string"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "zone_name": { "type": "string" },
-                        "zone_id": { "type": "string" },
-                        "policy": { "type": "object" },
-                        "endpoint": { "type": "string" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 10. comm_temporal
             ToolDefinition {
                 name: "comm_temporal".to_string(),
                 description: Some("Scheduled messaging, dead letters, and temporal ops".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": [
-                                "schedule", "list_scheduled", "cancel_scheduled", "deliver_pending",
-                                "list_dead_letters", "replay_dead_letter", "clear_dead_letters",
-                                "comm_precognition_predict", "comm_precognition_prepare", "comm_precognition_accuracy", "comm_precognition_calibrate",
-                                "comm_temporal_schedule", "comm_temporal_cancel", "comm_temporal_pending", "comm_temporal_reschedule",
-                                "comm_legacy_compose", "comm_legacy_seal", "comm_legacy_unseal", "comm_legacy_list",
-                                "comm_dead_letter_resurrect", "comm_dead_letter_autopsy", "comm_dead_letter_phoenix", "comm_dead_letter_analyze",
-                                "comm_temporal_consensus_propose", "comm_temporal_consensus_vote", "comm_temporal_consensus_status", "comm_temporal_consensus_resolve"
-                            ],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "schedule",
+                                    "list_scheduled",
+                                    "cancel_scheduled",
+                                    "deliver_pending",
+                                    "list_dead_letters",
+                                    "replay_dead_letter",
+                                    "clear_dead_letters",
+                                    "comm_precognition_predict",
+                                    "comm_precognition_prepare",
+                                    "comm_precognition_accuracy",
+                                    "comm_precognition_calibrate",
+                                    "comm_temporal_schedule",
+                                    "comm_temporal_cancel",
+                                    "comm_temporal_pending",
+                                    "comm_temporal_reschedule",
+                                    "comm_legacy_compose",
+                                    "comm_legacy_seal",
+                                    "comm_legacy_unseal",
+                                    "comm_legacy_list",
+                                    "comm_dead_letter_resurrect",
+                                    "comm_dead_letter_autopsy",
+                                    "comm_dead_letter_phoenix",
+                                    "comm_dead_letter_analyze",
+                                    "comm_temporal_consensus_propose",
+                                    "comm_temporal_consensus_vote",
+                                    "comm_temporal_consensus_status",
+                                    "comm_temporal_consensus_resolve"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "sender": {
+                                "type": "string"
+                            },
+                            "content": {
+                                "type": "string"
+                            },
+                            "deliver_at": {
+                                "type": "string"
+                            },
+                            "schedule_id": {
+                                "type": "integer"
+                            },
+                            "dead_letter_id": {
+                                "type": "integer"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "channel_id": { "type": "integer" },
-                        "sender": { "type": "string" },
-                        "content": { "type": "string" },
-                        "deliver_at": { "type": "string" },
-                        "schedule_id": { "type": "integer" },
-                        "dead_letter_id": { "type": "integer" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 11. comm_query
             ToolDefinition {
                 name: "comm_query".to_string(),
                 description: Some("Query relationships, echoes, conversations, and grounding".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["relationships", "echoes", "conversations", "ground", "evidence", "suggest"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "relationships",
+                                    "echoes",
+                                    "conversations",
+                                    "ground",
+                                    "evidence",
+                                    "suggest"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "claim": {
+                                "type": "string"
+                            },
+                            "query": {
+                                "type": "string"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "agent": {
+                                "type": "string"
+                            },
+                            "max_results": {
+                                "type": "integer"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "claim": { "type": "string" },
-                        "query": { "type": "string" },
-                        "channel_id": { "type": "integer" },
-                        "agent": { "type": "string" },
-                        "max_results": { "type": "integer" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 12. comm_forensics
             ToolDefinition {
                 name: "comm_forensics".to_string(),
                 description: Some("Communication forensics, health, patterns, and oracles".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": [
-                                "comm_forensics_investigate", "comm_forensics_evidence", "comm_forensics_timeline", "comm_forensics_report",
-                                "comm_pattern_detect", "comm_pattern_recurring", "comm_pattern_anomaly", "comm_pattern_predict",
-                                "comm_health_status", "comm_health_diagnose", "comm_health_prescribe", "comm_health_history",
-                                "comm_oracle_query", "comm_oracle_prophecy", "comm_oracle_calibrate", "comm_oracle_verify"
-                            ],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "comm_forensics_investigate",
+                                    "comm_forensics_evidence",
+                                    "comm_forensics_timeline",
+                                    "comm_forensics_report",
+                                    "comm_pattern_detect",
+                                    "comm_pattern_recurring",
+                                    "comm_pattern_anomaly",
+                                    "comm_pattern_predict",
+                                    "comm_health_status",
+                                    "comm_health_diagnose",
+                                    "comm_health_prescribe",
+                                    "comm_health_history",
+                                    "comm_oracle_query",
+                                    "comm_oracle_prophecy",
+                                    "comm_oracle_calibrate",
+                                    "comm_oracle_verify"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "message_id": {
+                                "type": "integer"
+                            },
+                            "query": {
+                                "type": "string"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "channel_id": { "type": "integer" },
-                        "message_id": { "type": "integer" },
-                        "query": { "type": "string" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 13. comm_collaboration
             ToolDefinition {
                 name: "comm_collaboration".to_string(),
                 description: Some("Advanced collaboration: consciousness, collective intel, ancestors, telepathy".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": [
-                                "comm_hive_consciousness_create", "comm_hive_consciousness_dissolve", "comm_hive_consciousness_join", "comm_hive_consciousness_think",
-                                "comm_collective_intelligence_vote", "comm_collective_intelligence_consensus", "comm_collective_intelligence_swarm", "comm_collective_intelligence_decide",
-                                "comm_ancestor_invoke", "comm_ancestor_listen", "comm_ancestor_honor", "comm_ancestor_lineage",
-                                "comm_telepathy_connect", "comm_telepathy_transmit", "comm_telepathy_receive", "comm_telepathy_sever",
-                                "comm_silence_enter", "comm_silence_presence", "comm_silence_attend", "comm_silence_leave",
-                                "comm_mind_meld_initiate", "comm_mind_meld_sync", "comm_mind_meld_status", "comm_mind_meld_separate",
-                                "comm_dream_start", "comm_dream_contribute", "comm_dream_insights", "comm_dream_wake"
-                            ],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "comm_hive_consciousness_create",
+                                    "comm_hive_consciousness_dissolve",
+                                    "comm_hive_consciousness_join",
+                                    "comm_hive_consciousness_think",
+                                    "comm_collective_intelligence_vote",
+                                    "comm_collective_intelligence_consensus",
+                                    "comm_collective_intelligence_swarm",
+                                    "comm_collective_intelligence_decide",
+                                    "comm_ancestor_invoke",
+                                    "comm_ancestor_listen",
+                                    "comm_ancestor_honor",
+                                    "comm_ancestor_lineage",
+                                    "comm_telepathy_connect",
+                                    "comm_telepathy_transmit",
+                                    "comm_telepathy_receive",
+                                    "comm_telepathy_sever",
+                                    "comm_silence_enter",
+                                    "comm_silence_presence",
+                                    "comm_silence_attend",
+                                    "comm_silence_leave",
+                                    "comm_mind_meld_initiate",
+                                    "comm_mind_meld_sync",
+                                    "comm_mind_meld_status",
+                                    "comm_mind_meld_separate",
+                                    "comm_dream_start",
+                                    "comm_dream_contribute",
+                                    "comm_dream_insights",
+                                    "comm_dream_wake"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "agent": {
+                                "type": "string"
+                            },
+                            "content": {
+                                "type": "string"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "channel_id": { "type": "integer" },
-                        "agent": { "type": "string" },
-                        "content": { "type": "string" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 14. comm_workspace
             ToolDefinition {
                 name: "comm_workspace".to_string(),
                 description: Some("Manage communication workspaces".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["create", "add", "list", "query", "compare", "xref"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "create",
+                                    "add",
+                                    "list",
+                                    "query",
+                                    "compare",
+                                    "xref"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "workspace_id": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "query": {
+                                "type": "string"
+                            },
+                            "item": {
+                                "type": "string"
+                            },
+                            "role": {
+                                "type": "string"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "workspace_id": { "type": "string" },
-                        "name": { "type": "string" },
-                        "channel_id": { "type": "integer" },
-                        "query": { "type": "string" },
-                        "item": { "type": "string" },
-                        "role": { "type": "string" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 15. comm_session
             ToolDefinition {
                 name: "comm_session".to_string(),
                 description: Some("Session lifecycle, logging, and conversation context".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["start", "end", "resume", "conversation_log", "communication_log", "log_communication", "get_comm_log", "get_audit_log"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "start",
+                                    "end",
+                                    "resume",
+                                    "conversation_log",
+                                    "communication_log",
+                                    "log_communication",
+                                    "get_comm_log",
+                                    "get_audit_log"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "summary": {
+                                "type": "string"
+                            },
+                            "create_episode": {
+                                "type": "boolean"
+                            },
+                            "limit": {
+                                "type": "integer"
+                            },
+                            "user_message": {
+                                "type": "string"
+                            },
+                            "agent_response": {
+                                "type": "string"
+                            },
+                            "topic": {
+                                "type": "string"
+                            },
+                            "intent": {
+                                "type": "string"
+                            },
+                            "outcome": {
+                                "type": "string"
+                            },
+                            "channel_id": {
+                                "type": "integer"
+                            },
+                            "direction": {
+                                "type": "string"
+                            },
+                            "participants": {
+                                "type": "array"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "summary": { "type": "string" },
-                        "create_episode": { "type": "boolean" },
-                        "limit": { "type": "integer" },
-                        "user_message": { "type": "string" },
-                        "agent_response": { "type": "string" },
-                        "topic": { "type": "string" },
-                        "intent": { "type": "string" },
-                        "outcome": { "type": "string" },
-                        "channel_id": { "type": "integer" },
-                        "direction": { "type": "string" },
-                        "participants": { "type": "array" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 16. comm_agent
             ToolDefinition {
                 name: "comm_agent".to_string(),
                 description: Some("Agent stats, CommId assignment, and identity operations".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["stats", "assign_comm_ids", "get_by_comm_id"],
-                            "description": "Operation to perform"
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "stats",
+                                    "assign_comm_ids",
+                                    "get_by_comm_id"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "comm_id": {
+                                "type": "string",
+                                "description": "UUID for lookup"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
                         },
-                        "comm_id": { "type": "string", "description": "UUID for lookup" }
-                    },
-                    "required": ["operation"]
-                }),
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
             // 17. comm_store
             ToolDefinition {
                 name: "comm_store".to_string(),
                 description: Some("Store maintenance and dead-letter management".to_string()),
                 input_schema: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["expire", "compact", "list_dead_letters", "clear_dead_letters"],
-                            "description": "Operation to perform"
-                        }
-                    },
-                    "required": ["operation"]
-                }),
+                        "type": "object",
+                        "properties": {
+                            "operation": {
+                                "type": "string",
+                                "enum": [
+                                    "expire",
+                                    "compact",
+                                    "list_dead_letters",
+                                    "clear_dead_letters"
+                                ],
+                                "description": "Operation to perform"
+                            },
+                            "include_content": {
+                                "type": "boolean",
+                                "default": false,
+                                "description": "Return full content (default: IDs only)"
+                            },
+                            "intent": {
+                                "type": "string",
+                                "enum": [
+                                    "exists",
+                                    "ids",
+                                    "summary",
+                                    "fields",
+                                    "full"
+                                ],
+                                "description": "Extraction intent level"
+                            },
+                            "since": {
+                                "type": "integer",
+                                "description": "Only return changes since this Unix timestamp"
+                            },
+                            "token_budget": {
+                                "type": "integer",
+                                "description": "Maximum token budget for response"
+                            },
+                            "max_results": {
+                                "type": "integer",
+                                "default": 10,
+                                "description": "Maximum number of results"
+                            },
+                            "cursor": {
+                                "type": "string",
+                                "description": "Pagination cursor for next page"
+                            }
+                        },
+                        "required": [
+                            "operation"
+                        ]
+                    }),
             },
         ]
     }

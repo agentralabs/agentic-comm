@@ -28,11 +28,48 @@ fn definition_federation_gateway_status() -> ToolDefinition {
         name: "comm_federation_gateway_status".into(),
         description: Some("Get status of all federation gateways".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "include_offline": { "type": "boolean", "description": "Include offline gateways", "default": true }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "include_offline": {
+                        "type": "boolean",
+                        "description": "Include offline gateways",
+                        "default": true
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -66,15 +103,65 @@ fn definition_federation_gateway_create() -> ToolDefinition {
         name: "comm_federation_gateway_create".into(),
         description: Some("Create a new federation gateway to a zone".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "zone_id": { "type": "string", "description": "Zone identifier for the gateway" },
-                "name": { "type": "string", "description": "Human-readable name for the zone" },
-                "endpoint": { "type": "string", "description": "Gateway endpoint URL" },
-                "policy": { "type": "string", "description": "Federation policy: allow, deny, selective", "default": "selective" }
-            },
-            "required": ["zone_id", "name", "endpoint"]
-        }),
+                "type": "object",
+                "properties": {
+                    "zone_id": {
+                        "type": "string",
+                        "description": "Zone identifier for the gateway"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Human-readable name for the zone"
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "description": "Gateway endpoint URL"
+                    },
+                    "policy": {
+                        "type": "string",
+                        "description": "Federation policy: allow, deny, selective",
+                        "default": "selective"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "zone_id",
+                    "name",
+                    "endpoint"
+                ]
+            }),
     }
 }
 
@@ -115,12 +202,50 @@ fn definition_federation_gateway_connect() -> ToolDefinition {
         name: "comm_federation_gateway_connect".into(),
         description: Some("Connect to a remote federation zone".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "zone_id": { "type": "string", "description": "Zone to connect to" }
-            },
-            "required": ["zone_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "zone_id": {
+                        "type": "string",
+                        "description": "Zone to connect to"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "zone_id"
+                ]
+            }),
     }
 }
 
@@ -148,12 +273,50 @@ fn definition_federation_gateway_disconnect() -> ToolDefinition {
         name: "comm_federation_gateway_disconnect".into(),
         description: Some("Disconnect from a federation zone".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "zone_id": { "type": "string", "description": "Zone to disconnect from" }
-            },
-            "required": ["zone_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "zone_id": {
+                        "type": "string",
+                        "description": "Zone to disconnect from"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "zone_id"
+                ]
+            }),
     }
 }
 
@@ -182,18 +345,62 @@ fn definition_federation_route_message() -> ToolDefinition {
         name: "comm_federation_route_message".into(),
         description: Some("Route a message through federation zones".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to route" },
-                "target_zone": { "type": "string", "description": "Destination zone" },
-                "via_zones": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Intermediate zones to route through"
-                }
-            },
-            "required": ["message_id", "target_zone"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to route"
+                    },
+                    "target_zone": {
+                        "type": "string",
+                        "description": "Destination zone"
+                    },
+                    "via_zones": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Intermediate zones to route through"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id",
+                    "target_zone"
+                ]
+            }),
     }
 }
 
@@ -230,12 +437,50 @@ fn definition_federation_route_trace() -> ToolDefinition {
         name: "comm_federation_route_trace".into(),
         description: Some("Trace the route of a federated message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to trace" }
-            },
-            "required": ["message_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to trace"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id"
+                ]
+            }),
     }
 }
 
@@ -272,13 +517,55 @@ fn definition_federation_route_optimize() -> ToolDefinition {
         name: "comm_federation_route_optimize".into(),
         description: Some("Optimize message routing paths".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "source_zone": { "type": "string", "description": "Source zone" },
-                "target_zone": { "type": "string", "description": "Target zone" }
-            },
-            "required": ["source_zone", "target_zone"]
-        }),
+                "type": "object",
+                "properties": {
+                    "source_zone": {
+                        "type": "string",
+                        "description": "Source zone"
+                    },
+                    "target_zone": {
+                        "type": "string",
+                        "description": "Target zone"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "source_zone",
+                    "target_zone"
+                ]
+            }),
     }
 }
 
@@ -315,16 +602,70 @@ fn definition_federation_route_policy() -> ToolDefinition {
         name: "comm_federation_route_policy".into(),
         description: Some("Set routing policy for a zone".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "zone_id": { "type": "string", "description": "Zone to set policy for" },
-                "allow_semantic": { "type": "boolean", "description": "Allow semantic operations", "default": true },
-                "allow_affect": { "type": "boolean", "description": "Allow affect propagation", "default": true },
-                "allow_hive": { "type": "boolean", "description": "Allow hive operations", "default": true },
-                "max_message_size": { "type": "integer", "description": "Max message size in bytes (0=unlimited)", "default": 0 }
-            },
-            "required": ["zone_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "zone_id": {
+                        "type": "string",
+                        "description": "Zone to set policy for"
+                    },
+                    "allow_semantic": {
+                        "type": "boolean",
+                        "description": "Allow semantic operations",
+                        "default": true
+                    },
+                    "allow_affect": {
+                        "type": "boolean",
+                        "description": "Allow affect propagation",
+                        "default": true
+                    },
+                    "allow_hive": {
+                        "type": "boolean",
+                        "description": "Allow hive operations",
+                        "default": true
+                    },
+                    "max_message_size": {
+                        "type": "integer",
+                        "description": "Max message size in bytes (0=unlimited)",
+                        "default": 0
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "zone_id"
+                ]
+            }),
     }
 }
 
@@ -358,15 +699,65 @@ fn definition_federation_zone_create() -> ToolDefinition {
         name: "comm_federation_zone_create".into(),
         description: Some("Create a new communication zone".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "zone_id": { "type": "string", "description": "Unique zone identifier" },
-                "name": { "type": "string", "description": "Human-readable zone name" },
-                "endpoint": { "type": "string", "description": "Zone endpoint address", "default": "" },
-                "policy": { "type": "string", "description": "Initial policy: allow, deny, selective", "default": "selective" }
-            },
-            "required": ["zone_id", "name"]
-        }),
+                "type": "object",
+                "properties": {
+                    "zone_id": {
+                        "type": "string",
+                        "description": "Unique zone identifier"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Human-readable zone name"
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "description": "Zone endpoint address",
+                        "default": ""
+                    },
+                    "policy": {
+                        "type": "string",
+                        "description": "Initial policy: allow, deny, selective",
+                        "default": "selective"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "zone_id",
+                    "name"
+                ]
+            }),
     }
 }
 
@@ -401,16 +792,70 @@ fn definition_federation_zone_policy() -> ToolDefinition {
         name: "comm_federation_zone_policy".into(),
         description: Some("Set policies for a zone".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "zone_id": { "type": "string", "description": "Zone to configure" },
-                "allow_semantic": { "type": "boolean", "description": "Allow semantic operations", "default": true },
-                "allow_affect": { "type": "boolean", "description": "Allow affect propagation", "default": true },
-                "allow_hive": { "type": "boolean", "description": "Allow hive operations", "default": true },
-                "max_message_size": { "type": "integer", "description": "Max message size in bytes", "default": 0 }
-            },
-            "required": ["zone_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "zone_id": {
+                        "type": "string",
+                        "description": "Zone to configure"
+                    },
+                    "allow_semantic": {
+                        "type": "boolean",
+                        "description": "Allow semantic operations",
+                        "default": true
+                    },
+                    "allow_affect": {
+                        "type": "boolean",
+                        "description": "Allow affect propagation",
+                        "default": true
+                    },
+                    "allow_hive": {
+                        "type": "boolean",
+                        "description": "Allow hive operations",
+                        "default": true
+                    },
+                    "max_message_size": {
+                        "type": "integer",
+                        "description": "Max message size in bytes",
+                        "default": 0
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "zone_id"
+                ]
+            }),
     }
 }
 
@@ -440,9 +885,43 @@ fn definition_federation_zone_list() -> ToolDefinition {
         name: "comm_federation_zone_list".into(),
         description: Some("List all known zones".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {}
-        }),
+                "type": "object",
+                "properties": {
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -474,13 +953,55 @@ fn definition_federation_zone_merge() -> ToolDefinition {
         name: "comm_federation_zone_merge".into(),
         description: Some("Merge two zones".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "source_zone_id": { "type": "string", "description": "Zone to merge from" },
-                "target_zone_id": { "type": "string", "description": "Zone to merge into" }
-            },
-            "required": ["source_zone_id", "target_zone_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "source_zone_id": {
+                        "type": "string",
+                        "description": "Zone to merge from"
+                    },
+                    "target_zone_id": {
+                        "type": "string",
+                        "description": "Zone to merge into"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "source_zone_id",
+                    "target_zone_id"
+                ]
+            }),
     }
 }
 
@@ -519,14 +1040,60 @@ fn definition_reality_bend() -> ToolDefinition {
         name: "comm_reality_bend".into(),
         description: Some("Apply reality-bending transformation to a message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to transform" },
-                "transformation": { "type": "string", "description": "Transformation type: reverse, mirror, shift, amplify" },
-                "intensity": { "type": "number", "description": "Transformation intensity (0.0-1.0)", "default": 0.5 }
-            },
-            "required": ["message_id", "transformation"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to transform"
+                    },
+                    "transformation": {
+                        "type": "string",
+                        "description": "Transformation type: reverse, mirror, shift, amplify"
+                    },
+                    "intensity": {
+                        "type": "number",
+                        "description": "Transformation intensity (0.0-1.0)",
+                        "default": 0.5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id",
+                    "transformation"
+                ]
+            }),
     }
 }
 
@@ -568,14 +1135,59 @@ fn definition_reality_fork() -> ToolDefinition {
         name: "comm_reality_fork".into(),
         description: Some("Fork a conversation into alternate realities".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to fork" },
-                "fork_count": { "type": "integer", "description": "Number of alternate realities", "default": 2 },
-                "divergence_point": { "type": "integer", "description": "Message ID where realities diverge" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to fork"
+                    },
+                    "fork_count": {
+                        "type": "integer",
+                        "description": "Number of alternate realities",
+                        "default": 2
+                    },
+                    "divergence_point": {
+                        "type": "integer",
+                        "description": "Message ID where realities diverge"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -617,18 +1229,63 @@ fn definition_reality_merge() -> ToolDefinition {
         name: "comm_reality_merge".into(),
         description: Some("Merge forked realities back together".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Original channel" },
-                "reality_ids": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Reality IDs to merge"
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Original channel"
+                    },
+                    "reality_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Reality IDs to merge"
+                    },
+                    "strategy": {
+                        "type": "string",
+                        "description": "Merge strategy: consensus, latest, weighted",
+                        "default": "consensus"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
                 },
-                "strategy": { "type": "string", "description": "Merge strategy: consensus, latest, weighted", "default": "consensus" }
-            },
-            "required": ["channel_id", "reality_ids"]
-        }),
+                "required": [
+                    "channel_id",
+                    "reality_ids"
+                ]
+            }),
     }
 }
 
@@ -661,13 +1318,55 @@ fn definition_reality_detect() -> ToolDefinition {
         name: "comm_reality_detect".into(),
         description: Some("Detect reality inconsistencies in conversations".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" },
-                "sensitivity": { "type": "number", "description": "Detection sensitivity (0.0-1.0)", "default": 0.5 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "sensitivity": {
+                        "type": "number",
+                        "description": "Detection sensitivity (0.0-1.0)",
+                        "default": 0.5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -723,19 +1422,67 @@ fn definition_destiny_create() -> ToolDefinition {
         name: "comm_destiny_create".into(),
         description: Some("Create a destiny channel that connects agents with aligned goals".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "purpose": { "type": "string", "description": "Shared purpose or destiny for the channel" },
-                "founding_agents": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Agents founding this destiny channel"
+                "type": "object",
+                "properties": {
+                    "purpose": {
+                        "type": "string",
+                        "description": "Shared purpose or destiny for the channel"
+                    },
+                    "founding_agents": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Agents founding this destiny channel"
+                    },
+                    "convergence_target": {
+                        "type": "string",
+                        "description": "Target outcome the channel works toward"
+                    },
+                    "zone_id": {
+                        "type": "string",
+                        "description": "Optional: restrict to a federation zone"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
                 },
-                "convergence_target": { "type": "string", "description": "Target outcome the channel works toward" },
-                "zone_id": { "type": "string", "description": "Optional: restrict to a federation zone" }
-            },
-            "required": ["purpose", "founding_agents", "convergence_target"]
-        }),
+                "required": [
+                    "purpose",
+                    "founding_agents",
+                    "convergence_target"
+                ]
+            }),
     }
 }
 
@@ -780,12 +1527,50 @@ fn definition_destiny_align() -> ToolDefinition {
         name: "comm_destiny_align".into(),
         description: Some("Measure alignment between agents in a destiny channel".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "destiny_channel_id": { "type": "integer", "description": "Destiny channel to measure alignment for" }
-            },
-            "required": ["destiny_channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "destiny_channel_id": {
+                        "type": "integer",
+                        "description": "Destiny channel to measure alignment for"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "destiny_channel_id"
+                ]
+            }),
     }
 }
 
@@ -853,13 +1638,55 @@ fn definition_destiny_probability() -> ToolDefinition {
         name: "comm_destiny_probability".into(),
         description: Some("Calculate probability of destiny convergence".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "destiny_channel_id": { "type": "integer", "description": "Destiny channel to assess" },
-                "horizon_seconds": { "type": "integer", "description": "Time horizon for convergence", "default": 86400 }
-            },
-            "required": ["destiny_channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "destiny_channel_id": {
+                        "type": "integer",
+                        "description": "Destiny channel to assess"
+                    },
+                    "horizon_seconds": {
+                        "type": "integer",
+                        "description": "Time horizon for convergence",
+                        "default": 86400
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "destiny_channel_id"
+                ]
+            }),
     }
 }
 
@@ -919,14 +1746,60 @@ fn definition_destiny_converge() -> ToolDefinition {
         name: "comm_destiny_converge".into(),
         description: Some("Trigger destiny convergence when conditions are met".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "destiny_channel_id": { "type": "integer", "description": "Destiny channel to converge" },
-                "outcome": { "type": "string", "description": "Convergence outcome description" },
-                "resolver": { "type": "string", "description": "Agent declaring convergence" }
-            },
-            "required": ["destiny_channel_id", "outcome", "resolver"]
-        }),
+                "type": "object",
+                "properties": {
+                    "destiny_channel_id": {
+                        "type": "integer",
+                        "description": "Destiny channel to converge"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Convergence outcome description"
+                    },
+                    "resolver": {
+                        "type": "string",
+                        "description": "Agent declaring convergence"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "destiny_channel_id",
+                    "outcome",
+                    "resolver"
+                ]
+            }),
     }
 }
 

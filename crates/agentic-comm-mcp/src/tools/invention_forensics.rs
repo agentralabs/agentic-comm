@@ -26,13 +26,55 @@ fn definition_forensics_investigate() -> ToolDefinition {
         name: "comm_forensics_investigate".into(),
         description: Some("Investigate communication anomalies".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to investigate" },
-                "query": { "type": "string", "description": "Investigation query or description of anomaly" }
-            },
-            "required": ["channel_id", "query"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to investigate"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Investigation query or description of anomaly"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "query"
+                ]
+            }),
     }
 }
 
@@ -85,13 +127,55 @@ fn definition_forensics_timeline() -> ToolDefinition {
         name: "comm_forensics_timeline".into(),
         description: Some("Generate forensic timeline of events".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to generate timeline for" },
-                "max_events": { "type": "integer", "description": "Maximum events to include", "default": 50 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to generate timeline for"
+                    },
+                    "max_events": {
+                        "type": "integer",
+                        "description": "Maximum events to include",
+                        "default": 50
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -140,12 +224,50 @@ fn definition_forensics_evidence() -> ToolDefinition {
         name: "comm_forensics_evidence".into(),
         description: Some("Collect evidence about a communication event".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to collect evidence about" }
-            },
-            "required": ["message_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to collect evidence about"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id"
+                ]
+            }),
     }
 }
 
@@ -195,12 +317,50 @@ fn definition_forensics_report() -> ToolDefinition {
         name: "comm_forensics_report".into(),
         description: Some("Generate forensic report for a channel".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to report on" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to report on"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -266,13 +426,55 @@ fn definition_pattern_detect() -> ToolDefinition {
         name: "comm_pattern_detect".into(),
         description: Some("Detect communication patterns in a channel".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" },
-                "min_occurrences": { "type": "integer", "description": "Minimum pattern occurrences", "default": 2 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "min_occurrences": {
+                        "type": "integer",
+                        "description": "Minimum pattern occurrences",
+                        "default": 2
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -333,13 +535,55 @@ fn definition_pattern_recurring() -> ToolDefinition {
         name: "comm_pattern_recurring".into(),
         description: Some("Find recurring communication patterns".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" },
-                "window_size": { "type": "integer", "description": "Window size for recurring pattern detection", "default": 5 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "window_size": {
+                        "type": "integer",
+                        "description": "Window size for recurring pattern detection",
+                        "default": 5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -385,13 +629,55 @@ fn definition_pattern_anomaly() -> ToolDefinition {
         name: "comm_pattern_anomaly".into(),
         description: Some("Detect anomalous communication patterns".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" },
-                "sensitivity": { "type": "number", "description": "Anomaly detection sensitivity (0.0-1.0)", "default": 0.5 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "sensitivity": {
+                        "type": "number",
+                        "description": "Anomaly detection sensitivity (0.0-1.0)",
+                        "default": 0.5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -459,13 +745,55 @@ fn definition_pattern_predict() -> ToolDefinition {
         name: "comm_pattern_predict".into(),
         description: Some("Predict next communication pattern".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to predict for" },
-                "horizon": { "type": "integer", "description": "Number of future messages to predict", "default": 5 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to predict for"
+                    },
+                    "horizon": {
+                        "type": "integer",
+                        "description": "Number of future messages to predict",
+                        "default": 5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -532,9 +860,43 @@ fn definition_health_status() -> ToolDefinition {
         name: "comm_health_status".into(),
         description: Some("Get overall communication health status".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {}
-        }),
+                "type": "object",
+                "properties": {
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -572,11 +934,47 @@ fn definition_health_diagnose() -> ToolDefinition {
         name: "comm_health_diagnose".into(),
         description: Some("Diagnose communication health issues".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to diagnose (optional, omit for system-wide)" }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to diagnose (optional, omit for system-wide)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -664,11 +1062,47 @@ fn definition_health_prescribe() -> ToolDefinition {
         name: "comm_health_prescribe".into(),
         description: Some("Prescribe actions to improve communication health".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to prescribe for (optional)" }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to prescribe for (optional)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -736,11 +1170,48 @@ fn definition_health_history() -> ToolDefinition {
         name: "comm_health_history".into(),
         description: Some("Get communication health history over time".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "limit": { "type": "integer", "description": "Maximum audit entries to return", "default": 50 }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Maximum audit entries to return",
+                        "default": 50
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -780,13 +1251,54 @@ fn definition_oracle_query() -> ToolDefinition {
         name: "comm_oracle_query".into(),
         description: Some("Query the oracle for communication predictions".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "question": { "type": "string", "description": "Question for the oracle" },
-                "context_channel_id": { "type": "integer", "description": "Channel to use as context (optional)" }
-            },
-            "required": ["question"]
-        }),
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "Question for the oracle"
+                    },
+                    "context_channel_id": {
+                        "type": "integer",
+                        "description": "Channel to use as context (optional)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "question"
+                ]
+            }),
     }
 }
 
@@ -837,12 +1349,52 @@ fn definition_oracle_prophecy() -> ToolDefinition {
         name: "comm_oracle_prophecy".into(),
         description: Some("Get prophecy about future communication state".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "horizon_minutes": { "type": "integer", "description": "How far into the future to predict (minutes)", "default": 60 },
-                "channel_id": { "type": "integer", "description": "Channel to prophesy about (optional)" }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "horizon_minutes": {
+                        "type": "integer",
+                        "description": "How far into the future to predict (minutes)",
+                        "default": 60
+                    },
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to prophesy about (optional)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -872,15 +1424,19 @@ fn handle_oracle_prophecy(args: Value, session: &mut SessionManager) -> Result<T
         if let Some(ch) = store.get_channel(ch_id) {
             let ch_msgs = store.messages.values()
                 .filter(|m| m.channel_id == ch_id).count();
-            prophecy.as_object_mut().unwrap().insert("channel_prophecy".into(), json!({
-                "channel_name": ch.name,
-                "current_messages": ch_msgs,
-                "projected_messages": ch_msgs + ch_msgs / 10 + 1,
-                "participant_count": ch.participants.len()
-            }));
+            if let Some(obj) = prophecy.as_object_mut() {
+                obj.insert("channel_prophecy".into(), json!({
+                    "channel_name": ch.name,
+                    "current_messages": ch_msgs,
+                    "projected_messages": ch_msgs + ch_msgs / 10 + 1,
+                    "participant_count": ch.participants.len()
+                }));
+            }
         }
     }
-    prophecy.as_object_mut().unwrap().insert("status".into(), json!("prophecy_delivered"));
+    if let Some(obj) = prophecy.as_object_mut() {
+        obj.insert("status".into(), json!("prophecy_delivered"));
+    }
     Ok(ToolCallResult::json(&prophecy))
 }
 
@@ -890,13 +1446,55 @@ fn definition_oracle_verify() -> ToolDefinition {
         name: "comm_oracle_verify".into(),
         description: Some("Verify past oracle predictions".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "prediction_type": { "type": "string", "description": "Type of prediction to verify (e.g., 'message_count', 'dead_letters')" },
-                "predicted_value": { "type": "number", "description": "The value that was predicted" }
-            },
-            "required": ["prediction_type", "predicted_value"]
-        }),
+                "type": "object",
+                "properties": {
+                    "prediction_type": {
+                        "type": "string",
+                        "description": "Type of prediction to verify (e.g., 'message_count', 'dead_letters')"
+                    },
+                    "predicted_value": {
+                        "type": "number",
+                        "description": "The value that was predicted"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "prediction_type",
+                    "predicted_value"
+                ]
+            }),
     }
 }
 
@@ -934,12 +1532,53 @@ fn definition_oracle_calibrate() -> ToolDefinition {
         name: "comm_oracle_calibrate".into(),
         description: Some("Calibrate oracle prediction model".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "learning_rate": { "type": "number", "description": "Calibration learning rate (0.0-1.0)", "default": 0.1 },
-                "training_window": { "type": "integer", "description": "Number of recent events to train on", "default": 100 }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "learning_rate": {
+                        "type": "number",
+                        "description": "Calibration learning rate (0.0-1.0)",
+                        "default": 0.1
+                    },
+                    "training_window": {
+                        "type": "integer",
+                        "description": "Number of recent events to train on",
+                        "default": 100
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 

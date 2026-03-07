@@ -26,13 +26,54 @@ fn definition_precognition_predict() -> ToolDefinition {
         name: "comm_precognition_predict".into(),
         description: Some("Predict what message will be sent next".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to predict for" },
-                "sender": { "type": "string", "description": "Agent whose next message to predict" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to predict for"
+                    },
+                    "sender": {
+                        "type": "string",
+                        "description": "Agent whose next message to predict"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -84,15 +125,64 @@ fn definition_precognition_prepare() -> ToolDefinition {
         name: "comm_precognition_prepare".into(),
         description: Some("Prepare a response before message arrives".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to prepare for" },
-                "expected_sender": { "type": "string", "description": "Expected message sender" },
-                "prepared_response": { "type": "string", "description": "Pre-prepared response content" },
-                "responder": { "type": "string", "description": "Agent preparing the response" }
-            },
-            "required": ["channel_id", "prepared_response", "responder"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to prepare for"
+                    },
+                    "expected_sender": {
+                        "type": "string",
+                        "description": "Expected message sender"
+                    },
+                    "prepared_response": {
+                        "type": "string",
+                        "description": "Pre-prepared response content"
+                    },
+                    "responder": {
+                        "type": "string",
+                        "description": "Agent preparing the response"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "prepared_response",
+                    "responder"
+                ]
+            }),
     }
 }
 
@@ -134,13 +224,55 @@ fn definition_precognition_accuracy() -> ToolDefinition {
         name: "comm_precognition_accuracy".into(),
         description: Some("Check prediction accuracy over time".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to check accuracy for" },
-                "window_size": { "type": "integer", "description": "Number of recent messages to analyze", "default": 50 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to check accuracy for"
+                    },
+                    "window_size": {
+                        "type": "integer",
+                        "description": "Number of recent messages to analyze",
+                        "default": 50
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -184,13 +316,55 @@ fn definition_precognition_calibrate() -> ToolDefinition {
         name: "comm_precognition_calibrate".into(),
         description: Some("Calibrate precognition model".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to calibrate for" },
-                "learning_rate": { "type": "number", "description": "Calibration learning rate (0.0-1.0)", "default": 0.1 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to calibrate for"
+                    },
+                    "learning_rate": {
+                        "type": "number",
+                        "description": "Calibration learning rate (0.0-1.0)",
+                        "default": 0.1
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -233,16 +407,68 @@ fn definition_temporal_schedule() -> ToolDefinition {
         name: "comm_temporal_schedule".into(),
         description: Some("Schedule a message for future delivery".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Target channel" },
-                "sender": { "type": "string", "description": "Sender identity" },
-                "content": { "type": "string", "description": "Message content" },
-                "delay_seconds": { "type": "integer", "description": "Delay in seconds from now" },
-                "deliver_at": { "type": "string", "description": "ISO 8601 timestamp for delivery (alternative to delay_seconds)" }
-            },
-            "required": ["channel_id", "sender", "content"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Target channel"
+                    },
+                    "sender": {
+                        "type": "string",
+                        "description": "Sender identity"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Message content"
+                    },
+                    "delay_seconds": {
+                        "type": "integer",
+                        "description": "Delay in seconds from now"
+                    },
+                    "deliver_at": {
+                        "type": "string",
+                        "description": "ISO 8601 timestamp for delivery (alternative to delay_seconds)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "sender",
+                    "content"
+                ]
+            }),
     }
 }
 
@@ -280,13 +506,55 @@ fn definition_temporal_reschedule() -> ToolDefinition {
         name: "comm_temporal_reschedule".into(),
         description: Some("Reschedule a pending message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "temporal_id": { "type": "integer", "description": "ID of the scheduled message" },
-                "new_delay_seconds": { "type": "integer", "description": "New delay in seconds from now" }
-            },
-            "required": ["temporal_id", "new_delay_seconds"]
-        }),
+                "type": "object",
+                "properties": {
+                    "temporal_id": {
+                        "type": "integer",
+                        "description": "ID of the scheduled message"
+                    },
+                    "new_delay_seconds": {
+                        "type": "integer",
+                        "description": "New delay in seconds from now"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "temporal_id",
+                    "new_delay_seconds"
+                ]
+            }),
     }
 }
 
@@ -326,12 +594,50 @@ fn definition_temporal_cancel() -> ToolDefinition {
         name: "comm_temporal_cancel".into(),
         description: Some("Cancel a scheduled message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "temporal_id": { "type": "integer", "description": "ID of the scheduled message to cancel" }
-            },
-            "required": ["temporal_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "temporal_id": {
+                        "type": "integer",
+                        "description": "ID of the scheduled message to cancel"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "temporal_id"
+                ]
+            }),
     }
 }
 
@@ -353,12 +659,47 @@ fn definition_temporal_pending() -> ToolDefinition {
         name: "comm_temporal_pending".into(),
         description: Some("List all pending scheduled messages".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Filter by channel (optional)" },
-                "max_results": { "type": "integer", "description": "Maximum results to return", "default": 50 }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Filter by channel (optional)"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum results to return",
+                        "default": 50
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -397,15 +738,64 @@ fn definition_legacy_compose() -> ToolDefinition {
         name: "comm_legacy_compose".into(),
         description: Some("Compose a legacy message (time-capsule for future)".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel for the legacy message" },
-                "sender": { "type": "string", "description": "Sender identity" },
-                "content": { "type": "string", "description": "Legacy message content" },
-                "context": { "type": "string", "description": "Context or reason for the legacy message" }
-            },
-            "required": ["channel_id", "sender", "content"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel for the legacy message"
+                    },
+                    "sender": {
+                        "type": "string",
+                        "description": "Sender identity"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Legacy message content"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Context or reason for the legacy message"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "sender",
+                    "content"
+                ]
+            }),
     }
 }
 
@@ -439,13 +829,55 @@ fn definition_legacy_seal() -> ToolDefinition {
         name: "comm_legacy_seal".into(),
         description: Some("Seal a legacy message with delivery conditions".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "temporal_id": { "type": "integer", "description": "Legacy message to seal" },
-                "condition": { "type": "string", "description": "Delivery condition (e.g., 'after:2027-01-01', 'event:milestone')" }
-            },
-            "required": ["temporal_id", "condition"]
-        }),
+                "type": "object",
+                "properties": {
+                    "temporal_id": {
+                        "type": "integer",
+                        "description": "Legacy message to seal"
+                    },
+                    "condition": {
+                        "type": "string",
+                        "description": "Delivery condition (e.g., 'after:2027-01-01', 'event:milestone')"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "temporal_id",
+                    "condition"
+                ]
+            }),
     }
 }
 
@@ -475,11 +907,47 @@ fn definition_legacy_list() -> ToolDefinition {
         name: "comm_legacy_list".into(),
         description: Some("List all sealed legacy messages".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "sender": { "type": "string", "description": "Filter by sender (optional)" }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "sender": {
+                        "type": "string",
+                        "description": "Filter by sender (optional)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -513,13 +981,55 @@ fn definition_legacy_unseal() -> ToolDefinition {
         name: "comm_legacy_unseal".into(),
         description: Some("Unseal a legacy message when conditions are met".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "temporal_id": { "type": "integer", "description": "Legacy message to unseal" },
-                "reason": { "type": "string", "description": "Reason for unsealing", "default": "conditions_met" }
-            },
-            "required": ["temporal_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "temporal_id": {
+                        "type": "integer",
+                        "description": "Legacy message to unseal"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Reason for unsealing",
+                        "default": "conditions_met"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "temporal_id"
+                ]
+            }),
     }
 }
 
@@ -556,12 +1066,50 @@ fn definition_dead_letter_resurrect() -> ToolDefinition {
         name: "comm_dead_letter_resurrect".into(),
         description: Some("Attempt to resurrect and redeliver dead letters".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "index": { "type": "integer", "description": "Dead letter index to resurrect" }
-            },
-            "required": ["index"]
-        }),
+                "type": "object",
+                "properties": {
+                    "index": {
+                        "type": "integer",
+                        "description": "Dead letter index to resurrect"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "index"
+                ]
+            }),
     }
 }
 
@@ -589,11 +1137,43 @@ fn definition_dead_letter_analyze() -> ToolDefinition {
         name: "comm_dead_letter_analyze".into(),
         description: Some("Analyze why messages ended up in dead letter queue".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "max_results": { "type": "integer", "description": "Maximum dead letters to analyze", "default": 20 }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Maximum dead letters to analyze",
+                        "default": 20
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -635,11 +1215,48 @@ fn definition_dead_letter_phoenix() -> ToolDefinition {
         name: "comm_dead_letter_phoenix".into(),
         description: Some("Full dead letter recovery with reconstruction".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "max_resurrections": { "type": "integer", "description": "Maximum dead letters to attempt recovery on", "default": 10 }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "max_resurrections": {
+                        "type": "integer",
+                        "description": "Maximum dead letters to attempt recovery on",
+                        "default": 10
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -688,12 +1305,50 @@ fn definition_dead_letter_autopsy() -> ToolDefinition {
         name: "comm_dead_letter_autopsy".into(),
         description: Some("Post-mortem analysis of failed message delivery".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "index": { "type": "integer", "description": "Dead letter index to analyze" }
-            },
-            "required": ["index"]
-        }),
+                "type": "object",
+                "properties": {
+                    "index": {
+                        "type": "integer",
+                        "description": "Dead letter index to analyze"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "index"
+                ]
+            }),
     }
 }
 
@@ -748,16 +1403,70 @@ fn definition_temporal_consensus_propose() -> ToolDefinition {
         name: "comm_temporal_consensus_propose".into(),
         description: Some("Propose a temporal consensus decision to a group".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to propose consensus in" },
-                "proposer": { "type": "string", "description": "Agent proposing the consensus" },
-                "proposal": { "type": "string", "description": "Proposal content to reach consensus on" },
-                "deadline_seconds": { "type": "integer", "description": "Seconds until voting closes", "default": 3600 },
-                "quorum": { "type": "number", "description": "Fraction of participants required (0.0-1.0)", "default": 0.5 }
-            },
-            "required": ["channel_id", "proposer", "proposal"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to propose consensus in"
+                    },
+                    "proposer": {
+                        "type": "string",
+                        "description": "Agent proposing the consensus"
+                    },
+                    "proposal": {
+                        "type": "string",
+                        "description": "Proposal content to reach consensus on"
+                    },
+                    "deadline_seconds": {
+                        "type": "integer",
+                        "description": "Seconds until voting closes",
+                        "default": 3600
+                    },
+                    "quorum": {
+                        "type": "number",
+                        "description": "Fraction of participants required (0.0-1.0)",
+                        "default": 0.5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "proposer",
+                    "proposal"
+                ]
+            }),
     }
 }
 
@@ -800,15 +1509,64 @@ fn definition_temporal_consensus_vote() -> ToolDefinition {
         name: "comm_temporal_consensus_vote".into(),
         description: Some("Cast a vote on a temporal consensus proposal".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "proposal_id": { "type": "integer", "description": "Proposal to vote on (temporal_id)" },
-                "voter": { "type": "string", "description": "Voting agent" },
-                "vote": { "type": "string", "description": "Vote: approve, reject, abstain" },
-                "reason": { "type": "string", "description": "Optional reason for the vote" }
-            },
-            "required": ["proposal_id", "voter", "vote"]
-        }),
+                "type": "object",
+                "properties": {
+                    "proposal_id": {
+                        "type": "integer",
+                        "description": "Proposal to vote on (temporal_id)"
+                    },
+                    "voter": {
+                        "type": "string",
+                        "description": "Voting agent"
+                    },
+                    "vote": {
+                        "type": "string",
+                        "description": "Vote: approve, reject, abstain"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Optional reason for the vote"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "proposal_id",
+                    "voter",
+                    "vote"
+                ]
+            }),
     }
 }
 
@@ -851,12 +1609,50 @@ fn definition_temporal_consensus_status() -> ToolDefinition {
         name: "comm_temporal_consensus_status".into(),
         description: Some("Get status of a temporal consensus proposal".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "proposal_id": { "type": "integer", "description": "Proposal to check status for (temporal_id)" }
-            },
-            "required": ["proposal_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "proposal_id": {
+                        "type": "integer",
+                        "description": "Proposal to check status for (temporal_id)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "proposal_id"
+                ]
+            }),
     }
 }
 
@@ -920,14 +1716,60 @@ fn definition_temporal_consensus_resolve() -> ToolDefinition {
         name: "comm_temporal_consensus_resolve".into(),
         description: Some("Resolve a temporal consensus proposal early".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "proposal_id": { "type": "integer", "description": "Proposal to resolve (temporal_id)" },
-                "resolution": { "type": "string", "description": "Resolution: approve, reject, withdraw" },
-                "resolver": { "type": "string", "description": "Agent resolving the proposal" }
-            },
-            "required": ["proposal_id", "resolution", "resolver"]
-        }),
+                "type": "object",
+                "properties": {
+                    "proposal_id": {
+                        "type": "integer",
+                        "description": "Proposal to resolve (temporal_id)"
+                    },
+                    "resolution": {
+                        "type": "string",
+                        "description": "Resolution: approve, reject, withdraw"
+                    },
+                    "resolver": {
+                        "type": "string",
+                        "description": "Agent resolving the proposal"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "proposal_id",
+                    "resolution",
+                    "resolver"
+                ]
+            }),
     }
 }
 

@@ -25,14 +25,60 @@ fn definition_semantic_graft() -> ToolDefinition {
         name: "comm_semantic_graft".into(),
         description: Some("Graft a semantic fragment onto a message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to graft onto" },
-                "fragment": { "type": "string", "description": "Semantic fragment to graft" },
-                "grafter": { "type": "string", "description": "Identity of the grafting agent" }
-            },
-            "required": ["message_id", "fragment", "grafter"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to graft onto"
+                    },
+                    "fragment": {
+                        "type": "string",
+                        "description": "Semantic fragment to graft"
+                    },
+                    "grafter": {
+                        "type": "string",
+                        "description": "Identity of the grafting agent"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id",
+                    "fragment",
+                    "grafter"
+                ]
+            }),
     }
 }
 
@@ -67,12 +113,50 @@ fn definition_semantic_extract() -> ToolDefinition {
         name: "comm_semantic_extract".into(),
         description: Some("Extract semantic fragments from a message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to extract from" }
-            },
-            "required": ["message_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to extract from"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id"
+                ]
+            }),
     }
 }
 
@@ -100,16 +184,53 @@ fn definition_semantic_merge() -> ToolDefinition {
         name: "comm_semantic_merge".into(),
         description: Some("Merge semantic fragments from multiple messages".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_ids": {
-                    "type": "array",
-                    "items": { "type": "integer" },
-                    "description": "Messages to merge semantics from"
-                }
-            },
-            "required": ["message_ids"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "description": "Messages to merge semantics from"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_ids"
+                ]
+            }),
     }
 }
 
@@ -153,13 +274,55 @@ fn definition_semantic_cluster() -> ToolDefinition {
         name: "comm_semantic_cluster".into(),
         description: Some("Cluster messages by semantic similarity".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to cluster messages from" },
-                "max_clusters": { "type": "integer", "description": "Maximum number of clusters", "default": 5 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to cluster messages from"
+                    },
+                    "max_clusters": {
+                        "type": "integer",
+                        "description": "Maximum number of clusters",
+                        "default": 5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -210,12 +373,50 @@ fn definition_echo_chamber_detect() -> ToolDefinition {
         name: "comm_echo_chamber_detect".into(),
         description: Some("Detect echo chamber patterns in a channel".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -260,13 +461,55 @@ fn definition_echo_chamber_analyze() -> ToolDefinition {
         name: "comm_echo_chamber_analyze".into(),
         description: Some("Analyze echo chamber dynamics".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" },
-                "depth": { "type": "integer", "description": "Analysis depth (message count)", "default": 100 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "depth": {
+                        "type": "integer",
+                        "description": "Analysis depth (message count)",
+                        "default": 100
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -312,13 +555,55 @@ fn definition_echo_chamber_break() -> ToolDefinition {
         name: "comm_echo_chamber_break".into(),
         description: Some("Suggest interventions to break echo chambers".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel with echo chamber" },
-                "strategy": { "type": "string", "description": "Strategy: diversify, challenge, bridge", "default": "diversify" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel with echo chamber"
+                    },
+                    "strategy": {
+                        "type": "string",
+                        "description": "Strategy: diversify, challenge, bridge",
+                        "default": "diversify"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -375,12 +660,50 @@ fn definition_echo_chamber_health() -> ToolDefinition {
         name: "comm_echo_chamber_health".into(),
         description: Some("Get echo chamber health score".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to assess" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to assess"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -431,17 +754,58 @@ fn definition_ghost_create() -> ToolDefinition {
         name: "comm_ghost_create".into(),
         description: Some("Create a ghost conversation invisible to non-participants".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "participants": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Agents who can see this ghost conversation"
+                "type": "object",
+                "properties": {
+                    "participants": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Agents who can see this ghost conversation"
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Ghost conversation topic"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
                 },
-                "topic": { "type": "string", "description": "Ghost conversation topic" }
-            },
-            "required": ["participants", "topic"]
-        }),
+                "required": [
+                    "participants",
+                    "topic"
+                ]
+            }),
     }
 }
 
@@ -489,17 +853,58 @@ fn definition_ghost_reveal() -> ToolDefinition {
         name: "comm_ghost_reveal".into(),
         description: Some("Reveal a ghost conversation to specified agents".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Ghost channel to reveal" },
-                "reveal_to": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Agents to reveal the ghost conversation to"
-                }
-            },
-            "required": ["channel_id", "reveal_to"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Ghost channel to reveal"
+                    },
+                    "reveal_to": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Agents to reveal the ghost conversation to"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "reveal_to"
+                ]
+            }),
     }
 }
 
@@ -536,11 +941,47 @@ fn definition_ghost_list() -> ToolDefinition {
         name: "comm_ghost_list".into(),
         description: Some("List all ghost conversations".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Optional: filter by participant agent" }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Optional: filter by participant agent"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -571,12 +1012,50 @@ fn definition_ghost_dissolve() -> ToolDefinition {
         name: "comm_ghost_dissolve".into(),
         description: Some("Dissolve a ghost conversation".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Ghost channel to dissolve" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Ghost channel to dissolve"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -614,15 +1093,65 @@ fn definition_metamessage_encode() -> ToolDefinition {
         name: "comm_metamessage_encode".into(),
         description: Some("Encode a metamessage (message about messages)".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "target_message_id": { "type": "integer", "description": "Message this metamessage is about" },
-                "meta_type": { "type": "string", "description": "Metamessage type: annotation, correction, context, sentiment" },
-                "content": { "type": "string", "description": "Metamessage content" },
-                "author": { "type": "string", "description": "Metamessage author" }
-            },
-            "required": ["target_message_id", "meta_type", "content", "author"]
-        }),
+                "type": "object",
+                "properties": {
+                    "target_message_id": {
+                        "type": "integer",
+                        "description": "Message this metamessage is about"
+                    },
+                    "meta_type": {
+                        "type": "string",
+                        "description": "Metamessage type: annotation, correction, context, sentiment"
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Metamessage content"
+                    },
+                    "author": {
+                        "type": "string",
+                        "description": "Metamessage author"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "target_message_id",
+                    "meta_type",
+                    "content",
+                    "author"
+                ]
+            }),
     }
 }
 
@@ -659,12 +1188,50 @@ fn definition_metamessage_decode() -> ToolDefinition {
         name: "comm_metamessage_decode".into(),
         description: Some("Decode metamessages from a conversation".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to decode metamessages for" }
-            },
-            "required": ["message_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to decode metamessages for"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id"
+                ]
+            }),
     }
 }
 
@@ -709,13 +1276,54 @@ fn definition_metamessage_trace() -> ToolDefinition {
         name: "comm_metamessage_trace".into(),
         description: Some("Trace metamessage patterns".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to trace metamessage patterns in" },
-                "meta_type": { "type": "string", "description": "Optional: filter by metamessage type" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to trace metamessage patterns in"
+                    },
+                    "meta_type": {
+                        "type": "string",
+                        "description": "Optional: filter by metamessage type"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -772,15 +1380,65 @@ fn definition_metamessage_inject() -> ToolDefinition {
         name: "comm_metamessage_inject".into(),
         description: Some("Inject metamessage context into a conversation".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to inject into" },
-                "context": { "type": "string", "description": "Context to inject" },
-                "meta_type": { "type": "string", "description": "Type of context: background, correction, clarification", "default": "context" },
-                "injector": { "type": "string", "description": "Agent injecting the context" }
-            },
-            "required": ["channel_id", "context", "injector"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to inject into"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Context to inject"
+                    },
+                    "meta_type": {
+                        "type": "string",
+                        "description": "Type of context: background, correction, clarification",
+                        "default": "context"
+                    },
+                    "injector": {
+                        "type": "string",
+                        "description": "Agent injecting the context"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "context",
+                    "injector"
+                ]
+            }),
     }
 }
 
@@ -818,15 +1476,64 @@ fn definition_fork_create() -> ToolDefinition {
         name: "comm_fork_create".into(),
         description: Some("Create a conversation fork to explore alternative directions".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to fork" },
-                "fork_point_message_id": { "type": "integer", "description": "Message ID where the fork diverges" },
-                "label": { "type": "string", "description": "Label for this fork branch" },
-                "creator": { "type": "string", "description": "Agent creating the fork" }
-            },
-            "required": ["channel_id", "label", "creator"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to fork"
+                    },
+                    "fork_point_message_id": {
+                        "type": "integer",
+                        "description": "Message ID where the fork diverges"
+                    },
+                    "label": {
+                        "type": "string",
+                        "description": "Label for this fork branch"
+                    },
+                    "creator": {
+                        "type": "string",
+                        "description": "Agent creating the fork"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "label",
+                    "creator"
+                ]
+            }),
     }
 }
 
@@ -880,13 +1587,55 @@ fn definition_fork_explore() -> ToolDefinition {
         name: "comm_fork_explore".into(),
         description: Some("Explore an existing conversation fork".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "fork_channel_id": { "type": "integer", "description": "Fork channel to explore" },
-                "max_messages": { "type": "integer", "description": "Maximum messages to return", "default": 50 }
-            },
-            "required": ["fork_channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "fork_channel_id": {
+                        "type": "integer",
+                        "description": "Fork channel to explore"
+                    },
+                    "max_messages": {
+                        "type": "integer",
+                        "description": "Maximum messages to return",
+                        "default": 50
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "fork_channel_id"
+                ]
+            }),
     }
 }
 
@@ -934,14 +1683,60 @@ fn definition_fork_merge() -> ToolDefinition {
         name: "comm_fork_merge".into(),
         description: Some("Merge a conversation fork back into the main conversation".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "fork_channel_id": { "type": "integer", "description": "Fork channel to merge" },
-                "target_channel_id": { "type": "integer", "description": "Target channel to merge into" },
-                "strategy": { "type": "string", "description": "Merge strategy: append, interleave, summarize", "default": "append" }
-            },
-            "required": ["fork_channel_id", "target_channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "fork_channel_id": {
+                        "type": "integer",
+                        "description": "Fork channel to merge"
+                    },
+                    "target_channel_id": {
+                        "type": "integer",
+                        "description": "Target channel to merge into"
+                    },
+                    "strategy": {
+                        "type": "string",
+                        "description": "Merge strategy: append, interleave, summarize",
+                        "default": "append"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "fork_channel_id",
+                    "target_channel_id"
+                ]
+            }),
     }
 }
 
@@ -982,11 +1777,47 @@ fn definition_fork_list() -> ToolDefinition {
         name: "comm_fork_list".into(),
         description: Some("List all conversation forks".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "source_channel_id": { "type": "integer", "description": "Optional: filter forks by source channel" }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "source_channel_id": {
+                        "type": "integer",
+                        "description": "Optional: filter forks by source channel"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 

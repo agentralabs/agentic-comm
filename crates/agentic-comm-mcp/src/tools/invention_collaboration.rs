@@ -26,12 +26,50 @@ fn definition_hive_consciousness_status() -> ToolDefinition {
         name: "comm_hive_consciousness_status".into(),
         description: Some("Get consciousness status of a hive mind collective".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "hive_id": { "type": "integer", "description": "Hive mind identifier" }
-            },
-            "required": ["hive_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "hive_id": {
+                        "type": "integer",
+                        "description": "Hive mind identifier"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "hive_id"
+                ]
+            }),
     }
 }
 
@@ -62,13 +100,55 @@ fn definition_hive_consciousness_sync() -> ToolDefinition {
         name: "comm_hive_consciousness_sync".into(),
         description: Some("Synchronize consciousness state across hive members".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "hive_id": { "type": "integer", "description": "Hive mind identifier" },
-                "target_coherence": { "type": "number", "description": "Target coherence level (0.0-1.0)", "default": 1.0 }
-            },
-            "required": ["hive_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "hive_id": {
+                        "type": "integer",
+                        "description": "Hive mind identifier"
+                    },
+                    "target_coherence": {
+                        "type": "number",
+                        "description": "Target coherence level (0.0-1.0)",
+                        "default": 1.0
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "hive_id"
+                ]
+            }),
     }
 }
 
@@ -98,13 +178,55 @@ fn definition_hive_consciousness_merge() -> ToolDefinition {
         name: "comm_hive_consciousness_merge".into(),
         description: Some("Merge two hive collectives into one".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "source_hive_id": { "type": "integer", "description": "Hive to merge from" },
-                "target_hive_id": { "type": "integer", "description": "Hive to merge into" }
-            },
-            "required": ["source_hive_id", "target_hive_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "source_hive_id": {
+                        "type": "integer",
+                        "description": "Hive to merge from"
+                    },
+                    "target_hive_id": {
+                        "type": "integer",
+                        "description": "Hive to merge into"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "source_hive_id",
+                    "target_hive_id"
+                ]
+            }),
     }
 }
 
@@ -140,13 +262,55 @@ fn definition_hive_consciousness_split() -> ToolDefinition {
         name: "comm_hive_consciousness_split".into(),
         description: Some("Split a hive collective into sub-groups".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "hive_id": { "type": "integer", "description": "Hive to split" },
-                "group_count": { "type": "integer", "description": "Number of sub-groups", "default": 2 }
-            },
-            "required": ["hive_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "hive_id": {
+                        "type": "integer",
+                        "description": "Hive to split"
+                    },
+                    "group_count": {
+                        "type": "integer",
+                        "description": "Number of sub-groups",
+                        "default": 2
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "hive_id"
+                ]
+            }),
     }
 }
 
@@ -180,14 +344,55 @@ fn definition_collective_intelligence_query() -> ToolDefinition {
         name: "comm_collective_intelligence_query".into(),
         description: Some("Query the collective intelligence of a channel".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to query" },
-                "query": { "type": "string", "description": "Intelligence query" },
-                "max_results": { "type": "integer", "description": "Max results to return", "default": 10 }
-            },
-            "required": ["channel_id", "query"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to query"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "Intelligence query"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Max results to return",
+                        "default": 10
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "query"
+                ]
+            }),
     }
 }
 
@@ -234,15 +439,65 @@ fn definition_collective_intelligence_contribute() -> ToolDefinition {
         name: "comm_collective_intelligence_contribute".into(),
         description: Some("Contribute knowledge to collective pool".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to contribute to" },
-                "knowledge": { "type": "string", "description": "Knowledge to contribute" },
-                "contributor": { "type": "string", "description": "Contributing agent identity" },
-                "confidence": { "type": "number", "description": "Confidence in this knowledge (0.0-1.0)", "default": 0.8 }
-            },
-            "required": ["channel_id", "knowledge", "contributor"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to contribute to"
+                    },
+                    "knowledge": {
+                        "type": "string",
+                        "description": "Knowledge to contribute"
+                    },
+                    "contributor": {
+                        "type": "string",
+                        "description": "Contributing agent identity"
+                    },
+                    "confidence": {
+                        "type": "number",
+                        "description": "Confidence in this knowledge (0.0-1.0)",
+                        "default": 0.8
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "knowledge",
+                    "contributor"
+                ]
+            }),
     }
 }
 
@@ -277,13 +532,55 @@ fn definition_collective_intelligence_consensus() -> ToolDefinition {
         name: "comm_collective_intelligence_consensus".into(),
         description: Some("Find consensus across collective members".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" },
-                "topic": { "type": "string", "description": "Topic to find consensus on" }
-            },
-            "required": ["channel_id", "topic"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic to find consensus on"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "topic"
+                ]
+            }),
     }
 }
 
@@ -326,13 +623,55 @@ fn definition_collective_intelligence_dissent() -> ToolDefinition {
         name: "comm_collective_intelligence_dissent".into(),
         description: Some("Identify dissenting views in collective".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to analyze" },
-                "topic": { "type": "string", "description": "Topic to check for dissent" }
-            },
-            "required": ["channel_id", "topic"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to analyze"
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic to check for dissent"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "topic"
+                ]
+            }),
     }
 }
 
@@ -382,12 +721,50 @@ fn definition_ancestor_trace() -> ToolDefinition {
         name: "comm_ancestor_trace".into(),
         description: Some("Trace message ancestry through forwarding chains".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to trace ancestry for" }
-            },
-            "required": ["message_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to trace ancestry for"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id"
+                ]
+            }),
     }
 }
 
@@ -421,13 +798,55 @@ fn definition_ancestor_inherit() -> ToolDefinition {
         name: "comm_ancestor_inherit".into(),
         description: Some("Inherit communication patterns from ancestor messages".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to inherit patterns from" },
-                "target_channel_id": { "type": "integer", "description": "Channel to apply inherited patterns to" }
-            },
-            "required": ["message_id", "target_channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to inherit patterns from"
+                    },
+                    "target_channel_id": {
+                        "type": "integer",
+                        "description": "Channel to apply inherited patterns to"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id",
+                    "target_channel_id"
+                ]
+            }),
     }
 }
 
@@ -463,13 +882,55 @@ fn definition_ancestor_lineage() -> ToolDefinition {
         name: "comm_ancestor_lineage".into(),
         description: Some("Get full lineage of a message thread".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "thread_id": { "type": "string", "description": "Thread identifier" },
-                "max_depth": { "type": "integer", "description": "Maximum lineage depth", "default": 50 }
-            },
-            "required": ["thread_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "thread_id": {
+                        "type": "string",
+                        "description": "Thread identifier"
+                    },
+                    "max_depth": {
+                        "type": "integer",
+                        "description": "Maximum lineage depth",
+                        "default": 50
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "thread_id"
+                ]
+            }),
     }
 }
 
@@ -504,13 +965,55 @@ fn definition_ancestor_verify() -> ToolDefinition {
         name: "comm_ancestor_verify".into(),
         description: Some("Verify ancestry claims on a message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to verify ancestry for" },
-                "claimed_ancestor_id": { "type": "integer", "description": "Claimed ancestor message ID" }
-            },
-            "required": ["message_id", "claimed_ancestor_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to verify ancestry for"
+                    },
+                    "claimed_ancestor_id": {
+                        "type": "integer",
+                        "description": "Claimed ancestor message ID"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id",
+                    "claimed_ancestor_id"
+                ]
+            }),
     }
 }
 
@@ -561,14 +1064,60 @@ fn definition_telepathy_link() -> ToolDefinition {
         name: "comm_telepathy_link".into(),
         description: Some("Create a telepathic link between two agents".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent_a": { "type": "string", "description": "First agent identity" },
-                "agent_b": { "type": "string", "description": "Second agent identity" },
-                "strength": { "type": "number", "description": "Link strength (0.0-1.0)", "default": 0.8 }
-            },
-            "required": ["agent_a", "agent_b"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent_a": {
+                        "type": "string",
+                        "description": "First agent identity"
+                    },
+                    "agent_b": {
+                        "type": "string",
+                        "description": "Second agent identity"
+                    },
+                    "strength": {
+                        "type": "number",
+                        "description": "Link strength (0.0-1.0)",
+                        "default": 0.8
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent_a",
+                    "agent_b"
+                ]
+            }),
     }
 }
 
@@ -605,14 +1154,60 @@ fn definition_telepathy_broadcast() -> ToolDefinition {
         name: "comm_telepathy_broadcast".into(),
         description: Some("Broadcast through telepathic links".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "sender": { "type": "string", "description": "Broadcasting agent" },
-                "thought": { "type": "string", "description": "Thought to broadcast" },
-                "intensity": { "type": "number", "description": "Broadcast intensity (0.0-1.0)", "default": 0.5 }
-            },
-            "required": ["sender", "thought"]
-        }),
+                "type": "object",
+                "properties": {
+                    "sender": {
+                        "type": "string",
+                        "description": "Broadcasting agent"
+                    },
+                    "thought": {
+                        "type": "string",
+                        "description": "Thought to broadcast"
+                    },
+                    "intensity": {
+                        "type": "number",
+                        "description": "Broadcast intensity (0.0-1.0)",
+                        "default": 0.5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "sender",
+                    "thought"
+                ]
+            }),
     }
 }
 
@@ -644,13 +1239,54 @@ fn definition_telepathy_listen() -> ToolDefinition {
         name: "comm_telepathy_listen".into(),
         description: Some("Listen for telepathic broadcasts".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "listener": { "type": "string", "description": "Listening agent identity" },
-                "filter_sender": { "type": "string", "description": "Optional: only listen to specific sender" }
-            },
-            "required": ["listener"]
-        }),
+                "type": "object",
+                "properties": {
+                    "listener": {
+                        "type": "string",
+                        "description": "Listening agent identity"
+                    },
+                    "filter_sender": {
+                        "type": "string",
+                        "description": "Optional: only listen to specific sender"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "listener"
+                ]
+            }),
     }
 }
 
@@ -684,17 +1320,58 @@ fn definition_telepathy_consensus() -> ToolDefinition {
         name: "comm_telepathy_consensus".into(),
         description: Some("Find consensus across telepathic network".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "network_agents": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Agents in the telepathic network"
+                "type": "object",
+                "properties": {
+                    "network_agents": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Agents in the telepathic network"
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic to find consensus on"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
                 },
-                "topic": { "type": "string", "description": "Topic to find consensus on" }
-            },
-            "required": ["network_agents", "topic"]
-        }),
+                "required": [
+                    "network_agents",
+                    "topic"
+                ]
+            }),
     }
 }
 
@@ -760,17 +1437,58 @@ fn definition_silence_enter() -> ToolDefinition {
         name: "comm_silence_enter".into(),
         description: Some("Enter silent communion with another agent".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent_ids": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Agents to enter silent communion with"
+                "type": "object",
+                "properties": {
+                    "agent_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Agents to enter silent communion with"
+                    },
+                    "depth": {
+                        "type": "number",
+                        "description": "Communion depth (0.0-1.0)",
+                        "default": 0.5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
                 },
-                "depth": { "type": "number", "description": "Communion depth (0.0-1.0)", "default": 0.5 }
-            },
-            "required": ["agent_ids"]
-        }),
+                "required": [
+                    "agent_ids"
+                ]
+            }),
     }
 }
 
@@ -813,15 +1531,62 @@ fn definition_silence_presence() -> ToolDefinition {
         name: "comm_silence_presence".into(),
         description: Some("Share presence state silently in communion".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent sharing presence" },
-                "valence": { "type": "number", "description": "Emotional valence (-1.0 to 1.0)" },
-                "arousal": { "type": "number", "description": "Emotional arousal (0.0 to 1.0)" },
-                "intention": { "type": "string", "description": "Wordless intention signal" }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent sharing presence"
+                    },
+                    "valence": {
+                        "type": "number",
+                        "description": "Emotional valence (-1.0 to 1.0)"
+                    },
+                    "arousal": {
+                        "type": "number",
+                        "description": "Emotional arousal (0.0 to 1.0)"
+                    },
+                    "intention": {
+                        "type": "string",
+                        "description": "Wordless intention signal"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -862,13 +1627,55 @@ fn definition_silence_attend() -> ToolDefinition {
         name: "comm_silence_attend".into(),
         description: Some("Attend to shared silent space".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Attending agent" },
-                "focus": { "type": "string", "description": "Focus of attention: presence, emotion, intention", "default": "presence" }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Attending agent"
+                    },
+                    "focus": {
+                        "type": "string",
+                        "description": "Focus of attention: presence, emotion, intention",
+                        "default": "presence"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -920,13 +1727,54 @@ fn definition_silence_leave() -> ToolDefinition {
         name: "comm_silence_leave".into(),
         description: Some("Leave silent communion".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent leaving communion" },
-                "meld_session_id": { "type": "string", "description": "Optional: specific communion to leave" }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent leaving communion"
+                    },
+                    "meld_session_id": {
+                        "type": "string",
+                        "description": "Optional: specific communion to leave"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -958,18 +1806,63 @@ fn definition_mind_meld_initiate() -> ToolDefinition {
         name: "comm_mind_meld_initiate".into(),
         description: Some("Initiate deep cognitive fusion between agents".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent_ids": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Agents to fuse cognitively"
+                "type": "object",
+                "properties": {
+                    "agent_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Agents to fuse cognitively"
+                    },
+                    "depth": {
+                        "type": "string",
+                        "description": "Meld depth: surface, deep, total",
+                        "default": "deep"
+                    },
+                    "duration_ms": {
+                        "type": "integer",
+                        "description": "Meld duration in milliseconds",
+                        "default": 3600000
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
                 },
-                "depth": { "type": "string", "description": "Meld depth: surface, deep, total", "default": "deep" },
-                "duration_ms": { "type": "integer", "description": "Meld duration in milliseconds", "default": 3600000 }
-            },
-            "required": ["agent_ids"]
-        }),
+                "required": [
+                    "agent_ids"
+                ]
+            }),
     }
 }
 
@@ -1020,18 +1913,61 @@ fn definition_mind_meld_sync() -> ToolDefinition {
         name: "comm_mind_meld_sync".into(),
         description: Some("Synchronize cognitive state during mind meld".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "meld_session_id": { "type": "string", "description": "Meld session to sync" },
-                "sync_dimensions": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Dimensions to sync: affect, knowledge, intent, memory",
-                    "default": ["affect", "intent"]
-                }
-            },
-            "required": ["meld_session_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "meld_session_id": {
+                        "type": "string",
+                        "description": "Meld session to sync"
+                    },
+                    "sync_dimensions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Dimensions to sync: affect, knowledge, intent, memory",
+                        "default": [
+                            "affect",
+                            "intent"
+                        ]
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "meld_session_id"
+                ]
+            }),
     }
 }
 
@@ -1099,12 +2035,50 @@ fn definition_mind_meld_status() -> ToolDefinition {
         name: "comm_mind_meld_status".into(),
         description: Some("Check meld depth and coherence".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "meld_session_id": { "type": "string", "description": "Meld session to check" }
-            },
-            "required": ["meld_session_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "meld_session_id": {
+                        "type": "string",
+                        "description": "Meld session to check"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "meld_session_id"
+                ]
+            }),
     }
 }
 
@@ -1156,13 +2130,55 @@ fn definition_mind_meld_separate() -> ToolDefinition {
         name: "comm_mind_meld_separate".into(),
         description: Some("Separate from mind meld".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "meld_session_id": { "type": "string", "description": "Meld session to separate from" },
-                "gradual": { "type": "boolean", "description": "Gradual separation vs immediate", "default": true }
-            },
-            "required": ["meld_session_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "meld_session_id": {
+                        "type": "string",
+                        "description": "Meld session to separate from"
+                    },
+                    "gradual": {
+                        "type": "boolean",
+                        "description": "Gradual separation vs immediate",
+                        "default": true
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "meld_session_id"
+                ]
+            }),
     }
 }
 
@@ -1199,13 +2215,55 @@ fn definition_dream_start() -> ToolDefinition {
         name: "comm_dream_start".into(),
         description: Some("Start a collective dream session for a hive".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "hive_id": { "type": "integer", "description": "Hive mind to dream with" },
-                "dream_type": { "type": "string", "description": "Dream type: exploration, consolidation, creative, prophetic", "default": "exploration" }
-            },
-            "required": ["hive_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "hive_id": {
+                        "type": "integer",
+                        "description": "Hive mind to dream with"
+                    },
+                    "dream_type": {
+                        "type": "string",
+                        "description": "Dream type: exploration, consolidation, creative, prophetic",
+                        "default": "exploration"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "hive_id"
+                ]
+            }),
     }
 }
 
@@ -1251,15 +2309,65 @@ fn definition_dream_contribute() -> ToolDefinition {
         name: "comm_dream_contribute".into(),
         description: Some("Contribute to a shared collective dream".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "hive_id": { "type": "integer", "description": "Hive mind in dream session" },
-                "agent": { "type": "string", "description": "Contributing agent" },
-                "fragment": { "type": "string", "description": "Dream fragment to contribute" },
-                "intensity": { "type": "number", "description": "Fragment intensity (0.0-1.0)", "default": 0.5 }
-            },
-            "required": ["hive_id", "agent", "fragment"]
-        }),
+                "type": "object",
+                "properties": {
+                    "hive_id": {
+                        "type": "integer",
+                        "description": "Hive mind in dream session"
+                    },
+                    "agent": {
+                        "type": "string",
+                        "description": "Contributing agent"
+                    },
+                    "fragment": {
+                        "type": "string",
+                        "description": "Dream fragment to contribute"
+                    },
+                    "intensity": {
+                        "type": "number",
+                        "description": "Fragment intensity (0.0-1.0)",
+                        "default": 0.5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "hive_id",
+                    "agent",
+                    "fragment"
+                ]
+            }),
     }
 }
 
@@ -1298,13 +2406,55 @@ fn definition_dream_insights() -> ToolDefinition {
         name: "comm_dream_insights".into(),
         description: Some("Extract insights from collective dream".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "hive_id": { "type": "integer", "description": "Hive mind to extract insights from" },
-                "max_insights": { "type": "integer", "description": "Maximum insights to return", "default": 10 }
-            },
-            "required": ["hive_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "hive_id": {
+                        "type": "integer",
+                        "description": "Hive mind to extract insights from"
+                    },
+                    "max_insights": {
+                        "type": "integer",
+                        "description": "Maximum insights to return",
+                        "default": 10
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "hive_id"
+                ]
+            }),
     }
 }
 
@@ -1322,7 +2472,7 @@ fn handle_dream_insights(args: Value, session: &mut SessionManager) -> Result<To
     for member in &members {
         let history = store.get_affect_history(member);
         if !history.states.is_empty() {
-            let recent = history.states.last().unwrap();
+            let Some(recent) = history.states.last() else { continue };
             total_valence += recent.valence;
             count += 1;
             if insights.len() < max_insights {
@@ -1358,13 +2508,55 @@ fn definition_dream_wake() -> ToolDefinition {
         name: "comm_dream_wake".into(),
         description: Some("End collective dream session".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "hive_id": { "type": "integer", "description": "Hive mind to wake from dream" },
-                "apply_insights": { "type": "boolean", "description": "Apply dream insights to hive state", "default": true }
-            },
-            "required": ["hive_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "hive_id": {
+                        "type": "integer",
+                        "description": "Hive mind to wake from dream"
+                    },
+                    "apply_insights": {
+                        "type": "boolean",
+                        "description": "Apply dream insights to hive state",
+                        "default": true
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "hive_id"
+                ]
+            }),
     }
 }
 

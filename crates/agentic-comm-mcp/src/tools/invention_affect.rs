@@ -25,11 +25,47 @@ fn definition_affect_contagion_model() -> ToolDefinition {
         name: "comm_affect_contagion_model".into(),
         description: Some("Get the current contagion model parameters".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Optional: scope to a specific channel" }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Optional: scope to a specific channel"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -76,16 +112,70 @@ fn definition_affect_contagion_simulate() -> ToolDefinition {
         name: "comm_affect_contagion_simulate".into(),
         description: Some("Simulate affect spread across a channel".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to simulate" },
-                "source_agent": { "type": "string", "description": "Agent originating the affect" },
-                "source_valence": { "type": "number", "description": "Valence of the source affect (-1.0 to 1.0)" },
-                "source_arousal": { "type": "number", "description": "Arousal of the source affect (0.0 to 1.0)" },
-                "steps": { "type": "integer", "description": "Simulation steps", "default": 5 }
-            },
-            "required": ["channel_id", "source_agent", "source_valence", "source_arousal"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to simulate"
+                    },
+                    "source_agent": {
+                        "type": "string",
+                        "description": "Agent originating the affect"
+                    },
+                    "source_valence": {
+                        "type": "number",
+                        "description": "Valence of the source affect (-1.0 to 1.0)"
+                    },
+                    "source_arousal": {
+                        "type": "number",
+                        "description": "Arousal of the source affect (0.0 to 1.0)"
+                    },
+                    "steps": {
+                        "type": "integer",
+                        "description": "Simulation steps",
+                        "default": 5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "source_agent",
+                    "source_valence",
+                    "source_arousal"
+                ]
+            }),
     }
 }
 
@@ -147,12 +237,50 @@ fn definition_affect_contagion_immunize() -> ToolDefinition {
         name: "comm_affect_contagion_immunize".into(),
         description: Some("Set immunity to affect contagion for an agent".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "resistance": { "type": "number", "description": "Global resistance level (0.0 = fully susceptible, 1.0 = immune)" }
-            },
-            "required": ["resistance"]
-        }),
+                "type": "object",
+                "properties": {
+                    "resistance": {
+                        "type": "number",
+                        "description": "Global resistance level (0.0 = fully susceptible, 1.0 = immune)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "resistance"
+                ]
+            }),
     }
 }
 
@@ -175,11 +303,48 @@ fn definition_affect_contagion_outbreak() -> ToolDefinition {
         name: "comm_affect_contagion_outbreak".into(),
         description: Some("Detect affect outbreaks in conversations".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "threshold": { "type": "number", "description": "Arousal threshold for outbreak detection (0.0-1.0)", "default": 0.7 }
-            }
-        }),
+                "type": "object",
+                "properties": {
+                    "threshold": {
+                        "type": "number",
+                        "description": "Arousal threshold for outbreak detection (0.0-1.0)",
+                        "default": 0.7
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                }
+            }),
     }
 }
 
@@ -219,13 +384,54 @@ fn definition_affect_archaeology_dig() -> ToolDefinition {
         name: "comm_affect_archaeology_dig".into(),
         description: Some("Search for historical affect patterns".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent to dig affect history for" },
-                "emotion_filter": { "type": "string", "description": "Optional: filter by emotion name" }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent to dig affect history for"
+                    },
+                    "emotion_filter": {
+                        "type": "string",
+                        "description": "Optional: filter by emotion name"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -264,14 +470,60 @@ fn definition_affect_archaeology_reconstruct() -> ToolDefinition {
         name: "comm_affect_archaeology_reconstruct".into(),
         description: Some("Reconstruct lost affect states".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent to reconstruct affect for" },
-                "start_timestamp": { "type": "integer", "description": "Start of reconstruction window (epoch seconds)" },
-                "end_timestamp": { "type": "integer", "description": "End of reconstruction window (epoch seconds)" }
-            },
-            "required": ["agent", "start_timestamp", "end_timestamp"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent to reconstruct affect for"
+                    },
+                    "start_timestamp": {
+                        "type": "integer",
+                        "description": "Start of reconstruction window (epoch seconds)"
+                    },
+                    "end_timestamp": {
+                        "type": "integer",
+                        "description": "End of reconstruction window (epoch seconds)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent",
+                    "start_timestamp",
+                    "end_timestamp"
+                ]
+            }),
     }
 }
 
@@ -350,13 +602,55 @@ fn definition_affect_archaeology_timeline() -> ToolDefinition {
         name: "comm_affect_archaeology_timeline".into(),
         description: Some("Get affect timeline for a channel".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to get timeline for" },
-                "limit": { "type": "integer", "description": "Max entries to return", "default": 50 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to get timeline for"
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max entries to return",
+                        "default": 50
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -404,13 +698,55 @@ fn definition_affect_archaeology_artifacts() -> ToolDefinition {
         name: "comm_affect_archaeology_artifacts".into(),
         description: Some("Find affect artifacts near a message".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message to find nearby affect artifacts for" },
-                "window_seconds": { "type": "integer", "description": "Time window around the message (seconds)", "default": 300 }
-            },
-            "required": ["message_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message to find nearby affect artifacts for"
+                    },
+                    "window_seconds": {
+                        "type": "integer",
+                        "description": "Time window around the message (seconds)",
+                        "default": 300
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id"
+                ]
+            }),
     }
 }
 
@@ -481,13 +817,55 @@ fn definition_affect_prophecy_predict() -> ToolDefinition {
         name: "comm_affect_prophecy_predict".into(),
         description: Some("Predict future affect states".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent to predict affect for" },
-                "horizon_seconds": { "type": "integer", "description": "Prediction horizon in seconds", "default": 3600 }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent to predict affect for"
+                    },
+                    "horizon_seconds": {
+                        "type": "integer",
+                        "description": "Prediction horizon in seconds",
+                        "default": 3600
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -500,8 +878,9 @@ fn handle_affect_prophecy_predict(args: Value, session: &mut SessionManager) -> 
     // Simple linear prediction based on trend in history
     let recent: Vec<&agentic_comm::types::AffectHistoryEntry> = history.states.iter().rev().take(5).collect();
     let (predicted_valence, predicted_arousal, confidence) = if recent.len() >= 2 {
-        let first = recent.last().unwrap();
-        let last = recent.first().unwrap();
+        // Safe: recent.len() >= 2 guarantees first() and last() are Some
+        let first = &recent[recent.len() - 1];
+        let last = &recent[0];
         let valence_trend = last.valence - first.valence;
         let arousal_trend = last.arousal - first.arousal;
         let time_span = if last.timestamp > first.timestamp { (last.timestamp - first.timestamp) as f64 } else { 1.0 };
@@ -536,14 +915,60 @@ fn definition_affect_prophecy_warn() -> ToolDefinition {
         name: "comm_affect_prophecy_warn".into(),
         description: Some("Get early warnings for affect crises".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to monitor" },
-                "valence_threshold": { "type": "number", "description": "Negative valence threshold for crisis (-1.0 to 0.0)", "default": -0.5 },
-                "arousal_threshold": { "type": "number", "description": "Arousal threshold for crisis (0.0 to 1.0)", "default": 0.8 }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to monitor"
+                    },
+                    "valence_threshold": {
+                        "type": "number",
+                        "description": "Negative valence threshold for crisis (-1.0 to 0.0)",
+                        "default": -0.5
+                    },
+                    "arousal_threshold": {
+                        "type": "number",
+                        "description": "Arousal threshold for crisis (0.0 to 1.0)",
+                        "default": 0.8
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -600,13 +1025,55 @@ fn definition_affect_prophecy_track() -> ToolDefinition {
         name: "comm_affect_prophecy_track".into(),
         description: Some("Track prophecy accuracy over time".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent whose prophecy accuracy to track" },
-                "lookback_entries": { "type": "integer", "description": "Number of history entries to analyze", "default": 20 }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent whose prophecy accuracy to track"
+                    },
+                    "lookback_entries": {
+                        "type": "integer",
+                        "description": "Number of history entries to analyze",
+                        "default": 20
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -646,13 +1113,50 @@ fn definition_affect_prophecy_similar() -> ToolDefinition {
         name: "comm_affect_prophecy_similar".into(),
         description: Some("Find similar affect trajectories".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Reference agent" },
-                "max_results": { "type": "integer", "description": "Max similar agents to return", "default": 5 }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Reference agent"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "Max similar agents to return",
+                        "default": 5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -702,18 +1206,64 @@ fn definition_unspeakable_encode() -> ToolDefinition {
         name: "comm_unspeakable_encode".into(),
         description: Some("Encode unspeakable content beyond text representation".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to encode into" },
-                "sender": { "type": "string", "description": "Encoding agent" },
-                "approximation": { "type": "string", "description": "Closest textual approximation" },
-                "dimensions": {
-                    "type": "object",
-                    "description": "Non-textual dimensions: valence, arousal, complexity, urgency (all 0.0-1.0)"
-                }
-            },
-            "required": ["channel_id", "sender", "approximation"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to encode into"
+                    },
+                    "sender": {
+                        "type": "string",
+                        "description": "Encoding agent"
+                    },
+                    "approximation": {
+                        "type": "string",
+                        "description": "Closest textual approximation"
+                    },
+                    "dimensions": {
+                        "type": "object",
+                        "description": "Non-textual dimensions: valence, arousal, complexity, urgency (all 0.0-1.0)"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id",
+                    "sender",
+                    "approximation"
+                ]
+            }),
     }
 }
 
@@ -750,13 +1300,55 @@ fn definition_unspeakable_decode() -> ToolDefinition {
         name: "comm_unspeakable_decode".into(),
         description: Some("Decode unspeakable content for an agent".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message containing unspeakable content" },
-                "decoder": { "type": "string", "description": "Agent decoding the content" }
-            },
-            "required": ["message_id", "decoder"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message containing unspeakable content"
+                    },
+                    "decoder": {
+                        "type": "string",
+                        "description": "Agent decoding the content"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id",
+                    "decoder"
+                ]
+            }),
     }
 }
 
@@ -790,12 +1382,50 @@ fn definition_unspeakable_detect() -> ToolDefinition {
         name: "comm_unspeakable_detect".into(),
         description: Some("Detect unspeakable content in messages".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "channel_id": { "type": "integer", "description": "Channel to scan" }
-            },
-            "required": ["channel_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel to scan"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "channel_id"
+                ]
+            }),
     }
 }
 
@@ -831,13 +1461,55 @@ fn definition_unspeakable_translate() -> ToolDefinition {
         name: "comm_unspeakable_translate".into(),
         description: Some("Translate unspeakable content to approximation".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "message_id": { "type": "integer", "description": "Message containing unspeakable content" },
-                "target_modality": { "type": "string", "description": "Target modality: text, affect, metaphor", "default": "text" }
-            },
-            "required": ["message_id"]
-        }),
+                "type": "object",
+                "properties": {
+                    "message_id": {
+                        "type": "integer",
+                        "description": "Message containing unspeakable content"
+                    },
+                    "target_modality": {
+                        "type": "string",
+                        "description": "Target modality: text, affect, metaphor",
+                        "default": "text"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "message_id"
+                ]
+            }),
     }
 }
 
@@ -900,14 +1572,59 @@ fn definition_anticipate_predict() -> ToolDefinition {
         name: "comm_anticipate_predict".into(),
         description: Some("Predict what an agent needs before they ask".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent to anticipate needs for" },
-                "channel_id": { "type": "integer", "description": "Optional: scope prediction to a channel" },
-                "horizon_messages": { "type": "integer", "description": "Number of future messages to predict for", "default": 5 }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent to anticipate needs for"
+                    },
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Optional: scope prediction to a channel"
+                    },
+                    "horizon_messages": {
+                        "type": "integer",
+                        "description": "Number of future messages to predict for",
+                        "default": 5
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 
@@ -980,16 +1697,70 @@ fn definition_anticipate_prepare() -> ToolDefinition {
         name: "comm_anticipate_prepare".into(),
         description: Some("Prepare proactive content based on anticipated needs".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent to prepare content for" },
-                "channel_id": { "type": "integer", "description": "Channel for the prepared content" },
-                "prepared_content": { "type": "string", "description": "Content prepared in anticipation" },
-                "trigger_condition": { "type": "string", "description": "Condition to trigger delivery: message_from, topic_mention, affect_shift", "default": "message_from" },
-                "preparer": { "type": "string", "description": "Agent preparing the content" }
-            },
-            "required": ["agent", "channel_id", "prepared_content", "preparer"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent to prepare content for"
+                    },
+                    "channel_id": {
+                        "type": "integer",
+                        "description": "Channel for the prepared content"
+                    },
+                    "prepared_content": {
+                        "type": "string",
+                        "description": "Content prepared in anticipation"
+                    },
+                    "trigger_condition": {
+                        "type": "string",
+                        "description": "Condition to trigger delivery: message_from, topic_mention, affect_shift",
+                        "default": "message_from"
+                    },
+                    "preparer": {
+                        "type": "string",
+                        "description": "Agent preparing the content"
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent",
+                    "channel_id",
+                    "prepared_content",
+                    "preparer"
+                ]
+            }),
     }
 }
 
@@ -1026,14 +1797,60 @@ fn definition_anticipate_calibrate() -> ToolDefinition {
         name: "comm_anticipate_calibrate".into(),
         description: Some("Calibrate anticipatory understanding for an agent".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent to calibrate anticipation for" },
-                "feedback": { "type": "string", "description": "Feedback on last anticipation: accurate, missed, wrong" },
-                "learning_rate": { "type": "number", "description": "Calibration learning rate (0.0-1.0)", "default": 0.1 }
-            },
-            "required": ["agent", "feedback"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent to calibrate anticipation for"
+                    },
+                    "feedback": {
+                        "type": "string",
+                        "description": "Feedback on last anticipation: accurate, missed, wrong"
+                    },
+                    "learning_rate": {
+                        "type": "number",
+                        "description": "Calibration learning rate (0.0-1.0)",
+                        "default": 0.1
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent",
+                    "feedback"
+                ]
+            }),
     }
 }
 
@@ -1076,13 +1893,55 @@ fn definition_anticipate_accuracy() -> ToolDefinition {
         name: "comm_anticipate_accuracy".into(),
         description: Some("Check accuracy of anticipatory predictions for an agent".into()),
         input_schema: json!({
-            "type": "object",
-            "properties": {
-                "agent": { "type": "string", "description": "Agent to check anticipation accuracy for" },
-                "window_messages": { "type": "integer", "description": "Number of recent messages to evaluate", "default": 30 }
-            },
-            "required": ["agent"]
-        }),
+                "type": "object",
+                "properties": {
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent to check anticipation accuracy for"
+                    },
+                    "window_messages": {
+                        "type": "integer",
+                        "description": "Number of recent messages to evaluate",
+                        "default": 30
+                    },
+                    "include_content": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Return full content (default: IDs only)"
+                    },
+                    "intent": {
+                        "type": "string",
+                        "enum": [
+                            "exists",
+                            "ids",
+                            "summary",
+                            "fields",
+                            "full"
+                        ],
+                        "description": "Extraction intent level"
+                    },
+                    "since": {
+                        "type": "integer",
+                        "description": "Only return changes since this Unix timestamp"
+                    },
+                    "token_budget": {
+                        "type": "integer",
+                        "description": "Maximum token budget for response"
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Maximum number of results"
+                    },
+                    "cursor": {
+                        "type": "string",
+                        "description": "Pagination cursor for next page"
+                    }
+                },
+                "required": [
+                    "agent"
+                ]
+            }),
     }
 }
 

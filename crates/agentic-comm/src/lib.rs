@@ -16,6 +16,8 @@ use sha2::{Digest, Sha256};
 
 pub mod affect;
 pub mod bridges;
+pub mod cache;
+pub mod metrics;
 pub mod channel;
 pub mod crypto;
 pub mod encryption;

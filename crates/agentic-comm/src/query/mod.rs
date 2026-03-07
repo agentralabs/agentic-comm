@@ -3,6 +3,16 @@
 //! Provides B-tree indexed access to messages by timestamp, sender,
 //! and channel, plus full-text search over message content.
 
+pub mod intent;
+pub mod delta;
+pub mod budget;
+pub mod pagination;
+
+pub use intent::ExtractionIntent;
+pub use delta::{ChangeType, DeltaQuery};
+pub use budget::TokenBudget;
+pub use pagination::CursorPage;
+
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 /// An indexed message record for fast lookup.
