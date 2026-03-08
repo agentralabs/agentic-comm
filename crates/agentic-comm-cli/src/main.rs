@@ -1,6 +1,9 @@
 //! CLI for agentic-comm: agent communication, channels, pub/sub.
 
-use std::path::PathBuf;
+use std::{
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime},
+};
 
 use agentic_comm::{
     AuditEntry, AuditEventType, ChannelConfig, ChannelType, CollectiveDecisionMode, CommStore,
@@ -8,6 +11,12 @@ use agentic_comm::{
     HiveRole, MessageFilter, MessageType, TemporalTarget, WorkspaceRole,
 };
 use clap::{Parser, Subcommand};
+use tokio::{
+    io::AsyncWriteExt,
+    net::TcpListener,
+    sync::broadcast,
+    time::{self, MissedTickBehavior},
+};
 
 /// Default store file path.
 fn default_store_path() -> PathBuf {
@@ -98,6 +107,11 @@ enum Commands {
     Recv {
         #[command(subcommand)]
         action: RecvAction,
+    },
+    /// Chat subcommands (poll, send)
+    Chat {
+        #[command(subcommand)]
+        action: ChatAction,
     },
     /// Query subcommands (messages, channels, relationships, echoes, conversations)
     Query {
@@ -387,6 +401,38 @@ enum RecvAction {
         /// Channel ID
         #[arg(long)]
         channel: u64,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Chat subcommands
+// ---------------------------------------------------------------------------
+
+#[derive(Subcommand)]
+enum ChatAction {
+    /// Poll messages from a channel in one shot
+    Poll {
+        /// Channel ID
+        #[arg(long)]
+        channel: u64,
+        /// Optional Unix timestamp (seconds) lower bound
+        #[arg(long)]
+        since: Option<i64>,
+        /// Maximum messages to return
+        #[arg(long, default_value = "50")]
+        limit: usize,
+    },
+    /// Send one message to a channel
+    Send {
+        /// Channel ID
+        #[arg(long)]
+        channel: u64,
+        /// Message payload/content
+        #[arg(long)]
+        message: String,
+        /// Sender identifier
+        #[arg(long)]
+        sender: String,
     },
 }
 
@@ -1118,6 +1164,142 @@ fn output(value: &serde_json::Value, json_mode: bool) {
     }
 }
 
+struct PidFileGuard {
+    path: PathBuf,
+}
+
+impl PidFileGuard {
+    fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+}
+
+impl Drop for PidFileGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+fn store_mtime(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path).ok()?.modified().ok()
+}
+
+fn current_max_message_id(path: &Path) -> u64 {
+    if !path.exists() {
+        return 0;
+    }
+
+    CommStore::load(path)
+        .map(|store| store.messages.keys().copied().max().unwrap_or(0))
+        .unwrap_or(0)
+}
+
+fn collect_new_daemon_messages(path: &Path, last_seen_message_id: &mut u64) -> Vec<String> {
+    if !path.exists() {
+        return Vec::new();
+    }
+
+    let store = match CommStore::load(path) {
+        Ok(store) => store,
+        Err(e) => {
+            eprintln!("Warning: daemon could not load store {}: {e}", path.display());
+            return Vec::new();
+        }
+    };
+
+    let mut messages: Vec<_> = store.messages.values().cloned().collect();
+    messages.sort_by_key(|msg| msg.id);
+
+    let mut payloads = Vec::new();
+    for msg in messages {
+        if msg.id <= *last_seen_message_id {
+            continue;
+        }
+
+        match serialize_daemon_message(&store, &msg) {
+            Ok(json) => payloads.push(json),
+            Err(e) => eprintln!("Warning: daemon could not serialize message {}: {e}", msg.id),
+        }
+
+        *last_seen_message_id = msg.id;
+    }
+
+    payloads
+}
+
+fn collect_recent_daemon_messages(path: &Path, limit: usize) -> Vec<String> {
+    if !path.exists() {
+        return Vec::new();
+    }
+
+    let store = match CommStore::load(path) {
+        Ok(store) => store,
+        Err(e) => {
+            eprintln!("Warning: daemon could not load store {}: {e}", path.display());
+            return Vec::new();
+        }
+    };
+
+    let mut messages: Vec<_> = store.messages.values().cloned().collect();
+    messages.sort_by_key(|msg| msg.id);
+
+    let start = messages.len().saturating_sub(limit);
+    messages
+        .into_iter()
+        .skip(start)
+        .filter_map(|msg| match serialize_daemon_message(&store, &msg) {
+            Ok(json) => Some(json),
+            Err(e) => {
+                eprintln!("Warning: daemon could not serialize message {}: {e}", msg.id);
+                None
+            }
+        })
+        .collect()
+}
+
+fn serialize_daemon_message(
+    store: &CommStore,
+    msg: &agentic_comm::Message,
+) -> Result<String, serde_json::Error> {
+    let payload = serde_json::json!({
+        "sender": msg.sender,
+        "text": msg.content,
+        "timestamp": msg.timestamp.to_rfc3339(),
+        "channel": store
+            .get_channel(msg.channel_id)
+            .map(|channel| channel.name)
+            .unwrap_or_else(|| msg.channel_id.to_string()),
+        "lamport": msg.comm_timestamp.lamport,
+    });
+
+    serde_json::to_string(&payload)
+}
+
+fn pid_is_alive(pid: u32) -> bool {
+    #[cfg(windows)]
+    {
+        std::process::Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/FO", "CSV", "/NH"])
+            .output()
+            .map(|output| {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                stdout.contains(&format!("\"{pid}\""))
+            })
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(windows))]
+    {
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|status| status.success())
+            .unwrap_or(false)
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
     let store_path = resolve_store_path(cli.file);
@@ -1432,6 +1614,57 @@ fn main() {
                             .filter(|m| m.acknowledged_by.is_empty())
                             .collect();
                         output(&serde_json::to_value(&unread).unwrap(), json_mode);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+        },
+
+        // -----------------------------------------------------------------
+        // Chat subcommands (one-shot poll/send)
+        // -----------------------------------------------------------------
+        Commands::Chat { action } => match action {
+            ChatAction::Poll {
+                channel,
+                since,
+                limit,
+            } => {
+                let mut store = load_or_create(&store_path);
+                let since_dt = since.and_then(|ts| chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0));
+                match store.receive_messages(channel, None, since_dt) {
+                    Ok(mut msgs) => {
+                        msgs.truncate(limit);
+                        output(&serde_json::to_value(&msgs).unwrap(), json_mode);
+                    }
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        std::process::exit(1);
+                    }
+                }
+            }
+            ChatAction::Send {
+                channel,
+                message,
+                sender,
+            } => {
+                let mut store = load_or_create(&store_path);
+                match store.send_message(channel, &sender, &message, MessageType::Text) {
+                    Ok(msg) => {
+                        output(
+                            &serde_json::json!({
+                                "status": "sent",
+                                "message_id": msg.id,
+                                "channel_id": msg.channel_id,
+                                "timestamp": msg.timestamp.to_rfc3339(),
+                            }),
+                            json_mode,
+                        );
+                        if let Err(e) = store.save(&store_path) {
+                            eprintln!("Warning: failed to save store: {e}");
+                        }
                     }
                     Err(e) => {
                         eprintln!("Error: {e}");
@@ -2650,35 +2883,139 @@ fn main() {
                     .parent()
                     .unwrap_or_else(|| std::path::Path::new("."));
                 let pid_path = data_dir.join("acomm.pid");
+                let stop_path = data_dir.join("acomm.stop");
                 let pid = std::process::id();
 
                 // Write PID file
                 if let Err(e) = std::fs::write(&pid_path, pid.to_string()) {
                     eprintln!("Warning: could not write PID file: {e}");
                 }
+                let _pid_guard = PidFileGuard::new(pid_path.clone());
+                let _ = std::fs::remove_file(&stop_path);
 
-                output(
-                    &serde_json::json!({
-                        "status": "started",
-                        "pid": pid,
-                        "port": port,
-                        "data": data_path.display().to_string(),
-                        "pid_file": pid_path.display().to_string(),
-                        "note": "Daemon stub — exiting immediately (real daemon would loop)",
-                    }),
-                    json_mode,
-                );
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap_or_else(|e| {
+                        eprintln!("Error: could not create tokio runtime: {e}");
+                        std::process::exit(1);
+                    });
+
+                let daemon_result = runtime.block_on(async {
+                    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await?;
+                    let (sender, _) = broadcast::channel::<String>(256);
+                    let mut ticker = time::interval(Duration::from_secs(1));
+                    ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+                    let mut shutdown = Box::pin(tokio::signal::ctrl_c());
+                    let mut last_seen_message_id = current_max_message_id(&data_path);
+                    let mut last_mtime = store_mtime(&data_path);
+
+                    output(
+                        &serde_json::json!({
+                            "status": "listening",
+                            "pid": pid,
+                            "port": port,
+                            "data": data_path.display().to_string(),
+                            "pid_file": pid_path.display().to_string(),
+                        }),
+                        json_mode,
+                    );
+
+                    loop {
+                        tokio::select! {
+                            _ = &mut shutdown => {
+                                break;
+                            }
+                            _ = ticker.tick() => {
+                                if stop_path.exists() {
+                                    let _ = std::fs::remove_file(&stop_path);
+                                    break;
+                                }
+
+                                let current_mtime = store_mtime(&data_path);
+                                if current_mtime != last_mtime {
+                                    last_mtime = current_mtime;
+                                    for message in collect_new_daemon_messages(&data_path, &mut last_seen_message_id) {
+                                        let _ = sender.send(message);
+                                    }
+                                }
+                            }
+                            accept_result = listener.accept() => {
+                                let (mut stream, _) = accept_result?;
+                                let mut receiver = sender.subscribe();
+                                let recent_messages = collect_recent_daemon_messages(&data_path, 50);
+                                tokio::spawn(async move {
+                                    for message in recent_messages {
+                                        if stream.write_all(message.as_bytes()).await.is_err() {
+                                            return;
+                                        }
+                                        if stream.write_all(b"\n").await.is_err() {
+                                            return;
+                                        }
+                                    }
+                                    while let Ok(message) = receiver.recv().await {
+                                        if stream.write_all(message.as_bytes()).await.is_err() {
+                                            break;
+                                        }
+                                        if stream.write_all(b"\n").await.is_err() {
+                                            break;
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+
+                    Ok::<(), Box<dyn std::error::Error>>(())
+                });
+
+                if let Err(e) = daemon_result {
+                    eprintln!("Error: daemon failed: {e}");
+                    std::process::exit(1);
+                }
             }
             DaemonAction::Stop => {
                 let data_dir = store_path
                     .parent()
                     .unwrap_or_else(|| std::path::Path::new("."));
                 let pid_path = data_dir.join("acomm.pid");
+                let stop_path = data_dir.join("acomm.stop");
 
                 if pid_path.exists() {
                     match std::fs::read_to_string(&pid_path) {
                         Ok(pid_str) => {
                             let pid_str = pid_str.trim();
+                            let pid = pid_str.parse::<u32>().ok();
+                            if let Err(e) = std::fs::write(&stop_path, "stop\n") {
+                                eprintln!("Warning: could not write stop file: {e}");
+                            }
+
+                            for _ in 0..10 {
+                                if !pid_path.exists() {
+                                    output(
+                                        &serde_json::json!({
+                                            "status": "stopped",
+                                            "pid": pid_str,
+                                        }),
+                                        json_mode,
+                                    );
+                                    return;
+                                }
+                                std::thread::sleep(Duration::from_millis(500));
+                            }
+
+                            if let Some(pid) = pid {
+                                #[cfg(windows)]
+                                let _ = std::process::Command::new("taskkill")
+                                    .args(["/PID", &pid.to_string(), "/T", "/F"])
+                                    .status();
+
+                                #[cfg(not(windows))]
+                                let _ = std::process::Command::new("kill")
+                                    .arg(pid.to_string())
+                                    .status();
+                            }
+
                             output(
                                 &serde_json::json!({
                                     "status": "stopping",
@@ -2686,9 +3023,6 @@ fn main() {
                                 }),
                                 json_mode,
                             );
-                            if let Err(e) = std::fs::remove_file(&pid_path) {
-                                eprintln!("Warning: could not remove PID file: {e}");
-                            }
                         }
                         Err(e) => {
                             eprintln!("Error reading PID file: {e}");
@@ -2869,16 +3203,7 @@ fn main() {
                             let pid_alive = pid_str
                                 .parse::<u32>()
                                 .ok()
-                                .map(|pid| {
-                                    // Check process existence via kill -0 on Unix
-                                    std::process::Command::new("kill")
-                                        .args(["-0", &pid.to_string()])
-                                        .stdout(std::process::Stdio::null())
-                                        .stderr(std::process::Stdio::null())
-                                        .status()
-                                        .map(|s| s.success())
-                                        .unwrap_or(false)
-                                })
+                                .map(pid_is_alive)
                                 .unwrap_or(false);
 
                             // Read PID file modification time as a proxy for start time
@@ -3307,3 +3632,4 @@ fn main() {
         }
     }
 }
+
