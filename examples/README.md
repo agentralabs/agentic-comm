@@ -1,35 +1,31 @@
 # AgenticComm Examples
 
-Runnable examples demonstrating the AgenticComm Python SDK.
+Runnable, no-cloud examples for common coordination patterns.
 
 ## Prerequisites
 
 ```bash
-pip install agentic-comm
-cargo install agentic-comm
+acomm --version
 ```
+
+The examples below use only the `acomm` CLI and a temporary local `.acomm` store.
 
 ## Examples
 
 | File | Description |
 |------|-------------|
-| `01_basic_messaging.py` | Simplest possible example. Create a store, create a channel, send and receive messages. |
-| `02_multi_agent.py` | Multi-agent coordination. Multiple agents sending tasks and status updates through shared channels. |
-| `03_task_queue.py` | Task queue pattern. One agent posts work items, another agent picks them up and reports completion. |
-| `04_code_review.py` | Code review handoff. Developer agent requests review, reviewer agent provides feedback through channels. |
-| `05_broadcast.py` | Broadcasting pattern. System-wide announcements sent to all channels simultaneously. |
-| `06_search_history.py` | Search and history. Finding past messages and reviewing channel history for context. |
+| `pubsub-fanout-recipient-delivery.sh` | Verifies `subscribe + publish` fan-out and recipient-scoped delivery (`receive --recipient`). |
 
 ## Running
 
 ```bash
-# All examples — no API key needed
-python examples/01_basic_messaging.py
-python examples/02_multi_agent.py
-python examples/03_task_queue.py
-python examples/04_code_review.py
-python examples/05_broadcast.py
-python examples/06_search_history.py
+bash examples/pubsub-fanout-recipient-delivery.sh
+```
+
+Optional: pass a store path to keep artifacts for inspection.
+
+```bash
+bash examples/pubsub-fanout-recipient-delivery.sh ./scratch/pubsub-demo.acomm
 ```
 
 ## MCP Server
