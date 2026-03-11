@@ -105,6 +105,7 @@ Message queues are the closest existing solution, but they are infrastructure-he
 - [Core Concepts](concepts.md)
 - [Command Surface](command-surface.md)
 - [Integration Guide](integration-guide.md)
+- [Notifier-First Runtime Roadmap](notifier-runtime-roadmap.md)
 - [Experience With vs Without](experience-with-vs-without.md)
 
 ## Works With
