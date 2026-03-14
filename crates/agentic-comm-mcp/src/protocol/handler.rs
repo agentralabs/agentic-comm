@@ -211,6 +211,16 @@ impl ProtocolHandler {
     }
 
     async fn handle_tools_list(&self) -> McpResult<Value> {
+        use crate::protocol::compact;
+
+        if compact::mcp_tool_surface_is_compact() {
+            let result = serde_json::json!({
+                "tools": compact::compact_tool_definitions(),
+                "nextCursor": null
+            });
+            return Ok(result);
+        }
+
         let result = ToolListResult {
             tools: ToolRegistry::list_tools(),
             next_cursor: None,
@@ -247,6 +257,8 @@ impl ProtocolHandler {
     }
 
     async fn handle_tools_call(&self, params: Option<Value>) -> McpResult<Value> {
+        use crate::protocol::compact;
+
         // Verify auth token before dispatching any tool call.
         Self::check_auth(&params)?;
 
@@ -258,12 +270,19 @@ impl ProtocolHandler {
                 McpError::InvalidParams("Tool call params required".to_string())
             })?;
 
+        // Normalize compact facade calls to canonical tool name + args.
+        let (tool_name, tool_args) = compact::normalize_compact_tool_call(
+            &call_params.name,
+            call_params.arguments.clone(),
+        )
+        .map_err(|e| McpError::InvalidParams(e))?;
+
         let mut session = self.session.lock().await;
 
         // Two-tier error handling: ToolNotFound → protocol error; everything else → tool result
         let dispatch_result = ToolRegistry::dispatch(
-            &call_params.name,
-            &call_params.arguments,
+            &tool_name,
+            &tool_args,
             &mut session,
         );
 
